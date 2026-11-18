@@ -28,7 +28,7 @@ public class GameActivity extends Activity {
     }
 
     static class Unit {
-        float x,y, hp,maxHp,attackTimer, awarenessTimer;
+        float x,y, hp,maxHp,attackTimer, awarenessTimer, hitFlash;
         int team, color;
         boolean alerted;
         String name;
@@ -40,6 +40,7 @@ public class GameActivity extends Activity {
     static class Arena extends View {
         static final float WORLD_W=960, WORLD_H=1200;
         final Paint p=new Paint(3);
+        final FantasyArt art = new FantasyArt();
         final Random rng=new Random(17);
         final List<Unit> party=new ArrayList<>();
         final List<Unit> enemies=new ArrayList<>();
@@ -109,12 +110,15 @@ public class GameActivity extends Activity {
             if(enemy!=null&&enemy.alive()&&u.attackTimer<=0
                     &&distance(u.x,u.y,enemy.x,enemy.y)<range&&clearSight(u,enemy)){
                 enemy.hp=Math.max(0,enemy.hp-damage);
+                enemy.hitFlash = 0.26f;
                 u.attackTimer=1.05f;
                 if(enemy.team==1&&enemy.hp==0)kills++;
             }
         }
         void step(float dt){
             if(paused||gameOver)return;
+            for(Unit u:party)u.hitFlash=Math.max(0,u.hitFlash-dt);
+            for(Unit u:enemies)u.hitFlash=Math.max(0,u.hitFlash-dt);
             Unit controlled=party.get(active);
             if(controlled.alive()){
                 if(joystick){
@@ -197,33 +201,37 @@ public class GameActivity extends Activity {
             originX=(w-WORLD_W*scale)/2f;
             originY=top+(Math.max(1,h-top-bottom)-WORLD_H*scale)/2f;
             canvas.save();canvas.translate(originX,originY);canvas.scale(scale,scale);
-            fill(canvas,Color.rgb(41,58,54),0,0,WORLD_W,WORLD_H);
-            p.setColor(Color.rgb(50,70,62));p.setStrokeWidth(2);
-            for(int x=0;x<WORLD_W;x+=60)canvas.drawLine(x,0,x,WORLD_H,p);
-            for(int y=0;y<WORLD_H;y+=60)canvas.drawLine(0,y,WORLD_W,y,p);
-            for(RectF wall:walls){
-                fill(canvas,Color.rgb(106,106,103),wall.left,wall.top,wall.right,wall.bottom);
-                fill(canvas,Color.rgb(140,134,121),wall.left,wall.top,wall.right,wall.top+8);
-            }
+            art.ground(canvas,(int)WORLD_W,(int)WORLD_H);
+            for(RectF wall:walls)art.wall(canvas,wall);
+            // Decorative objects are positioned away from navigation corridors and
+            // deliberately do not affect collision until prop physics is implemented.
+            art.crate(canvas,105,475);
+            art.crate(canvas,150,479);
+            art.barrel(canvas,861,530);
+            art.barrel(canvas,855,571);
+            art.crate(canvas,90,743);
+            art.barrel(canvas,875,1020);
+            art.torch(canvas,95,200,now);
+            art.torch(canvas,866,205,now);
+            art.torch(canvas,93,690,now);
+            art.torch(canvas,864,750,now);
             for(Unit e:enemies)if(e.alive()){
-                p.setColor(0x35FF9A65);p.setStyle(Paint.Style.FILL);canvas.drawCircle(e.x,e.y,260,p);
-                circle(canvas,e.x,e.y,24,e.color);
-                fill(canvas,Color.DKGRAY,e.x-24,e.y-39,e.x+24,e.y-33);
-                fill(canvas,Color.rgb(239,99,92),e.x-24,e.y-39,e.x-24+48*e.hp/e.maxHp,e.y-33);
-                if(e==focusedEnemy){
-                    p.setColor(Color.YELLOW);p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(4);
-                    canvas.drawCircle(e.x,e.y,29,p);p.setStyle(Paint.Style.FILL);
-                }
+                if(e.alerted) art.ring(canvas,e.x,e.y,0xAADE8A55,35);
+                art.goblin(canvas,e.x,e.y,(int)(e.x/100),e.alerted,now);
+                fill(canvas,0xFF252A2B,e.x-25,e.y-54,e.x+25,e.y-46);
+                fill(canvas,0xFFE3997A,e.x-23,e.y-52,e.x-23+46*e.hp/e.maxHp,e.y-48);
+                if(e==focusedEnemy)art.ring(canvas,e.x,e.y,0xFFFFDA83,43);
+                if(e.hitFlash>0)art.hit(canvas,e.x,e.y,e.hitFlash/.26f,false);
             }
             for(int i=0;i<party.size();i++){
                 Unit u=party.get(i);
-                circle(canvas,u.x,u.y,27,u.alive()?u.color:Color.DKGRAY);
-                if(i==active){
-                    p.setStyle(Paint.Style.STROKE);p.setColor(Color.WHITE);p.setStrokeWidth(4);
-                    canvas.drawCircle(u.x,u.y,33,p);p.setStyle(Paint.Style.FILL);
-                }
-                fill(canvas,Color.DKGRAY,u.x-26,u.y-45,u.x+26,u.y-39);
-                fill(canvas,Color.rgb(104,223,137),u.x-26,u.y-45,u.x-26+52*u.hp/u.maxHp,u.y-39);
+                if(i==active)art.ring(canvas,u.x,u.y,0xFFBFE5F2,43);
+                else art.ring(canvas,u.x,u.y,0x88559CA2,31);
+                art.character(canvas,u.x,u.y,i,u.alive(),now);
+                fill(canvas,0xFF23282C,u.x-26,u.y-61,u.x+26,u.y-54);
+                fill(canvas,u.alive()?0xFF75CC98:0xFF6F5D60,u.x-24,u.y-59,
+                    u.x-24+48*u.hp/u.maxHp,u.y-56);
+                if(u.hitFlash>0)art.hit(canvas,u.x,u.y,u.hitFlash/.26f,false);
             }
             if(moving&&!joystick){
                 p.setColor(Color.CYAN);p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(3);
@@ -231,12 +239,14 @@ public class GameActivity extends Activity {
             }
             canvas.restore();
             float density=getResources().getDisplayMetrics().density;
-            fill(canvas,0xF51A222D,0,0,w,top);
+            fill(canvas,0xFF242C30,0,0,w,top);
+            fill(canvas,0xFF9A815D,0,top-3*getResources().getDisplayMetrics().density,w,top);
             float cardWidth=w/3f;
             for(int i=0;i<3;i++){
                 Unit u=party.get(i);
-                if(i==active)fill(canvas,0xFF364D66,i*cardWidth,0,(i+1)*cardWidth,top);
-                circle(canvas,i*cardWidth+21*density,29*density,13*density,u.color);
+                if(i==active)fill(canvas,0xFF42595B,i*cardWidth,0,(i+1)*cardWidth,top);
+                if(i>0)fill(canvas,0xFF7B6A54,i*cardWidth,5,i*cardWidth+1,top-6);
+                art.character(canvas,i*cardWidth+21*density,32*density,i,u.alive(),now);
                 text(canvas,u.name,i*cardWidth+40*density,30*density,(int)(12*density),Color.WHITE);
                 text(canvas,(int)u.hp+"/"+(int)u.maxHp+" HP",i*cardWidth+12*density,57*density,
                     (int)(12*density),u.alive()?0xFFAEE7BE:0xFFFF8E84);
@@ -246,7 +256,8 @@ public class GameActivity extends Activity {
             circle(canvas,66*density,controlY,49*density,0x77557B91);
             circle(canvas,66*density+(joystick?stickX*24*density:0),
                 controlY+(joystick?stickY*24*density:0),22*density,0xFF91C4E3);
-            fill(canvas,0xFF385C67,w-118*density,h-94*density,w-12*density,h-34*density);
+            fill(canvas,0xFF435A5B,w-118*density,h-94*density,w-12*density,h-34*density);
+            fill(canvas,0xFFD0AC73,w-118*density,h-94*density,w-12*density,h-91*density);
             text(canvas,paused?"RESUME":"PAUSE",w-108*density,h-58*density,
                 (int)(15*density),Color.WHITE);
             text(canvas,"Tap ground to move • tap foes to target",13*density,h-10*density,
@@ -314,7 +325,7 @@ public class GameActivity extends Activity {
             enemies.clear();
             for(int i=0;i<party.size();i++){
                 Unit u=party.get(i);u.hp=u.maxHp;u.x=480+(i-1)*60;u.y=985+(i==0?0:65);
-                u.attackTimer=0;
+                u.attackTimer=0;u.hitFlash=0;
             }
             spawnWave();lastFrame=SystemClock.uptimeMillis();invalidate();
         }
