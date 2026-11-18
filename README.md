@@ -2,6 +2,15 @@
 
 Native Android top-down fantasy roguelike prototype with GitHub Releases update support.
 
+## v0.1.3 — deliberate six-second combat rhythm
+- A level-one hero, guardian, arcanist, or goblin performs at most one Attack action per six seconds of active simulation time.
+- Attack actions begin as soon as a valid target is in range and line of sight; no action is spent if the attack cannot execute.
+- The next-action countdown is shown for each party member on the HUD.
+- Attack-action code supports a future attacksPerAction statistic for class features such as Extra Attack. This does not grant extra actions.
+- Tactical pause stops the countdown and combat simulation.
+- Walking and enemy pursuit move more slowly, so battle positioning feels deliberate.
+- This is a six-second **action cadence** prototype, not yet a full 5e turn/initiative system. Bonus actions, reactions, spellcasting, and class feature progression remain future tasks.
+
 ## v0.1.2 — grounded stylized-fantasy visuals
 - Three visually distinct illustrated party members: sword-and-shield hero, armored guardian, and staff-wielding arcanist.
 - Goblins with visible weapons, ears, faces, and alert states.
@@ -32,7 +41,7 @@ The installed starter remains the main menu. It checks stable GitHub Releases on
 
 The repository workflow builds and lints on pushes to main. If the existing SIGNING_KEYSTORE_BASE64 Actions secret is present, it also publishes a signed APK and update.json. The signing identity and applicationId must remain unchanged for in-place updates.
 
-Current version.properties: versionCode=3, versionName=0.1.2. Increment both for the next release.
+Current version.properties: versionCode=4, versionName=0.1.3. Increment both for the next release.
 
 ## Build
 JDK 17, Android SDK 35, Gradle 8.11.1, Android Gradle Plugin 8.9.1.
