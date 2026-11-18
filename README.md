@@ -1,24 +1,33 @@
 # Android DnD Roguelike
 
-Minimal native Android starter. No game rules or engine have been chosen yet.
+Native Android top-down fantasy roguelike prototype with GitHub Releases update support.
 
-## Installed app
-- Version display, automatic update check on launch, and manual check.
-- Stable GitHub Releases from main only; drafts and prereleases are ignored.
-- In-app download, progress, package/version/signing-certificate checks, and Android installation prompt.
-- Android requires permission to install updates and confirmation for each installation.
-- Offline startup works; failed checks have retryable status messages.
+## v0.1.1 — first playable prototype
+Tap **Play prototype** from the app's main screen.
 
-## Continue development from your phone
-Edit the repository through your preferred GitHub-connected development tool. Keep applicationId and signing key unchanged. Increment BOTH values in version.properties for each release (next: versionCode=2, versionName=0.1.1). Every push to main builds and checks the app; with the signing secret configured, it publishes a signed APK and update.json. Pull requests only build and lint.
+- A top-down dungeon-arena test map with solid obstacles.
+- Three party members: Hero, Guardian, and Arcanist.
+- Tap any party portrait to switch direct control; the others follow and auto-attack.
+- Drag the bottom-left virtual joystick, or tap on the map to move.
+- Tap an enemy to focus party attacks.
+- Tap PAUSE/RESUME to freeze and continue the simulation.
+- Enemies have basic circular awareness, line-of-sight obstruction, and delayed engagement.
+- Enemy waves and party health allow testing of combat.
+- Back button pauses the prototype.
 
-## One-time signing setup
-Add the repository Actions secret SIGNING_KEYSTORE_BASE64 using the locally generated signing file supplied during setup. The keystore is PKCS12; password android-dnd-roguelike. Never commit or publish the keystore or secret text. Keep a private backup. This key must be preserved for updates.
+**Prototype limitations:** This is a mechanics test, not a finished D&D game. It does not yet implement spellcasting, tactical queued commands, customizable AI tactics, procedural dungeons, character creation, inventory, long-term progression, or permanent saves. The awareness and combat simulation are preliminary.
 
-The build intentionally skips release publication until the secret exists; it never substitutes a temporary signing key. After adding the secret, run the Android APK workflow manually. It builds and publishes v0.1.0.
+## App updates
+The installed starter remains the main menu. It checks stable GitHub Releases on startup and when pressing **Check for updates**. It downloads and verifies the new APK, and Android asks for installation approval.
+
+The repository workflow builds and lints on pushes to main. If the existing SIGNING_KEYSTORE_BASE64 Actions secret is present, it also publishes a signed APK and update.json. The signing identity and applicationId must remain unchanged for in-place updates.
+
+Current version.properties: versionCode=2, versionName=0.1.1. Increment both for the next release.
 
 ## Build
 JDK 17, Android SDK 35, Gradle 8.11.1, Android Gradle Plugin 8.9.1.
-Run gradle :app:assembleDebug :app:lintDebug.
-CI installs the pinned Gradle version using gradle/actions/setup-gradle.
-For release set SIGNING_KEYSTORE_PATH to the absolute PKCS12 path and run gradle :app:assembleRelease.
+
+Run: `gradle :app:assembleDebug :app:lintDebug`.
+
+## Long-term direction
+Real-time top-down RPG, three-character party with switchable direct control and customizable companion AI; D&D 5e-inspired statistics; a tactical pause system; multi-floor expeditions with hub progression; procedural rooms, fog of war, and destructible terrain. Design features will be delivered incrementally rather than represented as implemented in this first prototype.
