@@ -1,0 +1,9 @@
+.gradle/
+**/build/
+local.properties
+*.jks
+*.keystore
+*.p12
+*.pem
+SIGNING_KEYSTORE_BASE64.txt
+.idea/
