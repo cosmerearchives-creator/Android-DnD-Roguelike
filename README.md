@@ -2,6 +2,16 @@
 
 Native Android top-down fantasy roguelike prototype with GitHub Releases update support.
 
+## v0.1.2 — grounded stylized-fantasy visuals
+- Three visually distinct illustrated party members: sword-and-shield hero, armored guardian, and staff-wielding arcanist.
+- Goblins with visible weapons, ears, faces, and alert states.
+- Stone dungeon tiles, masonry obstacles, decorative barrels/crates, and torchlight.
+- Combat hit bursts, active-character and targeted-enemy rings, improved HUD framing.
+- The visual renderer is in FantasyArt.java, separate from gameplay and collision for future AI-assisted artwork replacement.
+- Existing arena controls and first prototype gameplay are preserved.
+
+**Art note:** This is an intermediate code-drawn illustrative art pass, not a final externally illustrated sprite pack. Decorations are visual only and do not yet alter physics. This is not yet an animated sprite atlas or modular paper-doll system.
+
 ## v0.1.1 — first playable prototype
 Tap **Play prototype** from the app's main screen.
 
@@ -22,7 +32,7 @@ The installed starter remains the main menu. It checks stable GitHub Releases on
 
 The repository workflow builds and lints on pushes to main. If the existing SIGNING_KEYSTORE_BASE64 Actions secret is present, it also publishes a signed APK and update.json. The signing identity and applicationId must remain unchanged for in-place updates.
 
-Current version.properties: versionCode=2, versionName=0.1.1. Increment both for the next release.
+Current version.properties: versionCode=3, versionName=0.1.2. Increment both for the next release.
 
 ## Build
 JDK 17, Android SDK 35, Gradle 8.11.1, Android Gradle Plugin 8.9.1.
