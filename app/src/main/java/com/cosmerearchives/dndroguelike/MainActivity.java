@@ -55,6 +55,10 @@ public class MainActivity extends Activity {
         TextView intro = text("Your adventure starts here.", 20);
         intro.setPadding(0,pad,0,pad);
         root.addView(intro);
+        Button play = new Button(this);
+        play.setText("Play prototype");
+        play.setOnClickListener(v -> startActivity(new Intent(this, GameActivity.class)));
+        root.addView(play);
         check = new Button(this);
         check.setText("Check for updates");
         check.setOnClickListener(v -> checkUpdates());
