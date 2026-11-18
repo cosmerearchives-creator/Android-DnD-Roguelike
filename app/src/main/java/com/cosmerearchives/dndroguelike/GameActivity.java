@@ -14,7 +14,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 
-/** First playable vertical slice. All positions are in game-world units, not pixels. */
+/** Real-time 5e-inspired six-second action cadence. World positions use game units. */
 public class GameActivity extends Activity {
     private Arena arena;
     @Override public void onCreate(Bundle state) {
@@ -29,6 +29,7 @@ public class GameActivity extends Activity {
 
     static class Unit {
         float x,y, hp,maxHp,attackTimer, awarenessTimer, hitFlash;
+        int level=1, attacksPerAction=1;
         int team, color;
         boolean alerted;
         String name;
@@ -39,6 +40,7 @@ public class GameActivity extends Activity {
     }
     static class Arena extends View {
         static final float WORLD_W=960, WORLD_H=1200;
+        static final float ROUND_SECONDS=6f;
         final Paint p=new Paint(3);
         final FantasyArt art = new FantasyArt();
         final Random rng=new Random(17);
@@ -105,31 +107,40 @@ public class GameActivity extends Activity {
             float d=distance(u.x,u.y,target.x,target.y);
             if(d>stop&&d>1)move(u,(target.x-u.x)/d*speed*dt,(target.y-u.y)/d*speed*dt);
         }
-        void attack(Unit u,Unit enemy,float dt,float range,float damage){
-            u.attackTimer-=dt;
+        void attack(Unit u,Unit enemy,float range,float damage){
             if(enemy!=null&&enemy.alive()&&u.attackTimer<=0
                     &&distance(u.x,u.y,enemy.x,enemy.y)<range&&clearSight(u,enemy)){
-                enemy.hp=Math.max(0,enemy.hp-damage);
-                enemy.hitFlash = 0.26f;
-                u.attackTimer=1.05f;
-                if(enemy.team==1&&enemy.hp==0)kills++;
+                // One Attack action per six seconds. Extra Attack can later increase
+                // attacksPerAction without increasing the number of actions per round.
+                for(int strike=0;strike<u.attacksPerAction && enemy.alive();strike++){
+                    enemy.hp=Math.max(0,enemy.hp-damage);
+                    enemy.hitFlash=0.26f;
+                    if(enemy.team==1&&enemy.hp==0)kills++;
+                }
+                u.attackTimer=ROUND_SECONDS;
             }
         }
         void step(float dt){
             if(paused||gameOver)return;
-            for(Unit u:party)u.hitFlash=Math.max(0,u.hitFlash-dt);
-            for(Unit u:enemies)u.hitFlash=Math.max(0,u.hitFlash-dt);
+            for(Unit u:party){
+                u.hitFlash=Math.max(0,u.hitFlash-dt);
+                u.attackTimer=Math.max(0,u.attackTimer-dt);
+            }
+            for(Unit u:enemies){
+                u.hitFlash=Math.max(0,u.hitFlash-dt);
+                u.attackTimer=Math.max(0,u.attackTimer-dt);
+            }
             Unit controlled=party.get(active);
             if(controlled.alive()){
                 if(joystick){
                     float magnitude=(float)Math.sqrt(stickX*stickX+stickY*stickY);
-                    if(magnitude>0.12f)move(controlled,stickX*220*dt,stickY*220*dt);
+                    if(magnitude>0.12f)move(controlled,stickX*140*dt,stickY*140*dt);
                 }else if(moving){
                     float d=distance(controlled.x,controlled.y,targetX,targetY);
                     if(d<8)moving=false;
                     else {
                         float px=controlled.x,py=controlled.y;
-                        move(controlled,(targetX-controlled.x)/d*Math.min(d,220*dt),
+                        move(controlled,(targetX-controlled.x)/d*Math.min(d,140*dt),
                             (targetY-controlled.y)/d*Math.min(d,220*dt));
                         if(distance(px,py,controlled.x,controlled.y)<0.25f)moving=false;
                     }
@@ -142,20 +153,20 @@ public class GameActivity extends Activity {
                     if(!leader.alive())leader=party.get(0);
                     Unit threat=closest(ally,enemies);
                     if(threat!=null&&distance(ally.x,ally.y,threat.x,threat.y)<230){
-                        pursue(ally,threat,dt,150,i==2?175:65);
+                        pursue(ally,threat,dt,105,i==2?175:65);
                     }else{
                         float ox=(i==1?-67:67),oy=70;
                         Unit anchor=leader;
                         float d=distance(ally.x,ally.y,anchor.x+ox,anchor.y+oy);
                         if(d>32){
                             float tx=anchor.x+ox,ty=anchor.y+oy;
-                            move(ally,(tx-ally.x)/d*185*dt,(ty-ally.y)/d*185*dt);
+                            move(ally,(tx-ally.x)/d*125*dt,(ty-ally.y)/d*125*dt);
                         }
                     }
                 }
                 Unit enemy=focusedEnemy!=null&&focusedEnemy.alive()?focusedEnemy:closest(ally,enemies);
                 if(enemy==null||distance(ally.x,ally.y,enemy.x,enemy.y)>275)enemy=closest(ally,enemies);
-                attack(ally,enemy,dt,i==2?205:90,i==2?8:12);
+                attack(ally,enemy,i==2?205:90,i==2?8:12);
             }
             for(Unit e:enemies){
                 if(!e.alive())continue;
@@ -165,8 +176,8 @@ public class GameActivity extends Activity {
                     if(e.awarenessTimer>=0.75f)e.alerted=true;
                 }else if(!e.alerted)e.awarenessTimer=0;
                 if(e.alerted&&visible!=null){
-                    pursue(e,visible,dt,95,65);
-                    attack(e,visible,dt,78,7+wave);
+                    pursue(e,visible,dt,65,65);
+                    attack(e,visible,78,7+wave);
                 }
             }
             boolean anyAlive=false;
@@ -250,8 +261,12 @@ public class GameActivity extends Activity {
                 text(canvas,u.name,i*cardWidth+40*density,30*density,(int)(12*density),Color.WHITE);
                 text(canvas,(int)u.hp+"/"+(int)u.maxHp+" HP",i*cardWidth+12*density,57*density,
                     (int)(12*density),u.alive()?0xFFAEE7BE:0xFFFF8E84);
+                String nextAction=!u.alive()?"DOWN":u.attackTimer<=0?"ACTION READY":
+                    String.format(java.util.Locale.US,"ACTION %.1fs",u.attackTimer);
+                text(canvas,nextAction,i*cardWidth+12*density,74*density,
+                    (int)(10*density),u.attackTimer<=0?0xFFE1C98D:0xFFA1B8B6);
             }
-            text(canvas,"Wave "+wave+"  •  KOs "+kills,14*density,85*density,(int)(12*density),Color.LTGRAY);
+            text(canvas,"Wave "+wave+"  •  KOs "+kills+"  •  6s actions",14*density,88*density,(int)(11*density),Color.LTGRAY);
             float controlY=h-63*density;
             circle(canvas,66*density,controlY,49*density,0x77557B91);
             circle(canvas,66*density+(joystick?stickX*24*density:0),
