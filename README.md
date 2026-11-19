@@ -1,5 +1,14 @@
 # Android DnD Roguelike
 
+## v0.3.0 — painted terrain / movement and UI pass
+- Adds **real illustrated bitmap materials** rather than relying on flat procedural terrain: a 1024×1024 compressed WebP atlas of **16 original painted ground textures**, including meadow, fern/leaf litter, dry grass, two dirt trails, stone cobbles, mossy ruins, rock/cliff, creek, timber bridge, flowers and gravel. Runtime draws these clipped into isometric tiles; 16 prepared transparent diamond bitmaps avoid costly per-frame clipping.
+- Adds a second **1024×256 alpha WebP atlas of four foliage/rock props**: pine, rounded woodland tree, boulder and bush. These are composited from the original painted textures; remaining special ruin landmarks still use prototype vector geometry.
+- Synchronizes the existing elf's eight-frame directional walk playback with **distance actually moved in world space** rather than wall-clock time; stride and subtle lift accompany alternating footfalls. Adds a short idle-to-walk blend. Facing still switches instantly with no turning sequence. **The eight-frame atlas is still illustration-derived, not separately hand-drawn foot-plant poses. Video-based correction remains unverified because no gameplay recording was attached.**
+- Keeps the Wildlands exploration scene **player-only**, preserving character design, sprite size, and approved 1.8× camera.
+- Retains the navy-and-gold HUD and touchscreen controls. Rescales the paused overlay to fit landscape displays so **Resume**, **Return to Main Menu**, and **Quit Game** are all accessible.
+- Preserves character creation, the separate classic Arena, existing game logic, app signing, and GitHub APK updater.
+- Limitations: illustrated material transitions and prop variety are first-pass, not a complete tileable edge/autotile set; animation gait needs device video feedback and may retain some sliding.
+
 ## v0.2.9 — solo elf visual/animation test and pause navigation
 - Outdoor Wildlands visual prototype **shows only the main character**. The Guardian/Arcanist were hidden in this testing scene; party/combat systems and the classic Arena remain unchanged.
 - Upgrades the elf to an **eight-frame walking atlas for each of four directions** (32 transparent frames), with stronger leg and opposing arm motion, a synchronized footfall shadow, and immediate facing changes without any turning animation. This is still an illustration-derived gait prototype, not a complete hand-animated skeletal walk.
