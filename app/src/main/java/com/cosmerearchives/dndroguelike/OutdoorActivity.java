@@ -187,8 +187,29 @@ public final class OutdoorActivity extends Activity {
             }else if((seed&3)==1){
                 line(c,kind==3?0xFFB6AA80:0xFF98A77E,1,sx-12,sy+6,sx-6,sy+1);
             }
-            if((seed&63)==12&&!road(xx,yy)&&!river(xx,yy)){
-                oval(c,0xFFCAC49D,sx-5,sy-1,sx-2,sy+2);
+            // Low-cost hand-illustrated texture accents: ground clusters and irregular
+            // fitted stone pavers (repeat deterministically across generated tiles).
+            if(road(xx,yy)&&!river(xx,yy)){
+                for(int n=0;n<3;n++){
+                    float px=sx-19+n*15+((seed>>(n*5))&3);
+                    float py=sy-3+((seed>>(n*4+1))&3);
+                    polygon(c,n%2==0?0xFFB19F7A:0xFF756F60,
+                        px-9,py-2,px,py-7,px+10,py-2,px+5,py+4,px-6,py+4);
+                    line(c,0xFF635849,1,px-6,py+3,px+5,py+3);
+                }
+            }else if(kind!=5){
+                for(int n=0;n<3;n++){
+                    float px=sx-20+((seed>>(n*7))&31);
+                    float py=sy-8+((seed>>(n*5+11))&15);
+                    int leaf=(kind==3?0xFFB9AB74:0xFF8AAA63);
+                    line(c,leaf,1,px,py+3,px-2,py-3);
+                    line(c,0xFF466B40,1,px,py+3,px+3,py-1);
+                }
+                if((seed&15)==7){
+                    float px=sx+((seed>>19)&15)-8,py=sy+((seed>>24)&7)-4;
+                    oval(c,0xFFF0E1B4,px-2,py-2,px+2,py+2);
+                    oval(c,0xFFE1B96E,px-1,py-1,px+1,py+1);
+                }
             }
         }
         private boolean landmark(int xx,int yy){
@@ -201,7 +222,17 @@ public final class OutdoorActivity extends Activity {
                 oval(c,0x88000000,sx-24,sy-6,sx+28,sy+10);
                 polygon(c,0xFF97958A,sx-17,sy-2,sx-14,sy-53,sx-3,sy-60,sx+4,sy-3);
                 polygon(c,0xFF7B817D,sx+7,sy+1,sx+9,sy-39,sx+19,sy-43,sx+21,sy+3);
-                text(c,"RUINS",sx-18,sy-66,11,0xFFE9D7A2);return;
+                // Broken sandstone arch with mortar courses, ivy and warm lit accents.
+                polygon(c,0xFF8F9080,sx-30,sy-3,sx-26,sy-49,sx-12,sy-54,sx-11,sy-3);
+                polygon(c,0xFFB1AE94,sx-31,sy-48,sx-28,sy-57,sx-9,sy-62,sx+12,sy-54,sx+18,sy-46,sx+12,sy-42,sx-5,sy-49);
+                polygon(c,0xFF777C73,sx+19,sy-45,sx+25,sy-44,sx+29,sy-3,sx+16,sy-3);
+                line(c,0xFF595D53,2,sx-28,sy-28,sx-13,sy-25);
+                line(c,0xFF595D53,2,sx+19,sy-25,sx+27,sy-26);
+                line(c,0xFFCFCAA8,2,sx-25,sy-52,sx-13,sy-55);
+                line(c,0xFF3F6650,3,sx-24,sy-49,sx-20,sy-21);
+                oval(c,0xFF41694C,sx-30,sy-36,sx-19,sy-30);
+                oval(c,0xFF476C45,sx-24,sy-18,sx-12,sy-10);
+                text(c,"RUINS",sx-18,sy-69,11,0xFFE9D7A2);return;
             }
             if(Math.abs(xx)<7&&Math.abs(yy)<7)return;
             if(road(xx,yy)||river(xx,yy))return;
