@@ -61,6 +61,7 @@ public final class OutdoorActivity extends Activity {
         private final Paint p=new Paint(Paint.ANTI_ALIAS_FLAG);
         private final Paint groundPaint=new Paint(Paint.ANTI_ALIAS_FLAG|Paint.FILTER_BITMAP_FLAG);
         private final Bitmap groundAtlas;
+        private final Bitmap[] cachedGround=new Bitmap[16];
         private final Rect tileSource=new Rect();
         private final RectF tileDestination=new RectF();
         private final Path path=new Path();
@@ -76,6 +77,7 @@ public final class OutdoorActivity extends Activity {
         private float walkTime=0;
         private float idleTime=0;
         private boolean visuallyWalking=false;
+        private float gaitBlend=0f;
         private long lastFrame;
         private float zoom=1.8f; // Approved close camera for illustrated character detail.
         private int controlsBottom=0;
@@ -91,6 +93,22 @@ public final class OutdoorActivity extends Activity {
                 atlas=BitmapFactory.decodeStream(input);
             }catch(java.io.IOException ignored){ }
             groundAtlas=atlas;
+            if(atlas!=null){
+                Paint tilePaint=new Paint(Paint.ANTI_ALIAS_FLAG|Paint.FILTER_BITMAP_FLAG);
+                int sourceSize=atlas.getWidth()/4;
+                for(int id=0;id<16;id++){
+                    Bitmap tile=Bitmap.createBitmap(176,88,Bitmap.Config.ARGB_8888);
+                    Canvas surface=new Canvas(tile);
+                    Path diamond=new Path();
+                    diamond.moveTo(88,0);diamond.lineTo(176,44);
+                    diamond.lineTo(88,88);diamond.lineTo(0,44);diamond.close();
+                    surface.clipPath(diamond);
+                    Rect source=new Rect((id%4)*sourceSize,(id/4)*sourceSize,
+                        (id%4+1)*sourceSize,(id/4+1)*sourceSize);
+                    surface.drawBitmap(atlas,source,new RectF(0,0,176,88),tilePaint);
+                    cachedGround[id]=tile;
+                }
+            }
             fighterArt=new IllustratedFighter(context,hero);
             heroName=hero!=null&&hero.completed?hero.name:"Explorer";
             density=getResources().getDisplayMetrics().density;
@@ -194,6 +212,21 @@ public final class OutdoorActivity extends Activity {
             // Clipped high-detail painted ground texture, with a tiny immutable atlas.
             // Fallback remains available if an asset is missing on an older build.
             if(groundAtlas==null)return;
+            if(coordinates.length==8){
+                float topX=coordinates[0],topY=coordinates[1];
+                float rightX=coordinates[2],rightY=coordinates[3];
+                float bottomX=coordinates[4],bottomY=coordinates[5];
+                float leftX=coordinates[6],leftY=coordinates[7];
+                // Fast path for top faces: draw preclipped diamond bitmaps (no
+                // expensive per-frame clip, ideal for Android software Canvas).
+                if(Math.abs(topX-bottomX)<.01f&&Math.abs(leftY-rightY)<.01f&&
+                    Math.abs(topY+bottomY-leftY-rightY)<.01f){
+                    tileDestination.set(leftX,topY,rightX,bottomY);
+                    c.drawBitmap(cachedGround[Math.max(0,Math.min(15,index))],null,
+                        tileDestination,groundPaint);
+                    return;
+                }
+            }
             Path shape=new Path();
             shape.moveTo(coordinates[0],coordinates[1]);
             float l=coordinates[0],r=l,t=coordinates[1],b=t;
@@ -378,6 +411,9 @@ public final class OutdoorActivity extends Activity {
                     walkTime+=travelled*.42f;
                 }
             }
+            // Blend in/out over approximately a tenth of a second; never tween facing.
+            float blendRate=(visuallyWalking?10f:13f)*dt;
+            gaitBlend=Math.max(0f,Math.min(1f,gaitBlend+(visuallyWalking?blendRate:-blendRate)));
             float easing=Math.min(1f,dt*7f);
             camX+=(x-camX)*easing;camY+=(y-camY)*easing;
             int tx=(int)Math.floor(x),ty=(int)Math.floor(y);
@@ -430,7 +466,7 @@ public final class OutdoorActivity extends Activity {
                             oval(c,0x5530251A,feetX+5-offset,feetY-3,feetX+13-offset,feetY+3);
                         }
                         fighterArt.draw(c,feetX,feetY,.86f,facing,
-                            visuallyWalking?walkTime:idleTime,visuallyWalking?1:0);
+                            walkTime,visuallyWalking?1:0,gaitBlend,idleTime);
                         text(c,heroName,feetX-25,feetY-157,12,0xFFFFF0D1);
                     }
                 }
