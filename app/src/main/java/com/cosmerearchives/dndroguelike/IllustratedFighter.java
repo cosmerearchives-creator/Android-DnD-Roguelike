@@ -72,8 +72,8 @@ final class IllustratedFighter {
     void draw(Canvas canvas,float footX,float footY,float scale,int facing,float elapsed,int phase){
         Canvas c=canvas;
         if(spriteAtlas!=null){
-            // Four 160x210 frames: front, left, back, right.
-            int[] order={0,3,2,1};
+            // Four 240x320 isometric frames: front, right, back, left.
+            int[] order={0,1,2,3};
             int index=order[Math.max(0,Math.min(3,facing))];
             int fw=spriteAtlas.getWidth()/4,fh=spriteAtlas.getHeight();
             Rect src=new Rect(index*fw,0,(index+1)*fw,fh);
