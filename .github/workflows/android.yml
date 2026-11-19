@@ -43,6 +43,17 @@ jobs:
                   frame = art.crop((index * 360, 0, (index + 1) * 360, 480))
                   assert frame.getchannel('A').getbbox(), f'Empty facing frame: {index}'
               print('Illustrated sprite atlas decoded successfully: 4 directions at 360x480.')
+          walk_path = 'app/src/main/assets/elf_fighter_walk.webp'
+          with Image.open(walk_path) as walk:
+              assert walk.size == (1440, 1920), f'Unexpected walking atlas size: {walk.size}'
+              assert walk.mode == 'RGBA', f'No transparency in walk atlas: {walk.mode}'
+              walk.load()
+              for direction in range(4):
+                  for frame_idx in range(4):
+                      frame = walk.crop((frame_idx * 360, direction * 480, (frame_idx + 1) * 360, (direction + 1) * 480))
+                      assert frame.getchannel('A').getbbox(), f'Empty walking frame {direction}:{frame_idx}'
+              print('Directional walking atlas validated: 4 directions x 4 frames.')
+
           PY
       - name: Build and lint
         run: gradle :app:assembleDebug :app:lintDebug --no-daemon
