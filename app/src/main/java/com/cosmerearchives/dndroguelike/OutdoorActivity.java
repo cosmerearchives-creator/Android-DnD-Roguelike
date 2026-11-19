@@ -79,6 +79,9 @@ public final class OutdoorActivity extends Activity {
         private float idleTime=0;
         private boolean visuallyWalking=false;
         private float gaitBlend=0f;
+        private static final float ATTACK_DURATION=.48f;
+        private float attackRemaining=0f;
+        private final RectF attackBounds=new RectF();
         private long lastFrame;
         private float zoom=1.8f; // Approved close camera for illustrated character detail.
         private int controlsBottom=0;
@@ -360,10 +363,12 @@ public final class OutdoorActivity extends Activity {
             if(Math.abs(xx)<7&&Math.abs(yy)<7)return;
             if(road(xx,yy)||river(xx,yy))return;
             long seed=hash(xx,yy,83);int kind=biome(xx,yy);
-            if((seed&31)==4&&(kind==1||kind==2)){
+            // The painted forest now has more canopy cover, with a separate, stable
+            // placement rule so the clearer starting area and paths stay open.
+            if((seed&15)==4&&(kind==1||kind==2)){
                 if(vegetationAtlas!=null){
                     oval(c,0x77000000,sx-19,sy-4,sx+19,sy+5);
-                    illustratedProp(c,(seed&64)==0?0:1,sx,sy+4,107,115);
+                    illustratedProp(c,(seed&64)==0?0:1,sx,sy+4,122,138);
                     return;
                 }
                 oval(c,0x99000000,sx-22,sy-4,sx+20,sy+7);
@@ -374,10 +379,10 @@ public final class OutdoorActivity extends Activity {
                 polygon(c,0xFF547656,sx-6,sy-82,sx,sy-97,sx+3,sy-79);
                 line(c,0xFF9A9E69,1.3f,sx-12,sy-46,sx-18,sy-34);
                 line(c,0xFF8E9D69,1.2f,sx+8,sy-65,sx+17,sy-42);
-            }else if((seed&63)==15&&height(xx,yy)>0){
+            }else if((seed&31)==15&&height(xx,yy)>0){
                 if(vegetationAtlas!=null){
                     oval(c,0x77000000,sx-17,sy-3,sx+19,sy+6);
-                    illustratedProp(c,2,sx,sy+6,90,64);
+                    illustratedProp(c,2,sx,sy+6,102,76);
                     return;
                 }
                 oval(c,0x77000000,sx-19,sy-1,sx+20,sy+6);
@@ -385,9 +390,9 @@ public final class OutdoorActivity extends Activity {
                 polygon(c,0xFF92968B,sx-14,sy-12,sx-4,sy-25,sx+6,sy-22,sx+13,sy-11,sx+1,sy-7);
                 line(c,0xFFD0C6A1,2,sx-8,sy-17,sx+4,sy-20);
                 line(c,0xFF526D50,2,sx-14,sy-3,sx-5,sy-5);
-            }else if((seed&63)==22&&kind==0){
+            }else if((seed&31)==22&&(kind==0||kind==1||kind==2)){
                 if(vegetationAtlas!=null){
-                    illustratedProp(c,3,sx,sy+5,82,52);
+                    illustratedProp(c,3,sx,sy+5,100,65);
                     return;
                 }
                 oval(c,0xFF557B42,sx-10,sy-7,sx+10,sy+4);
@@ -411,6 +416,7 @@ public final class OutdoorActivity extends Activity {
         private void update(float dt){
             if(paused)return;
             idleTime+=dt;
+            boolean wasWalking=visuallyWalking;
             visuallyWalking=false;
             float dx=0,dy=0;
             if(joystick){
@@ -433,11 +439,13 @@ public final class OutdoorActivity extends Activity {
                 visuallyWalking=Math.abs(x-oldX)+Math.abs(y-oldY)>0.0001f;
                 if(visuallyWalking){
                     float travelled=(float)Math.hypot(x-oldX,y-oldY);
-                    // Gait advances by real world distance, not elapsed wall time.
-                    // At ~2.4 tiles/sec this is ~10 animation frames/sec.
-                    walkTime+=travelled*.42f;
+                    // One animation cycle covers one world tile, so each planted
+                    // foot advances with the same distance as the character.
+                    if(!wasWalking)walkTime=0f;
+                    walkTime+=travelled/1.2f;
                 }
             }
+            if(attackRemaining>0f)attackRemaining=Math.max(0f,attackRemaining-dt);
             // Blend in/out over approximately a tenth of a second; never tween facing.
             float blendRate=(visuallyWalking?10f:13f)*dt;
             gaitBlend=Math.max(0f,Math.min(1f,gaitBlend+(visuallyWalking?blendRate:-blendRate)));
@@ -485,15 +493,18 @@ public final class OutdoorActivity extends Activity {
                         float feetX=screenX(x,y);
                         float feetY=screenY(x,y)-height(tx,ty)*LEVEL_H;
                         // Grounded contact shadow and alternating soft footfall.
-                        float stride=(float)Math.sin(walkTime*10f);
+                        float stride=(float)Math.sin(walkTime*(float)(Math.PI*2));
                         oval(c,0x880A1614,feetX-21,feetY-6,feetX+21,feetY+6);
                         if(visuallyWalking){
                             float offset=13f*stride;
                             oval(c,0x5530251A,feetX-13+offset,feetY-3,feetX-5+offset,feetY+3);
                             oval(c,0x5530251A,feetX+5-offset,feetY-3,feetX+13-offset,feetY+3);
                         }
+                        float attackProgress=attackRemaining<=0f?0f:
+                            1f-attackRemaining/ATTACK_DURATION;
                         fighterArt.draw(c,feetX,feetY,.86f,facing,
-                            walkTime,visuallyWalking?1:0,gaitBlend,idleTime);
+                            walkTime,attackRemaining>0f?2:(visuallyWalking?1:0),
+                            gaitBlend,idleTime,attackProgress);
                         text(c,heroName,feetX-25,feetY-157,12,0xFFFFF0D1);
                     }
                 }
@@ -523,6 +534,10 @@ public final class OutdoorActivity extends Activity {
             rounded(c,0xFF6B543D,right-110*d,h-93*d,right-10*d,h-33*d,7*d);
             text(c,"ARENA",right-201*d,h-56*d,13*d,0xFFF2DBA8);
             text(c,paused?"RESUME":"PAUSE",right-103*d,h-56*d,13*d,0xFFF2DBA8);
+            attackBounds.set(right-110*d,h-158*d,right-10*d,h-112*d);
+            rounded(c,attackRemaining>0f?0xFF9B674A:0xFF4E5144,
+                attackBounds.left,attackBounds.top,attackBounds.right,attackBounds.bottom,7*d);
+            text(c,"ATTACK",right-96*d,h-130*d,12*d,0xFFF5DFB1);
             text(c,"Tap terrain to move  ·  Joystick to steer",135*d,h-9*d,10*d,0xFFB4C7C1);
             if(paused){
                 rect(c,0xD90A131C,0,0,getWidth(),h);
@@ -571,6 +586,13 @@ public final class OutdoorActivity extends Activity {
                     return true;
                 }
                 if(sy>h)return true;
+                if(attackBounds.contains(sx,sy)){
+                    // Exploration has no combat targets yet; this input previews the
+                    // same attack animation without changing game state or dealing damage.
+                    attackRemaining=ATTACK_DURATION;
+                    moving=false;joystick=false;knobX=0;knobY=0;
+                    invalidate();return true;
+                }
                 if(sy>h-110*d){
                     if(sx>getWidth()-111*d){
                         paused=!paused;lastFrame=SystemClock.uptimeMillis();invalidate();return true;

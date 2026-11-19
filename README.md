@@ -1,5 +1,11 @@
 # Android DnD Roguelike
 
+## v0.3.1 — stride-synced walking, attack animation and richer Wildlands
+- Ties the eight-frame walk atlas to distance traveled: one complete gait cycle per 1.2 world tiles, with the footfall phase reset when movement starts. This removes the slow-cycle mismatch that made the elf glide across the ground.
+- Adds a short sword-swing animation preview in Wildlands using a directional lunge, layered slash trail and sparks. The preview does not apply damage or change exploration rules; combat remains in Arena.
+- Increases the density and size variation of the existing painted trees, rocks and shrubs while preserving open paths and the starting clearing, so the scenery fills out at the character's illustration scale.
+- Preserves the character art, camera, terrain atlas, procedural map, HUD, and all existing systems.
+
 ## v0.3.0 — painted terrain / movement and UI pass
 - Adds **real illustrated bitmap materials** rather than relying on flat procedural terrain: a 1024×1024 compressed WebP atlas of **16 original painted ground textures**, including meadow, fern/leaf litter, dry grass, two dirt trails, stone cobbles, mossy ruins, rock/cliff, creek, timber bridge, flowers and gravel. Runtime draws these clipped into isometric tiles; 16 prepared transparent diamond bitmaps avoid costly per-frame clipping.
 - Adds a second **1024×256 alpha WebP atlas of four foliage/rock props**: pine, rounded woodland tree, boulder and bush. These are composited from the original painted textures; remaining special ruin landmarks still use prototype vector geometry.
