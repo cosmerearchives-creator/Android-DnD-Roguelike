@@ -1,5 +1,12 @@
 # Android DnD Roguelike
 
+## v0.2.5 — closer illustrated elf visual pass (pending release verification)
+- The camera is now 1.8× (was 1.6×) as approved. The player's illustrated sprite is slightly wider and taller for better face, hair and armor readability; companion/environment artwork and all gameplay systems are unchanged.
+- Replaced the previous 320×105 four-view WebP asset (80×105 per view) with a 640×210 four-view asset (160×210 per view), maintaining alpha transparency. This uses more source pixels but is still a compressed static prototype rather than a full-resolution production atlas.
+- The renderer uses bitmap filtering and continues to select the same four directions from movement.
+- CI now decodes each image to verify all four illustrated frames before Android builds; this prevents a silent fallback to the geometric model from a broken atlas.
+- Equipment colors and forms are still baked into this single prototype sprite; interchangeable equipment layers and walk animations are not implemented in this pass.
+
 ## v0.2.3 — illustrated female High Elf sprite integration
 - The four-facing **female High Elf Fighter sprite atlas** is now stored in `app/src/main/assets/elf_fighter_atlas.webp`. It is a transparent, downsampled WebP test asset (320 × 105, four horizontal 80 × 105 views), not a final production-quality texture.
 - The outdoor renderer loads the WebP atlas and switches front/right/back/left faces based on movement direction. The older vector hero remains a fallback only when the atlas cannot be read.
