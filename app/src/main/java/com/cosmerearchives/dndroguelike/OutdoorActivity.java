@@ -322,17 +322,22 @@ public final class OutdoorActivity extends Activity {
                         screenTileY < -180*zoom || screenTileY > getHeight()+100*zoom)continue;
                     terrain(c,tx,ty);
                     prop(c,tx,ty);
+                    // World entities enter the same painter order as terrain and props.
+                    // Nearer trees and elevated terrain can now occlude the actor naturally.
+                    if(tx==(int)Math.floor(x-.92f) && ty==(int)Math.floor(y+.84f))
+                        character(c,x-.92f,y+.84f,0xFF4B9275,"Guardian",.80f);
+                    if(tx==(int)Math.floor(x+.92f) && ty==(int)Math.floor(y+.84f))
+                        character(c,x+.92f,y+.84f,0xFF8E6BAE,"Arcanist",.80f);
+                    if(tx==(int)Math.floor(x) && ty==(int)Math.floor(y)){
+                        float feetX=screenX(x,y);
+                        float feetY=screenY(x,y)-height(tx,ty)*LEVEL_H;
+                        oval(c,0x66061113,feetX-23,feetY-6,feetX+23,feetY+7);
+                        fighterArt.draw(c,feetX,feetY,.86f,facing,walkTime,
+                            joystick||moving?1:0);
+                        text(c,heroName,feetX-25,feetY-157,12,0xFFFFF0D1);
+                    }
                 }
             }
-            // The art renderer is world-agnostic. The player uses the saved
-            // creator palette and equipment, rendered at detail-readable scale.
-            character(c,x-.92f,y+.84f,0xFF4B9275,"Guardian",.80f);
-            character(c,x+.92f,y+.84f,0xFF8E6BAE,"Arcanist",.80f);
-            float playerSX=screenX(x,y);
-            float playerSY=screenY(x,y)-height((int)Math.floor(x),(int)Math.floor(y))*LEVEL_H;
-            fighterArt.draw(c,playerSX,playerSY,.86f,facing,walkTime,
-                joystick||moving?1:0);
-            text(c,heroName,playerSX-25,playerSY-120,12,0xFFFFF0D1);
             if(moving){
                 float sx=screenX(targetX,targetY),sy=screenY(targetX,targetY);
                 oval(c,0xFFEDD59A,sx-7,sy-4,sx+7,sy+4);
