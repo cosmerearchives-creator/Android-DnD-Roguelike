@@ -49,7 +49,7 @@ public final class OutdoorActivity extends Activity {
         super.onWindowFocusChanged(focused);if(focused)hideBars();
     }
     @Override public void onBackPressed(){
-        if(landscape!=null&&!landscape.paused){landscape.paused=true;landscape.invalidate();}
+        if(landscape!=null){landscape.paused=!landscape.paused;landscape.invalidate();}
         else super.onBackPressed();
     }
 
@@ -163,6 +163,10 @@ public final class OutdoorActivity extends Activity {
         }
         private void rect(Canvas c,int color,float a,float b,float cc,float d){
             p.setColor(color);p.setStyle(Paint.Style.FILL);c.drawRect(a,b,cc,d,p);
+        }
+        private void rounded(Canvas c,int fill,float x1,float y1,float x2,float y2,float radius){
+            p.setColor(fill);p.setStyle(Paint.Style.FILL);p.setShader(null);
+            c.drawRoundRect(x1,y1,x2,y2,radius,radius,p);
         }
         private void text(Canvas c,String s,float xx,float yy,float size,int color){
             p.setColor(color);p.setTypeface(android.graphics.Typeface.create("sans-serif",android.graphics.Typeface.BOLD));
@@ -387,24 +391,42 @@ public final class OutdoorActivity extends Activity {
             c.restore();
             float h=getHeight()-controlsBottom;
             float d=ui();
-            rect(c,0xE51C2B35,0,0,getWidth(),58*d);
-            text(c,"THE WILDLANDS  •  ISOMETRIC EXPLORATION",13*d,22*d,13*d,0xFFF3E5BE);
-            text(c,String.format(Locale.US,"REGION 01   ELEV %d   SEEN %d   (%.0f, %.0f)",height((int)x,(int)y),discovered,x,y),
-                13*d,43*d,11*d,0xFFBDD7D7);
-            rect(c,0xE51C2B35,0,h-112*d,getWidth(),h);
+            // Dark blue / antique gold HUD matches the illustrated elven equipment.
+            rect(c,0xF0192630,0,0,getWidth(),62*d);
+            rect(c,0xFFB89A62,0,61*d,getWidth(),62*d);
+            text(c,"THE WILDLANDS",15*d,24*d,16*d,0xFFF4DCAA);
+            text(c,String.format(Locale.US,"REGION 01  ·  ELEV %d  ·  EXPLORED %d  ·  %.0f, %.0f",
+                height((int)x,(int)y),discovered,x,y),15*d,45*d,10*d,0xFFBFC5B6);
+            rounded(c,0xEF192632,0,h-112*d,getWidth(),h,10*d);
+            rect(c,0xFFB89A62,0,h-112*d,getWidth(),h-110*d);
             float cx=65*d,cy=h-62*d;
-            oval(c,0xFF3B5966,cx-46*d,cy-46*d,cx+46*d,cy+46*d);
-            oval(c,0xFF96B8BA,cx+knobX*23*d-19*d,cy+knobY*23*d-19*d,
-                cx+knobX*23*d+19*d,cy+knobY*23*d+19*d);
+            oval(c,0xFF263A42,cx-46*d,cy-46*d,cx+46*d,cy+46*d);
+            oval(c,0xFF566B6B,cx-35*d,cy-35*d,cx+35*d,cy+35*d);
+            oval(c,0xFFD0BD90,cx+knobX*23*d-18*d,cy+knobY*23*d-18*d,
+                cx+knobX*23*d+18*d,cy+knobY*23*d+18*d);
             float right=getWidth();
-            rect(c,0xFF3A5560,right-214*d,h-93*d,right-118*d,h-33*d);
-            rect(c,0xFF816944,right-110*d,h-93*d,right-10*d,h-33*d);
-            text(c,"ARENA",right-204*d,h-57*d,13*d,Color.WHITE);
-            text(c,paused?"RESUME":"PAUSE",right-103*d,h-57*d,13*d,Color.WHITE);
-            text(c,"Tap terrain to move • Joystick overrides destination",135*d,h-10*d,10*d,0xFFBFD3D6);
+            rounded(c,0xFF31454A,right-214*d,h-93*d,right-118*d,h-33*d,7*d);
+            rounded(c,0xFF6B543D,right-110*d,h-93*d,right-10*d,h-33*d,7*d);
+            text(c,"ARENA",right-201*d,h-56*d,13*d,0xFFF2DBA8);
+            text(c,paused?"RESUME":"PAUSE",right-103*d,h-56*d,13*d,0xFFF2DBA8);
+            text(c,"Tap terrain to move  ·  Joystick to steer",135*d,h-9*d,10*d,0xFFB4C7C1);
             if(paused){
-                rect(c,0x99000000,0,58*d,getWidth(),h-112*d);
-                text(c,"EXPLORATION PAUSED",getWidth()*.25f,h*.47f,23*d,Color.WHITE);
+                rect(c,0xCC0A131C,0,62*d,getWidth(),h-112*d);
+                float panelWidth=Math.min(getWidth()-36*d,330*d);
+                float mid=getWidth()*.5f,top=Math.max(75*d,(h-112*d)*.25f);
+                rounded(c,0xFF182731,mid-panelWidth*.5f-3*d,top,mid+panelWidth*.5f+3*d,top+260*d,12*d);
+                rounded(c,0xFFB49962,mid-panelWidth*.5f,top+3*d,mid+panelWidth*.5f,top+6*d,2*d);
+                text(c,"EXPLORATION PAUSED",mid-panelWidth*.5f+22*d,top+44*d,18*d,0xFFF1D9A4);
+                float x1=mid-panelWidth*.5f+18*d,x2=mid+panelWidth*.5f-18*d;
+                resumeBounds.set(x1,top+62*d,x2,top+112*d);
+                menuBounds.set(x1,top+123*d,x2,top+173*d);
+                quitBounds.set(x1,top+184*d,x2,top+234*d);
+                rounded(c,0xFF46645A,resumeBounds.left,resumeBounds.top,resumeBounds.right,resumeBounds.bottom,8*d);
+                rounded(c,0xFF344A55,menuBounds.left,menuBounds.top,menuBounds.right,menuBounds.bottom,8*d);
+                rounded(c,0xFF654438,quitBounds.left,quitBounds.top,quitBounds.right,quitBounds.bottom,8*d);
+                text(c,"RESUME",x1+20*d,top+95*d,15*d,0xFFF9E5BB);
+                text(c,"RETURN TO MAIN MENU",x1+20*d,top+156*d,14*d,0xFFF9E5BB);
+                text(c,"QUIT GAME",x1+20*d,top+217*d,15*d,0xFFF9E5BB);
             }
             postInvalidateDelayed(32);
         }
@@ -412,6 +434,24 @@ public final class OutdoorActivity extends Activity {
         @Override public boolean onTouchEvent(MotionEvent e){
             int event=e.getActionMasked();float sx=e.getX(),sy=e.getY(),d=ui(),h=getHeight()-controlsBottom;
             if(event==MotionEvent.ACTION_DOWN){
+                if(paused){
+                    if(resumeBounds.contains(sx,sy)){paused=false;invalidate();return true;}
+                    if(menuBounds.contains(sx,sy)){
+                        Intent home=new Intent(getContext(),MainActivity.class);
+                        home.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP|Intent.FLAG_ACTIVITY_SINGLE_TOP);
+                        getContext().startActivity(home);
+                        ((Activity)getContext()).finish();
+                        return true;
+                    }
+                    if(quitBounds.contains(sx,sy)){
+                        ((Activity)getContext()).finishAffinity();
+                        return true;
+                    }
+                    if(sy>h-110*d && sx>getWidth()-111*d){
+                        paused=false;invalidate();
+                    }
+                    return true;
+                }
                 if(sy>h)return true;
                 if(sy>h-110*d){
                     if(sx>getWidth()-111*d){
