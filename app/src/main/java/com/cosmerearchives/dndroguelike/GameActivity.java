@@ -1,6 +1,7 @@
 package com.cosmerearchives.dndroguelike;
 
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Color;
@@ -13,6 +14,7 @@ import android.view.View;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
+import java.util.Locale;
 
 /** Real-time 5e-inspired six-second action cadence. World positions use game units. */
 public class GameActivity extends Activity {
@@ -31,6 +33,8 @@ public class GameActivity extends Activity {
         float x,y, hp,maxHp,attackTimer, awarenessTimer, hitFlash;
         int level=1, attacksPerAction=1;
         int team, color;
+        Equipment.Bag gear;
+        int armorClass=13;
         boolean alerted;
         String name;
         Unit(String name,float x,float y,int team,int color,float hp) {
@@ -63,6 +67,8 @@ public class GameActivity extends Activity {
             super(context);
             setLayerType(View.LAYER_TYPE_SOFTWARE,null);
             party.add(new Unit("Hero",480,985,0,Color.rgb(78,172,235),100));
+            party.get(0).gear=Equipment.fighterDemo();
+            party.get(0).armorClass=party.get(0).gear.armorClass();
             party.add(new Unit("Guardian",420,1050,0,Color.rgb(79,206,145),125));
             party.add(new Unit("Arcanist",540,1050,0,Color.rgb(190,132,237),75));
             spawnWave();
@@ -103,9 +109,10 @@ public class GameActivity extends Activity {
             }
             return best;
         }
+        float speedFactor(Unit u){return u.gear==null?1:u.gear.movementFactor();}
         void pursue(Unit u,Unit target,float dt,float speed,float stop){
             float d=distance(u.x,u.y,target.x,target.y);
-            if(d>stop&&d>1)move(u,(target.x-u.x)/d*speed*dt,(target.y-u.y)/d*speed*dt);
+            if(d>stop&&d>1)move(u,(target.x-u.x)/d*speed*dt*speedFactor(u),(target.y-u.y)/d*speed*dt*speedFactor(u));
         }
         void attack(Unit u,Unit enemy,float range,float damage){
             if(enemy!=null&&enemy.alive()&&u.attackTimer<=0
@@ -113,12 +120,41 @@ public class GameActivity extends Activity {
                 // One Attack action per six seconds. Extra Attack can later increase
                 // attacksPerAction without increasing the number of actions per round.
                 for(int strike=0;strike<u.attacksPerAction && enemy.alive();strike++){
-                    enemy.hp=Math.max(0,enemy.hp-damage);
+                    float actualDamage=damage;
+                    if(u.gear!=null){
+                        Equipment.Item weapon=Equipment.get(u.gear.slots[0]);
+                        int str=(int)Math.floor((u.gear.strength-10)/2.0);
+                        int dex=(int)Math.floor((u.gear.dexterity-10)/2.0);
+                        int mod=weapon!=null&&weapon.ranged?dex:weapon!=null&&weapon.finesse?Math.max(str,dex):str;
+                        int die=rng.nextInt(20)+1;
+                        int targetAC=enemy.gear!=null?enemy.gear.armorClass():enemy.armorClass;
+                        if(die==1||die!=20&&die+mod+2<targetAC)continue;
+                        if(weapon!=null)actualDamage=Math.max(1,rollDamage(weapon,u.gear.versatileTwoHanded)+(die==20?rollDamage(weapon,u.gear.versatileTwoHanded):0)+mod);
+                    }else if(enemy.gear!=null){
+                        int die=rng.nextInt(20)+1;
+                        if(die==1||die!=20&&die+4<enemy.gear.armorClass())continue;
+                    }
+                    enemy.hp=Math.max(0,enemy.hp-actualDamage);
                     enemy.hitFlash=0.26f;
                     if(enemy.team==1&&enemy.hp==0)kills++;
                 }
                 u.attackTimer=ROUND_SECONDS;
             }
+        }
+        int rollDamage(Equipment.Item item,boolean twoHanded){
+            String dice=item.damage;
+            if(twoHanded&&item.versatile){
+                int start=item.properties.indexOf("Versatile (");
+                int end=item.properties.indexOf(")",start);
+                if(start>=0&&end>start)dice=item.properties.substring(start+11,end);
+            }
+            try{
+                String[] parts=dice.split("d");
+                if(parts.length==1)return Integer.parseInt(parts[0]);
+                int total=0,number=Integer.parseInt(parts[0]),sides=Integer.parseInt(parts[1]);
+                for(int j=0;j<number;j++)total+=rng.nextInt(sides)+1;
+                return total;
+            }catch(Exception ignored){return 1;}
         }
         void step(float dt){
             if(paused||gameOver)return;
@@ -134,14 +170,14 @@ public class GameActivity extends Activity {
             if(controlled.alive()){
                 if(joystick){
                     float magnitude=(float)Math.sqrt(stickX*stickX+stickY*stickY);
-                    if(magnitude>0.12f)move(controlled,stickX*140*dt,stickY*140*dt);
+                    if(magnitude>0.12f)move(controlled,stickX*140*dt*speedFactor(controlled),stickY*140*dt*speedFactor(controlled));
                 }else if(moving){
                     float d=distance(controlled.x,controlled.y,targetX,targetY);
                     if(d<8)moving=false;
                     else {
                         float px=controlled.x,py=controlled.y;
-                        move(controlled,(targetX-controlled.x)/d*Math.min(d,140*dt),
-                            (targetY-controlled.y)/d*Math.min(d,220*dt));
+                        move(controlled,(targetX-controlled.x)/d*Math.min(d,140*dt*speedFactor(controlled)),
+                            (targetY-controlled.y)/d*Math.min(d,220*dt*speedFactor(controlled)));
                         if(distance(px,py,controlled.x,controlled.y)<0.25f)moving=false;
                     }
                 }
@@ -271,6 +307,8 @@ public class GameActivity extends Activity {
             circle(canvas,66*density,controlY,49*density,0x77557B91);
             circle(canvas,66*density+(joystick?stickX*24*density:0),
                 controlY+(joystick?stickY*24*density:0),22*density,0xFF91C4E3);
+            fill(canvas,0xFF385D71,w-218*density,h-94*density,w-126*density,h-34*density);
+            text(canvas,"BAG",w-204*density,h-58*density,(int)(15*density),Color.WHITE);
             fill(canvas,0xFF435A5B,w-118*density,h-94*density,w-12*density,h-34*density);
             fill(canvas,0xFFD0AC73,w-118*density,h-94*density,w-12*density,h-91*density);
             text(canvas,paused?"RESUME":"PAUSE",w-108*density,h-58*density,
@@ -303,6 +341,9 @@ public class GameActivity extends Activity {
                     if(party.get(index).alive()){active=index;moving=false;joystick=false;}
                     invalidate();return true;
                 }
+                if(x>getWidth()-222*d&&x<getWidth()-120*d&&y>getHeight()-105*d){
+                    showInventory();return true;
+                }
                 if(x>getWidth()-125*d&&y>getHeight()-110*d){
                     paused=!paused;lastFrame=SystemClock.uptimeMillis();invalidate();return true;
                 }
@@ -319,6 +360,56 @@ public class GameActivity extends Activity {
                 joystick=false;stickX=0;stickY=0;return true;
             }
             return true;
+        }
+        void showInventory(){
+            Unit unit=party.get(active);
+            if(unit.gear==null){
+                new AlertDialog.Builder(getContext()).setTitle("Inventory").setMessage("This prototype companion has no starting loadout yet.").setPositiveButton("OK",null).show();return;
+            }
+            Equipment.Bag bag=unit.gear;
+            List<Equipment.Stack> stacks=bag.all();
+            String[] labels=new String[stacks.size()];
+            for(int i=0;i<stacks.size();i++){
+                Equipment.Stack s=stacks.get(i);
+                labels[i]=s.item.name+(s.count>1?" ×"+s.count:"")+" • "+String.format(Locale.US,"%.1f lb",s.weight());
+            }
+            new AlertDialog.Builder(getContext()).setTitle(unit.name+" • "+bag.summary()+"\nGold: "+bag.gold+" gp")
+                .setItems(labels,(dialog,which)->showItemActions(unit,stacks.get(which).item.id))
+                .setNeutralButton("Close",null).show();
+        }
+        void showItemActions(Unit unit,String id){
+            Equipment.Bag bag=unit.gear;
+            Equipment.Item item=Equipment.get(id);
+            if(item==null)return;
+            List<String> actions=new ArrayList<>();
+            if(item.kind==Equipment.Kind.WEAPON)actions.add("Equip main hand");
+            if(item.kind==Equipment.Kind.WEAPON||item.kind==Equipment.Kind.SHIELD||id.equals("torch"))actions.add("Equip off hand");
+            if(item.kind==Equipment.Kind.ARMOR)actions.add("Equip armor");
+            if(item.versatile)actions.add(bag.versatileTwoHanded?"Use one hand":"Use two hands");
+            if(id.equals("ration"))actions.add("Eat ration");
+            if(id.equals("torch")||id.equals("candle")||id.equals("incense"))actions.add("Use one");
+            if(id.equals("waterskin"))actions.add("Drink water");
+            actions.add("Inspect");
+            new AlertDialog.Builder(getContext()).setTitle(item.name)
+                .setItems(actions.toArray(new String[0]),(dialog,which)->{
+                    String action=actions.get(which);boolean ok=true;
+                    if(action.equals("Equip main hand"))ok=bag.equip(id,Equipment.Slot.MAIN_HAND);
+                    else if(action.equals("Equip off hand"))ok=bag.equip(id,Equipment.Slot.OFF_HAND);
+                    else if(action.equals("Equip armor"))ok=bag.equip(id,Equipment.Slot.BODY);
+                    else if(action.equals("Use one hand"))ok=bag.setTwoHanded(false);
+                    else if(action.equals("Use two hands"))ok=bag.setTwoHanded(true);
+                    else if(action.equals("Eat ration")||action.equals("Use one"))ok=bag.consume(id);
+                    else if(action.equals("Drink water")){
+                        Equipment.Stack water=bag.find("waterskin");
+                        if(water==null||water.filledPints==0)ok=false;
+                        else water.filledPints--;
+                    }else if(action.equals("Inspect")){
+                        new AlertDialog.Builder(getContext()).setTitle(item.name).setMessage(item.detail())
+                            .setPositiveButton("OK",null).show();return;
+                    }
+                    if(!ok)new AlertDialog.Builder(getContext()).setMessage("Cannot use this item with current equipment.").setPositiveButton("OK",null).show();
+                    unit.armorClass=bag.armorClass();invalidate();
+                }).setNegativeButton("Cancel",null).show();
         }
         void setStick(float x,float y){
             float dx=x-joyX,dy=y-joyY,range=49*getResources().getDisplayMetrics().density;
