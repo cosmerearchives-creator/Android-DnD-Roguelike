@@ -41,6 +41,20 @@ final class IllustratedFighter {
         walkAtlas=steps;
     }
     boolean hasIllustratedAtlas(){return spriteAtlas!=null;}
+    private void paintFrame(Canvas c,Bitmap atlas,int column,int row,int cols,int rows,
+                            float footX,float footY,float scale,int alpha,float breathe,float lift){
+        int fw=atlas.getWidth()/cols,fh=atlas.getHeight()/rows;
+        Rect src=new Rect(column*fw,row*fh,(column+1)*fw,(row+1)*fh);
+        float width=125f*scale,height=166f*scale;
+        c.save();
+        c.translate(footX,footY+lift+breathe*.45f*scale);
+        if(breathe!=0f)c.scale(1f+breathe*.002f,1f-breathe*.003f,0,-height*.35f);
+        RectF dst=new RectF(-width*.5f,-height,width*.5f,0f);
+        spritePaint.setAlpha(alpha);
+        spritePaint.setFilterBitmap(true);
+        c.drawBitmap(atlas,src,dst,spritePaint);
+        c.restore();
+    }
     private void poly(Canvas c,int color,float... coords){
         path.reset();path.moveTo(coords[0],coords[1]);
         for(int i=2;i<coords.length;i+=2)path.lineTo(coords[i],coords[i+1]);
@@ -78,33 +92,28 @@ final class IllustratedFighter {
      * drawn at width ~62 and height ~118 world-pixels, with equipment extending beyond.
      */
     void draw(Canvas canvas,float footX,float footY,float scale,int facing,float elapsed,int phase){
+        draw(canvas,footX,footY,scale,facing,elapsed,phase,phase==1?1f:0f,elapsed);
+    }
+    /** Cross-fade over a few frames; animation direction itself changes immediately. */
+    void draw(Canvas canvas,float footX,float footY,float scale,int facing,float elapsed,
+              int phase,float blend,float idleClock){
         Canvas c=canvas;
         if(spriteAtlas!=null){
-            // Four directional views: front, right, back, left. Direction changes
-            // are instantaneous; there are no turning/interpolation frames.
-            final int direction=Math.max(0,Math.min(3,facing));
-            final boolean walking=phase==1 && walkAtlas!=null;
-            final Bitmap atlas=walking?walkAtlas:spriteAtlas;
-            // Walking atlas: eight poses per direction, four directional rows.
-            // Idle atlas: four views in one row; facing swaps instantly.
-            final int columns=walking?8:4;
-            final int fw=atlas.getWidth()/columns;
-            final int fh=walking?atlas.getHeight()/4:atlas.getHeight();
-            final int frame=walking?((int)(elapsed*10f)%8):direction;
-            final int row=walking?direction:0;
-            Rect src=new Rect(frame*fw,row*fh,(frame+1)*fw,(row+1)*fh);
-            float width=125f*scale,height=166f*scale;
-            // Small idle breathing while preserving original frame shape and alignment.
-            final float idleBreath=phase==0?(float)Math.sin(elapsed*1.7f):0f;
-            final float lift=walking?(-1.7f*(float)Math.abs(Math.sin(frame*Math.PI/4f))*scale):idleBreath*.5f*scale;
-            c.save();
-            c.translate(footX,footY+lift);
-            if(!walking)c.scale(1f+idleBreath*.002f,1f-idleBreath*.003f,0,-height*.35f);
-            RectF dst=new RectF(-width*.5f,-height,width*.5f,0);
-            spritePaint.setAlpha(255);
-            spritePaint.setFilterBitmap(true);
-            c.drawBitmap(atlas,src,dst,spritePaint);
-            c.restore();
+            int direction=Math.max(0,Math.min(3,facing));
+            float walkBlend=walkAtlas==null?0f:Math.max(0f,Math.min(1f,blend));
+            float breathe=(float)Math.sin(idleClock*1.7f);
+            if(walkBlend<.999f){
+                paintFrame(c,spriteAtlas,direction,0,4,1,footX,footY,scale,
+                    Math.round((1f-walkBlend)*255f),breathe,0f);
+            }
+            if(walkBlend>.001f){
+                int frame=((int)Math.floor(elapsed*10f))%8;
+                if(frame<0)frame+=8;
+                // Short lift on passing stride, returning to the planted foot each step.
+                float lift=-1.8f*(float)Math.abs(Math.sin(Math.PI*frame/4f))*scale;
+                paintFrame(c,walkAtlas,frame,direction,8,4,footX,footY,scale,
+                    Math.round(walkBlend*255f),0f,lift);
+            }
             return;
         }
         c.save();c.translate(footX,footY);c.scale(scale,scale);
