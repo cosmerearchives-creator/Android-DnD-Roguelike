@@ -439,8 +439,7 @@ public final class OutdoorActivity extends Activity {
                 visuallyWalking=Math.abs(x-oldX)+Math.abs(y-oldY)>0.0001f;
                 if(visuallyWalking){
                     float travelled=(float)Math.hypot(x-oldX,y-oldY);
-                    // One animation cycle covers one world tile, so each planted
-                    // foot advances with the same distance as the character.
+                    // One cycle covers 1.2 world tiles, synchronizing footfalls to movement.
                     if(!wasWalking)walkTime=0f;
                     walkTime+=travelled/1.2f;
                 }

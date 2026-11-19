@@ -148,7 +148,7 @@ final class IllustratedFighter {
             if(walkBlend>.001f){
                 float cycle=(elapsed%1f+1f)%1f;
                 int frame=Math.min(7,(int)Math.floor(cycle*8f));
-                // Footfall frames stay tied to distance moved: one cycle per world tile.
+                // Footfall frames stay tied to distance moved: one cycle per 1.2 tiles.
                 float lift=-2.4f*(float)Math.abs(Math.sin(Math.PI*frame/4f))*scale;
                 paintFrame(c,walkAtlas,frame,direction,8,4,footX,footY,scale,
                     Math.round(walkBlend*255f),0f,lift);
@@ -158,7 +158,7 @@ final class IllustratedFighter {
         }
         c.save();c.translate(footX,footY);c.scale(scale,scale);
         final float step=phase==1?(float)Math.sin(elapsed*(float)(Math.PI*2))*5f:0;
-        final float breathe=(float)Math.sin(elapsed*2f)*1.4f;
+        final float breathe=(float)Math.sin(idleClock*2f)*1.4f;
         final int cloth=tunic(),skin=skin(),hair=hair(),gold=0xFFD6AE66;
         final boolean side=facing==1||facing==3,back=facing==2;
         oval(c,0x77070E10,-21,-7,22,6);
