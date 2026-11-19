@@ -97,9 +97,18 @@ public class GameActivity extends Activity {
         Arena(Context context) {
             super(context);
             setLayerType(View.LAYER_TYPE_SOFTWARE,null);
-            party.add(new Unit("Hero",480,985,0,Color.rgb(78,172,235),100));
-            party.get(0).gear=Equipment.fighterDemo();
-            party.get(0).armorClass=party.get(0).gear.armorClass();
+            PlayerCharacter character=PlayerCharacter.load(context);
+            if(character!=null&&character.completed){
+                Unit hero=new Unit(character.name,480,985,0,Color.rgb(78,172,235),Math.max(1,character.maxHp()));
+                hero.gear=character.loadout();
+                hero.level=character.level;
+                hero.armorClass=hero.gear.armorClass();
+                party.add(hero);
+            }else{
+                party.add(new Unit("Hero",480,985,0,Color.rgb(78,172,235),100));
+                party.get(0).gear=Equipment.fighterDemo();
+                party.get(0).armorClass=party.get(0).gear.armorClass();
+            }
             party.add(new Unit("Guardian",420,1050,0,Color.rgb(79,206,145),125));
             party.add(new Unit("Arcanist",540,1050,0,Color.rgb(190,132,237),75));
             spawnWave();
@@ -151,6 +160,13 @@ public class GameActivity extends Activity {
             return best;
         }
         float speedFactor(Unit u){return u.gear==null?1:u.gear.movementFactor();}
+        float weaponRange(Unit u,float fallback){
+            if(u.gear==null)return fallback;
+            Equipment.Item item=Equipment.get(u.gear.slots[0]);
+            if(item==null)return 90;
+            if(item.ranged||item.thrown)return Math.max(55,item.rangeNormal*3f);
+            return item.properties.contains("Reach")?180:90;
+        }
         void pursue(Unit u,Unit target,float dt,float speed,float stop){
             float d=distance(u.x,u.y,target.x,target.y);
             if(d>stop&&d>1)move(u,(target.x-u.x)/d*speed*dt*speedFactor(u),(target.y-u.y)/d*speed*dt*speedFactor(u));
@@ -230,7 +246,7 @@ public class GameActivity extends Activity {
                     if(!leader.alive())leader=party.get(0);
                     Unit threat=closest(ally,enemies);
                     if(threat!=null&&distance(ally.x,ally.y,threat.x,threat.y)<230){
-                        pursue(ally,threat,dt,105,i==2?175:65);
+                        pursue(ally,threat,dt,105,weaponRange(ally,i==2?175:65)-20);
                     }else{
                         float ox=(i==1?-67:67),oy=70;
                         Unit anchor=leader;
@@ -243,7 +259,7 @@ public class GameActivity extends Activity {
                 }
                 Unit enemy=focusedEnemy!=null&&focusedEnemy.alive()?focusedEnemy:closest(ally,enemies);
                 if(enemy==null||distance(ally.x,ally.y,enemy.x,enemy.y)>275)enemy=closest(ally,enemies);
-                attack(ally,enemy,i==2?205:90,i==2?8:12);
+                attack(ally,enemy,weaponRange(ally,i==2?205:90),i==2?8:12);
             }
             for(Unit e:enemies){
                 if(!e.alive())continue;
