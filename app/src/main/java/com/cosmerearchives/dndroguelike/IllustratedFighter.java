@@ -5,6 +5,11 @@ import android.graphics.Paint;
 import android.graphics.Path;
 import android.graphics.LinearGradient;
 import android.graphics.Shader;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.graphics.Rect;
+import android.graphics.RectF;
+import android.content.Context;
 
 /**
  * Original layered illustration prototype. Geometry and animation are separate from
@@ -15,7 +20,19 @@ final class IllustratedFighter {
     private final Paint p=new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Path path=new Path();
     private final PlayerCharacter hero;
-    IllustratedFighter(PlayerCharacter hero){this.hero=hero;}
+    private final Bitmap spriteAtlas;
+    private final Paint spritePaint=new Paint(Paint.ANTI_ALIAS_FLAG|Paint.FILTER_BITMAP_FLAG);
+    IllustratedFighter(Context context, PlayerCharacter hero){
+        this.hero=hero;
+        Bitmap art=null;
+        try(java.io.InputStream stream=context.getAssets().open("elf_fighter_atlas.webp")){
+            art=BitmapFactory.decodeStream(stream);
+        }catch(java.io.IOException ignored){
+            // Retain original vector fallback until artwork is packaged.
+        }
+        spriteAtlas=art;
+    }
+    boolean hasIllustratedAtlas(){return spriteAtlas!=null;}
     private void poly(Canvas c,int color,float... coords){
         path.reset();path.moveTo(coords[0],coords[1]);
         for(int i=2;i<coords.length;i+=2)path.lineTo(coords[i],coords[i+1]);
@@ -54,6 +71,19 @@ final class IllustratedFighter {
      */
     void draw(Canvas canvas,float footX,float footY,float scale,int facing,float elapsed,int phase){
         Canvas c=canvas;
+        if(spriteAtlas!=null){
+            // Four 160x210 frames: front, left, back, right.
+            int[] order={0,3,2,1};
+            int index=order[Math.max(0,Math.min(3,facing))];
+            int fw=spriteAtlas.getWidth()/4,fh=spriteAtlas.getHeight();
+            Rect src=new Rect(index*fw,0,(index+1)*fw,fh);
+            float width=116f*scale,height=153f*scale;
+            float bounce=phase==1?(float)Math.sin(elapsed*10f)*1.2f*scale:0f;
+            RectF dst=new RectF(footX-width*.5f,footY-height+bounce,footX+width*.5f,footY+bounce);
+            spritePaint.setAlpha(255);
+            c.drawBitmap(spriteAtlas,src,dst,spritePaint);
+            return;
+        }
         c.save();c.translate(footX,footY);c.scale(scale,scale);
         final float step=phase==1?(float)Math.sin(elapsed*10)*5f:0;
         final float breathe=(float)Math.sin(elapsed*2f)*1.4f;
