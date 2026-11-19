@@ -11,6 +11,8 @@ import android.os.Bundle;
 import android.os.SystemClock;
 import android.view.MotionEvent;
 import android.view.WindowInsets;
+import android.view.WindowInsetsController;
+import android.view.WindowManager;
 import android.os.Build;
 import android.view.View;
 import java.util.ArrayList;
@@ -25,6 +27,31 @@ public class GameActivity extends Activity {
         super.onCreate(state);
         arena = new Arena(this);
         setContentView(arena);
+        hideSystemBars();
+    }
+    private void hideSystemBars() {
+        // Immersive mode applies only to the game. A swipe from a screen edge
+        // temporarily reveals Android system controls, which auto-hide again.
+        if (Build.VERSION.SDK_INT >= 30) {
+            WindowInsetsController controller = getWindow().getInsetsController();
+            if (controller != null) {
+                controller.setSystemBarsBehavior(
+                    WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
+                controller.hide(WindowInsets.Type.systemBars());
+            }
+        } else {
+            getWindow().getDecorView().setSystemUiVisibility(
+                View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+                    | View.SYSTEM_UI_FLAG_FULLSCREEN
+                    | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                    | View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                    | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                    | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION);
+        }
+    }
+    @Override public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        if (hasFocus) hideSystemBars();
     }
     @Override public void onBackPressed() {
         if (arena != null && !arena.paused) { arena.paused = true; arena.invalidate(); }
