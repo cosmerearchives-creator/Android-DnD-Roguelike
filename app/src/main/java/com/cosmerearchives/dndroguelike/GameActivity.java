@@ -10,6 +10,8 @@ import android.graphics.RectF;
 import android.os.Bundle;
 import android.os.SystemClock;
 import android.view.MotionEvent;
+import android.view.WindowInsets;
+import android.os.Build;
 import android.view.View;
 import java.util.ArrayList;
 import java.util.List;
@@ -62,6 +64,8 @@ public class GameActivity extends Activity {
         float joyX,joyY,stickX,stickY;
         long lastFrame=0;
         float scale,originX,originY;
+        int navigationBottomInset=0;
+        int controlBottom(){return Math.max(0,getHeight()-navigationBottomInset);}
         Unit focusedEnemy;
         Arena(Context context) {
             super(context);
@@ -73,6 +77,16 @@ public class GameActivity extends Activity {
             party.add(new Unit("Arcanist",540,1050,0,Color.rgb(190,132,237),75));
             spawnWave();
             setFocusable(true);
+            setOnApplyWindowInsetsListener((view,insets)->{
+                int bottom;
+                if(Build.VERSION.SDK_INT>=30){
+                    bottom=insets.getInsets(WindowInsets.Type.navigationBars()).bottom;
+                }else{
+                    bottom=insets.getSystemWindowInsetBottom();
+                }
+                if(navigationBottomInset!=bottom){navigationBottomInset=bottom;invalidate();}
+                return insets;
+            });
         }
         void spawnWave(){
             for(int i=0;i<3+wave;i++){
@@ -240,7 +254,7 @@ public class GameActivity extends Activity {
             if(lastFrame==0)lastFrame=now;
             float dt=Math.min(.05f,(now-lastFrame)/1000f);lastFrame=now;
             step(dt);
-            int w=getWidth(),h=getHeight();
+            int w=getWidth(),h=controlBottom();
             canvas.drawColor(Color.rgb(16,24,30));
             float top=94*getResources().getDisplayMetrics().density;
             float bottom=110*getResources().getDisplayMetrics().density;
@@ -331,9 +345,11 @@ public class GameActivity extends Activity {
         @Override public boolean onTouchEvent(MotionEvent event){
             int action=event.getActionMasked();
             float x=event.getX(),y=event.getY(),d=getResources().getDisplayMetrics().density;
+            int safeHeight=controlBottom();
+            if(y>safeHeight)return true;
             if(action==MotionEvent.ACTION_DOWN){
                 if(gameOver){
-                    if(y>getHeight()*.54f&&y<getHeight()*.65f){reset();}
+                    if(y>safeHeight*.54f&&y<safeHeight*.65f){reset();}
                     return true;
                 }
                 if(y<94*d){
@@ -341,17 +357,18 @@ public class GameActivity extends Activity {
                     if(party.get(index).alive()){active=index;moving=false;joystick=false;}
                     invalidate();return true;
                 }
-                if(x>getWidth()-222*d&&x<getWidth()-120*d&&y>getHeight()-105*d){
+                if(x>getWidth()-222*d&&x<getWidth()-120*d&&y>safeHeight-105*d){
                     showInventory();return true;
                 }
-                if(x>getWidth()-125*d&&y>getHeight()-110*d){
+                if(x>getWidth()-125*d&&y>safeHeight-110*d){
                     paused=!paused;lastFrame=SystemClock.uptimeMillis();invalidate();return true;
                 }
                 if(paused){
                     selectAt(x,y);invalidate();return true;
                 }
-                if(x<130*d&&y>getHeight()-140*d){
-                    joystick=true;joyX=66*d;joyY=getHeight()-63*d;setStick(x,y);return true;
+                if(x<130*d&&y>safeHeight-140*d){
+                    moving=false; // Direct joystick input cancels any previous tap-to-move destination.
+                    joystick=true;joyX=66*d;joyY=safeHeight-63*d;setStick(x,y);return true;
                 }
                 selectAt(x,y);return true;
             }else if(action==MotionEvent.ACTION_MOVE){
