@@ -1,5 +1,12 @@
 # Android DnD Roguelike
 
+## v0.2.9 — solo elf visual/animation test and pause navigation
+- Outdoor Wildlands visual prototype **shows only the main character**. The Guardian/Arcanist were hidden in this testing scene; party/combat systems and the classic Arena remain unchanged.
+- Upgrades the elf to an **eight-frame walking atlas for each of four directions** (32 transparent frames), with stronger leg and opposing arm motion, a synchronized footfall shadow, and immediate facing changes without any turning animation. This is still an illustration-derived gait prototype, not a complete hand-animated skeletal walk.
+- First illustrated-terrain and HUD polish: warmer forest greens, more varied foliage, detailed fir trees, stone surfaces, river highlights, dark navy panels, muted gold edging and elven-style controls. Keeps camera at the approved 1.8×.
+- Pausing now exposes **Resume**, **Return to Main Menu**, and **Quit Game**. Android Back toggles pause. Return to Main Menu closes the exploration activity and restores the existing main-menu flow; Quit Game finishes the app task.
+- CI checks that the 2880×1920 animated atlas has all 32 alpha-bearing frames before running the Android build.
+
 ## v0.2.8 — basic directional walking and idle motion
 - Keeps the approved B-style Fantasy Adventurer female High Elf art, four isometric directions, and 1.8× camera.
 - Adds `app/src/main/assets/elf_fighter_walk.webp`: **four frames in each of four directions**, rendered from the approved art with modest leg/torso deformation rather than independently redrawn poses. All 16 frame cells use consistent dimensions, translucency, and alignment.
