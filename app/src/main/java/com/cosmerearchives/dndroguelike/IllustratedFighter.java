@@ -23,6 +23,8 @@ final class IllustratedFighter {
     private final Bitmap spriteAtlas;
     private final Bitmap walkAtlas;
     private final Paint spritePaint=new Paint(Paint.ANTI_ALIAS_FLAG|Paint.FILTER_BITMAP_FLAG);
+    private final Paint effectPaint=new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final RectF attackArc=new RectF();
     IllustratedFighter(Context context, PlayerCharacter hero){
         this.hero=hero;
         Bitmap art=null;
@@ -86,39 +88,77 @@ final class IllustratedFighter {
         new String[]{"Blue","Green","Red","Purple","Black","White"},
         new int[]{0xFF42678E,0xFF3C6E56,0xFF9A4548,0xFF6D568D,0xFF333C47,0xFFCED0CA},0xFF42678E);}
     private boolean shield(){return hero==null||"shield".equals(hero.martialTwo);}
+    private void drawAttackTrail(Canvas c,float progress,float scale,int facing){
+        float strength=(float)Math.sin(Math.PI*progress);
+        if(strength<=0f)return;
+        float cx=facing==1?28f*scale:facing==3?-28f*scale:0f;
+        float cy=facing==0?-69f*scale:facing==2?-112f*scale:-90f*scale;
+        float rotation=facing==1?0f:facing==3?180f:facing==0?90f:-90f;
+        c.save();c.rotate(rotation,cx,cy);
+        attackArc.set(cx-39f*scale,cy-43f*scale,cx+39f*scale,cy+43f*scale);
+        float start=-125f+progress*170f;
+        float sweep=78f+32f*strength;
+        effectPaint.setStyle(Paint.Style.STROKE);
+        effectPaint.setStrokeCap(Paint.Cap.ROUND);
+        effectPaint.setColor(android.graphics.Color.argb((int)(102f*strength),227,169,77));
+        effectPaint.setStrokeWidth(10f*scale*strength);
+        c.drawArc(attackArc,start,sweep,false,effectPaint);
+        effectPaint.setColor(android.graphics.Color.argb((int)(235f*strength),231,211,155));
+        effectPaint.setStrokeWidth(3.4f*scale*strength);
+        c.drawArc(attackArc,start,sweep,false,effectPaint);
+        effectPaint.setStrokeWidth(1.2f*scale*strength);
+        c.drawArc(attackArc,start+8f,sweep-16f,false,effectPaint);
+        float angle=(float)Math.toRadians(start+sweep);
+        float sx=cx+(float)Math.cos(angle)*39f*scale;
+        float sy=cy+(float)Math.sin(angle)*43f*scale;
+        effectPaint.setStrokeWidth(2f*scale*strength);
+        c.drawLine(sx-5f*scale,sy-3f*scale,sx+5f*scale,sy+3f*scale,effectPaint);
+        c.drawLine(sx-3f*scale,sy+5f*scale,sx+1f*scale,sy-5f*scale,effectPaint);
+        effectPaint.setStyle(Paint.Style.FILL);
+        c.restore();
+    }
     private boolean plate(){return hero==null||"chain_mail".equals(hero.armorChoice);}
     /**
      * facing: 0 front, 1 right, 2 back, 3 left. phase 0 idle, 1 walking, 2 attack.
      * drawn at width ~62 and height ~118 world-pixels, with equipment extending beyond.
      */
     void draw(Canvas canvas,float footX,float footY,float scale,int facing,float elapsed,int phase){
-        draw(canvas,footX,footY,scale,facing,elapsed,phase,phase==1?1f:0f,elapsed);
+        draw(canvas,footX,footY,scale,facing,elapsed,phase,phase==1?1f:0f,elapsed,0f);
     }
     /** Cross-fade over a few frames; animation direction itself changes immediately. */
     void draw(Canvas canvas,float footX,float footY,float scale,int facing,float elapsed,
               int phase,float blend,float idleClock){
+        draw(canvas,footX,footY,scale,facing,elapsed,phase,blend,idleClock,0f);
+    }
+    void draw(Canvas canvas,float footX,float footY,float scale,int facing,float elapsed,
+              int phase,float blend,float idleClock,float attackProgress){
         Canvas c=canvas;
         if(spriteAtlas!=null){
             int direction=Math.max(0,Math.min(3,facing));
-            float walkBlend=walkAtlas==null?0f:Math.max(0f,Math.min(1f,blend));
+            float walkBlend=phase==2||walkAtlas==null?0f:Math.max(0f,Math.min(1f,blend));
             float breathe=(float)Math.sin(idleClock*1.7f);
+            float progress=Math.max(0f,Math.min(1f,attackProgress));
+            float lunge=phase==2?5f*(float)Math.sin(Math.PI*progress):0f;
+            float lungeX=direction==1?lunge:direction==3?-lunge:0f;
+            float lungeY=direction==0?lunge:direction==2?-lunge:0f;
             if(walkBlend<.999f){
-                paintFrame(c,spriteAtlas,direction,0,4,1,footX,footY,scale,
+                paintFrame(c,spriteAtlas,direction,0,4,1,footX+lungeX,footY+lungeY,scale,
                     Math.round((1f-walkBlend)*255f),breathe,0f);
             }
             if(walkBlend>.001f){
-                int frame=((int)Math.floor(elapsed*10f))%8;
-                if(frame<0)frame+=8;
-                // Short lift on passing stride, returning to the planted foot each step.
-                float lift=-1.8f*(float)Math.abs(Math.sin(Math.PI*frame/4f))*scale;
+                float cycle=(elapsed%1f+1f)%1f;
+                int frame=Math.min(7,(int)Math.floor(cycle*8f));
+                // Footfall frames stay tied to distance moved: one cycle per 1.2 tiles.
+                float lift=-2.4f*(float)Math.abs(Math.sin(Math.PI*frame/4f))*scale;
                 paintFrame(c,walkAtlas,frame,direction,8,4,footX,footY,scale,
                     Math.round(walkBlend*255f),0f,lift);
             }
+            if(phase==2&&progress>0f)drawAttackTrail(c,progress,scale,direction);
             return;
         }
         c.save();c.translate(footX,footY);c.scale(scale,scale);
-        final float step=phase==1?(float)Math.sin(elapsed*10)*5f:0;
-        final float breathe=(float)Math.sin(elapsed*2f)*1.4f;
+        final float step=phase==1?(float)Math.sin(elapsed*(float)(Math.PI*2))*5f:0;
+        final float breathe=(float)Math.sin(idleClock*2f)*1.4f;
         final int cloth=tunic(),skin=skin(),hair=hair(),gold=0xFFD6AE66;
         final boolean side=facing==1||facing==3,back=facing==2;
         oval(c,0x77070E10,-21,-7,22,6);
@@ -197,7 +237,7 @@ final class IllustratedFighter {
             line(c,gold,2.3f,-39,-59,-23,-61);
             oval(c,0xFFE7C67E,-35,-66,-28,-60);
         }
-        float attack=phase==2?(float)Math.sin(Math.min(1,elapsed*2.2f)*Math.PI)*48:0;
+        float attack=phase==2?(float)Math.sin(Math.max(0f,Math.min(1f,attackProgress))*Math.PI)*48:0;
         c.save();c.rotate(-attack,26,-59);
         line(c,0xFF4B362B,5,28,-51,35,-18);
         line(c,0xFFD1B17E,3,26,-63,39,-61);
