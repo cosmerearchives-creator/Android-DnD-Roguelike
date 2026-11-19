@@ -85,18 +85,18 @@ final class IllustratedFighter {
             final int direction=Math.max(0,Math.min(3,facing));
             final boolean walking=phase==1 && walkAtlas!=null;
             final Bitmap atlas=walking?walkAtlas:spriteAtlas;
-            // Walking atlas: 4 frames across x 4 direction rows.
-            // Idle atlas: 4 directions across one row.
-            final int columns=4;
+            // Walking atlas: eight poses per direction, four directional rows.
+            // Idle atlas: four views in one row; facing swaps instantly.
+            final int columns=walking?8:4;
             final int fw=atlas.getWidth()/columns;
             final int fh=walking?atlas.getHeight()/4:atlas.getHeight();
-            final int frame=walking?((int)(elapsed*7f)%4):direction;
+            final int frame=walking?((int)(elapsed*10f)%8):direction;
             final int row=walking?direction:0;
             Rect src=new Rect(frame*fw,row*fh,(frame+1)*fw,(row+1)*fh);
             float width=125f*scale,height=166f*scale;
             // Small idle breathing while preserving original frame shape and alignment.
             final float idleBreath=phase==0?(float)Math.sin(elapsed*1.7f):0f;
-            final float lift=walking?((frame==1||frame==3)?-1.4f*scale:0):idleBreath*.5f*scale;
+            final float lift=walking?(-1.7f*(float)Math.abs(Math.sin(frame*Math.PI/4f))*scale):idleBreath*.5f*scale;
             c.save();
             c.translate(footX,footY+lift);
             if(!walking)c.scale(1f+idleBreath*.002f,1f-idleBreath*.003f,0,-height*.35f);
