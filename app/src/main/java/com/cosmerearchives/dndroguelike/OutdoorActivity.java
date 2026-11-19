@@ -63,7 +63,7 @@ public final class OutdoorActivity extends Activity {
         private float joyX,joyY,knobX,knobY;
         private boolean joystick=false,moving=false,paused=false;
         private long lastFrame;
-        private float zoom=1.0f;
+        private float zoom=1.6f; // Closer default for readable character detail.
         private int controlsBottom=0;
         private int lastVisitedX=Integer.MIN_VALUE,lastVisitedY=Integer.MIN_VALUE;
         private int discovered=0;
