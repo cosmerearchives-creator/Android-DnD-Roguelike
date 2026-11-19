@@ -36,13 +36,13 @@ jobs:
           from PIL import Image
           path = 'app/src/main/assets/elf_fighter_atlas.webp'
           with Image.open(path) as art:
-              assert art.size == (640, 210), f'Unexpected sprite atlas size: {art.size}'
+              assert art.size == (960, 320), f'Unexpected sprite atlas size: {art.size}'
               assert art.mode == 'RGBA', f'No transparency channel: {art.mode}'
               art.load()
               for index in range(4):
-                  frame = art.crop((index * 160, 0, (index + 1) * 160, 210))
+                  frame = art.crop((index * 240, 0, (index + 1) * 240, 320))
                   assert frame.getchannel('A').getbbox(), f'Empty facing frame: {index}'
-              print('Illustrated sprite atlas decoded successfully: 4 directions at 160x210.')
+              print('Illustrated sprite atlas decoded successfully: 4 directions at 240x320.')
           PY
       - name: Build and lint
         run: gradle :app:assembleDebug :app:lintDebug --no-daemon
