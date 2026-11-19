@@ -1,5 +1,12 @@
 # Android DnD Roguelike
 
+## Female High Elf illustrated asset pipeline (pending binary asset packaging)
+- The gameplay renderer now supports a four-direction illustrated atlas at `app/src/main/assets/elf_fighter_atlas.webp` (four horizontal frames in the order front, left, back, right). The user-selected character and classic vector renderer remain safe fallbacks while the atlas is absent.
+- The female sprite prototype has a youthful adult face, pointed ears, partially tied-back golden-blonde hair, medium-weight semi-practical armor, sword and shield, with four directional views.
+- **Important:** The atlas is currently delivered separately as a downloadable asset, since GitHub text-file operations cannot transfer its binary bytes. Until `elf_fighter_atlas.webp` is actually added to the repository, the installed APK will continue displaying the vector fallback. Do not label this as a completed illustrated-sprite release.
+- This single test atlas deliberately does not yet inherit individual creator colors, hair styles, equipment, or genuine walk cycles. Follow-on modular layering is needed to preserve those selections.
+- No version bump was made for this scaffolding change.
+
 ## v0.2.2 — illustrated character and clearing prototype
 - The outdoor player is drawn with a new independent layered `IllustratedFighter` renderer (hair, pointed ears, face, tunic, armor, gold trim, boots, blade and optional shield) and uses saved character-creator selections. Four facing orientations and a basic animated gait are supported.
 - Outdoor scenery now has layered stone pavers, grass clusters, flowers and a weathered broken arch at ruin landmarks.
