@@ -76,7 +76,39 @@ final class CharacterPreviewView extends View {
         boolean twoHanded=weapon!=null&&weapon.twoHanded;
         int clothColor=cloth(),body=skin(),hairColor=hair();
         canvas.save();canvas.translate(0,bob);
-        if(topDown){canvas.scale(.83f,.7f);canvas.translate(0,20);}
+        if(topDown){
+            // Actual overhead staging, distinct from full-body illustration.
+            oval(canvas,0xAA05090D,-70,94,70,119);
+            canvas.save();canvas.rotate(direction*90);
+            polygon(canvas,0xFF263645,-32,-67,32,-67,39,72,-39,72);
+            oval(canvas,clothColor,-38,-36,38,42);
+            if(plate){
+                oval(canvas,0xFF8095A2,-41,-37,41,38);
+                oval(canvas,0xFF4E6474,-30,-25,30,29);
+                line(canvas,0xFFC7D4D8,2,-28,2,28,2);
+            }
+            fill(canvas,body,-47,-13,-30,36,8);
+            fill(canvas,body,30,-13,47,36,8);
+            if(shield){
+                oval(canvas,0xFFD2AF72,-70,-22,-38,52);
+                oval(canvas,0xFF526D7E,-65,-18,-42,47);
+            }
+            if(weapon!=null){
+                float swing=animation==2?(float)Math.sin(Math.min(1.,elapsed/310.0)*Math.PI)*35:0;
+                canvas.save();canvas.rotate(swing,48,10);
+                line(canvas,0xFF9A7546,6,47,18,48,56);
+                line(canvas,0xFFE7E5DC,7,48,-68,47,19);
+                canvas.restore();
+            }
+            oval(canvas,hairColor,-29,-75,29,-19);
+            oval(canvas,body,-22,-69,22,-27);
+            polygon(canvas,hairColor,-25,-62,-17,-78,17,-77,26,-57,12,-65,-10,-66);
+            oval(canvas,0xFF263B4B,-13,-44,-7,-39);
+            oval(canvas,0xFF263B4B,7,-44,13,-39);
+            canvas.restore();
+            if(animation!=0)postInvalidateDelayed(32);
+            canvas.restore();canvas.restore();return;
+        }
         // Ground shadows and feet.
         oval(canvas,0xAA060B10,-45,114,46,130);
         fill(canvas,0xFF293748,-31,69,-9,114,8);
