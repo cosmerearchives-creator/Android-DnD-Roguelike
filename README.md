@@ -1,5 +1,14 @@
 # Android DnD Roguelike
 
+## v0.1.4 — starting equipment foundation (in progress)
+- Added a 2014-based equipment catalog covering Fighter weapon options, armor, shields, adventuring supplies, tools, containers, and key background objects.
+- Added a character inventory model with item weights, container capacity, starting pack lists, gear slots, load limits, and weightless personal currency.
+- The Hero prototype uses an initial chain-mail, longsword, shield, handaxe, and Explorer's Pack demonstration loadout.
+- Added a BAG interface to inspect items, equip weapons and armor, change Versatile grips, eat rations, and drink carried water.
+- The prototype's equipped weapon now drives basic damage dice and attack checks; equipped armor/shields drive AC and carried weight influences movement.
+- **Not yet complete:** character creator equipment choices, all weapon special properties, persistent saves, full container management UI, dropped/recoverable thrown items, timers/lighting for torches, background-specific contextual interactions, and several consumable mechanics. Existing combat is still a prototype.
+- Build/release status should be checked in GitHub Actions; this README does not imply an APK has passed CI.
+
 Native Android top-down fantasy roguelike prototype with GitHub Releases update support.
 
 ## v0.1.3 — deliberate six-second combat rhythm
