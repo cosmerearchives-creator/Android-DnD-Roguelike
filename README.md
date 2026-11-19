@@ -1,5 +1,13 @@
 # Android DnD Roguelike
 
+## v0.2.8 — basic directional walking and idle motion
+- Keeps the approved B-style Fantasy Adventurer female High Elf art, four isometric directions, and 1.8× camera.
+- Adds `app/src/main/assets/elf_fighter_walk.webp`: **four frames in each of four directions**, rendered from the approved art with modest leg/torso deformation rather than independently redrawn poses. All 16 frame cells use consistent dimensions, translucency, and alignment.
+- The sprite renderer chooses a direction *immediately* as movement changes, with no turning animation, blend, or tween.
+- Walking advances only when the player actually changes position; when stopped, blocked, or paused, the character returns directly to an idle frame. Idle breathing is subtle and does not require additional artwork.
+- Preserves combat prototype, gear, companions, procedural terrain, camera, and depth ordering. **Limit:** this is a first procedural gait treatment. It is not yet a hand-illustrated anatomically accurate walk cycle, hair/cloth physics, or full attack animation.
+- CI validates both the idle and walking sprite atlases and builds/lints before any versioned release.
+
 ## v0.2.7 — Fantasy Adventurer armor selection (B)
 - Replaces the gameplay female High Elf Fighter artwork with the approved **B / Fantasy Adventurer** armor reference: more feminine sculpted medium armor, exposed upper arms, lighter thigh coverage, ornate silver-and-gold elven detail and blue tabard, while preserving sword and shield.
 - Keeps youthful adult features, distinctly pointed ears and long golden-blonde hair partially tied back.
