@@ -319,7 +319,7 @@ public final class CharacterCreatorActivity extends Activity {
                 .setPositiveButton("OK",null).show();return;
         }
         hero.completed=true;hero.save(this);
-        startActivity(new Intent(this,GameActivity.class));
+        startActivity(new Intent(this,OutdoorActivity.class));
         finish();
     }
 }
