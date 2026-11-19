@@ -66,7 +66,7 @@ public final class OutdoorActivity extends Activity {
         private int facing=0;
         private float walkTime=0;
         private long lastFrame;
-        private float zoom=1.6f; // Closer default for readable character detail.
+        private float zoom=1.8f; // Approved close camera for illustrated character detail.
         private int controlsBottom=0;
         private int lastVisitedX=Integer.MIN_VALUE,lastVisitedY=Integer.MIN_VALUE;
         private int discovered=0;
@@ -330,7 +330,7 @@ public final class OutdoorActivity extends Activity {
             character(c,x+.92f,y+.84f,0xFF8E6BAE,"Arcanist",.80f);
             float playerSX=screenX(x,y);
             float playerSY=screenY(x,y)-height((int)Math.floor(x),(int)Math.floor(y))*LEVEL_H;
-            fighterArt.draw(c,playerSX,playerSY,.77f,facing,walkTime,
+            fighterArt.draw(c,playerSX,playerSY,.86f,facing,walkTime,
                 joystick||moving?1:0);
             text(c,heroName,playerSX-25,playerSY-120,12,0xFFFFF0D1);
             if(moving){
