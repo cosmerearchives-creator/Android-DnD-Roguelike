@@ -58,10 +58,13 @@ public final class OutdoorActivity extends Activity {
         private final Paint p=new Paint(Paint.ANTI_ALIAS_FLAG);
         private final Path path=new Path();
         private final PlayerCharacter hero;
+        private final IllustratedFighter fighterArt;
         private final String heroName;
         private float x=0.5f,y=0.5f,camX=x,camY=y,targetX=x,targetY=y;
         private float joyX,joyY,knobX,knobY;
         private boolean joystick=false,moving=false,paused=false;
+        private int facing=0;
+        private float walkTime=0;
         private long lastFrame;
         private float zoom=1.6f; // Closer default for readable character detail.
         private int controlsBottom=0;
@@ -72,6 +75,7 @@ public final class OutdoorActivity extends Activity {
         private final float density;
         Landscape(Context context){
             super(context);hero=PlayerCharacter.load(context);
+            fighterArt=new IllustratedFighter(hero);
             heroName=hero!=null&&hero.completed?hero.name:"Explorer";
             density=getResources().getDisplayMetrics().density;
             setFocusable(true);
@@ -242,6 +246,9 @@ public final class OutdoorActivity extends Activity {
             }
             float distance=(float)Math.sqrt(dx*dx+dy*dy);
             if(distance>.02f){
+                walkTime+=dt;
+                float cameraDX=dx-dy,cameraDY=dx+dy;
+                facing=Math.abs(cameraDX)>Math.abs(cameraDY)?(cameraDX>0?1:3):(cameraDY>0?0:2);
                 float speed=(hero!=null&&hero.completed?hero.loadout().movementFactor():1f)*2.4f;
                 float step=Math.min(distance,speed*dt),sx=dx/distance*step,sy=dy/distance*step;
                 if(walkable(x+sx,y))x+=sx;
@@ -286,10 +293,15 @@ public final class OutdoorActivity extends Activity {
                     prop(c,tx,ty);
                 }
             }
-            // Party is drawn in world coordinates; collision and camera use matching axes.
-            character(c,x-.75f,y+.6f,0xFF4B9275,"Guardian",.85f);
-            character(c,x+.75f,y+.6f,0xFF8E6BAE,"Arcanist",.85f);
-            character(c,x,y,0xFF6489B9,heroName,1f);
+            // The art renderer is world-agnostic. The player uses the saved
+            // creator palette and equipment, rendered at detail-readable scale.
+            character(c,x-.92f,y+.84f,0xFF4B9275,"Guardian",.80f);
+            character(c,x+.92f,y+.84f,0xFF8E6BAE,"Arcanist",.80f);
+            float playerSX=screenX(x,y);
+            float playerSY=screenY(x,y)-height((int)Math.floor(x),(int)Math.floor(y))*LEVEL_H;
+            fighterArt.draw(c,playerSX,playerSY,.77f,facing,walkTime,
+                joystick||moving?1:0);
+            text(c,heroName,playerSX-25,playerSY-120,12,0xFFFFF0D1);
             if(moving){
                 float sx=screenX(targetX,targetY),sy=screenY(targetX,targetY);
                 oval(c,0xFFEDD59A,sx-7,sy-4,sx+7,sy+4);
