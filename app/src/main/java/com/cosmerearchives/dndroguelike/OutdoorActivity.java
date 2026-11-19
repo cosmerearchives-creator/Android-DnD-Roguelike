@@ -61,6 +61,7 @@ public final class OutdoorActivity extends Activity {
         private final Paint p=new Paint(Paint.ANTI_ALIAS_FLAG);
         private final Paint groundPaint=new Paint(Paint.ANTI_ALIAS_FLAG|Paint.FILTER_BITMAP_FLAG);
         private final Bitmap groundAtlas;
+        private final Bitmap vegetationAtlas;
         private final Bitmap[] cachedGround=new Bitmap[16];
         private final Rect tileSource=new Rect();
         private final RectF tileDestination=new RectF();
@@ -93,6 +94,11 @@ public final class OutdoorActivity extends Activity {
                 atlas=BitmapFactory.decodeStream(input);
             }catch(java.io.IOException ignored){ }
             groundAtlas=atlas;
+            Bitmap props=null;
+            try(java.io.InputStream input=context.getAssets().open("wildlands_vegetation.webp")){
+                props=BitmapFactory.decodeStream(input);
+            }catch(java.io.IOException ignored){ }
+            vegetationAtlas=props;
             if(atlas!=null){
                 Paint tilePaint=new Paint(Paint.ANTI_ALIAS_FLAG|Paint.FILTER_BITMAP_FLAG);
                 int sourceSize=atlas.getWidth()/4;
@@ -322,6 +328,13 @@ public final class OutdoorActivity extends Activity {
                 }
             }
         }
+        private void illustratedProp(Canvas c,int tile,float centerX,float footY,float width,float height){
+            if(vegetationAtlas==null)return;
+            int size=vegetationAtlas.getWidth()/4;
+            Rect src=new Rect(tile*size,0,(tile+1)*size,size);
+            RectF dest=new RectF(centerX-width*.5f,footY-height,centerX+width*.5f,footY);
+            c.drawBitmap(vegetationAtlas,src,dest,groundPaint);
+        }
         private boolean landmark(int xx,int yy){
             // Stable landmark positions, clearly separated from starting clearing.
             return (xx==13&&yy==-11)||(xx==-19&&yy==12)||(xx==30&&yy==25);
@@ -348,6 +361,11 @@ public final class OutdoorActivity extends Activity {
             if(road(xx,yy)||river(xx,yy))return;
             long seed=hash(xx,yy,83);int kind=biome(xx,yy);
             if((seed&31)==4&&(kind==1||kind==2)){
+                if(vegetationAtlas!=null){
+                    oval(c,0x77000000,sx-19,sy-4,sx+19,sy+5);
+                    illustratedProp(c,(seed&64)==0?0:1,sx,sy+4,107,115);
+                    return;
+                }
                 oval(c,0x99000000,sx-22,sy-4,sx+20,sy+7);
                 polygon(c,0xFF57402C,sx-6,sy+1,sx-5,sy-39,sx+4,sy-39,sx+6,sy+1);
                 polygon(c,0xFF213D33,sx-26,sy-28,sx-10,sy-68,sx,sy-101,sx+14,sy-63,sx+27,sy-26);
@@ -357,12 +375,21 @@ public final class OutdoorActivity extends Activity {
                 line(c,0xFF9A9E69,1.3f,sx-12,sy-46,sx-18,sy-34);
                 line(c,0xFF8E9D69,1.2f,sx+8,sy-65,sx+17,sy-42);
             }else if((seed&63)==15&&height(xx,yy)>0){
+                if(vegetationAtlas!=null){
+                    oval(c,0x77000000,sx-17,sy-3,sx+19,sy+6);
+                    illustratedProp(c,2,sx,sy+6,90,64);
+                    return;
+                }
                 oval(c,0x77000000,sx-19,sy-1,sx+20,sy+6);
                 polygon(c,0xFF525B59,sx-18,sy+1,sx-14,sy-13,sx-3,sy-22,sx+11,sy-16,sx+19,sy-3,sx+12,sy+3);
                 polygon(c,0xFF92968B,sx-14,sy-12,sx-4,sy-25,sx+6,sy-22,sx+13,sy-11,sx+1,sy-7);
                 line(c,0xFFD0C6A1,2,sx-8,sy-17,sx+4,sy-20);
                 line(c,0xFF526D50,2,sx-14,sy-3,sx-5,sy-5);
             }else if((seed&63)==22&&kind==0){
+                if(vegetationAtlas!=null){
+                    illustratedProp(c,3,sx,sy+5,82,52);
+                    return;
+                }
                 oval(c,0xFF557B42,sx-10,sy-7,sx+10,sy+4);
             }
         }
