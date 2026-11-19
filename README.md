@@ -3,7 +3,7 @@
 ## v0.3.1 — stride-synced walking, attack animation and richer Wildlands
 - Ties the eight-frame walk atlas to distance traveled: one complete gait cycle per 1.2 world tiles, with the footfall phase reset when movement starts. This removes the slow-cycle mismatch that made the elf glide across the ground.
 - Adds a short sword-swing animation preview in Wildlands using a directional lunge, layered slash trail and sparks. The preview does not apply damage or change exploration rules; combat remains in Arena.
-- Increases the density and size variation of the existing painted trees, rocks and shrubs while preserving open paths and the starting clearing, so the scenery fills out at the character's illustration scale.
+- Replaces the ground atlas with a 4×4 high-detail painted terrain set for meadow, leaf litter, earth, stone, rock, creek and bridge surfaces; enlarges and increases the density of painted trees, rocks and shrubs while keeping paths and the starting clearing open.
 - Preserves the character art, camera, terrain atlas, procedural map, HUD, and all existing systems.
 
 ## v0.3.0 — painted terrain / movement and UI pass

@@ -93,7 +93,7 @@ public final class OutdoorActivity extends Activity {
         Landscape(Context context){
             super(context);appContext=context;hero=PlayerCharacter.load(context);
             Bitmap atlas=null;
-            try(java.io.InputStream input=context.getAssets().open("wildlands_terrain.webp")){
+            try(java.io.InputStream input=context.getAssets().open("wildlands_terrain_v031.png")){
                 atlas=BitmapFactory.decodeStream(input);
             }catch(java.io.IOException ignored){ }
             groundAtlas=atlas;

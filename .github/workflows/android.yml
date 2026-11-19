@@ -53,14 +53,15 @@ jobs:
                       frame = walk.crop((frame_idx * 360, direction * 480, (frame_idx + 1) * 360, (direction + 1) * 480))
                       assert frame.getchannel('A').getbbox(), f'Empty walking frame {direction}:{frame_idx}'
               print('Directional walking atlas validated: 4 directions x 8 frames.')
-          with Image.open('app/src/main/assets/wildlands_terrain.webp') as terrain:
-              assert terrain.size == (1024, 1024), f'Illustrated tile atlas dimensions: {terrain.size}'
+          with Image.open('app/src/main/assets/wildlands_terrain_v031.png') as terrain:
+              assert terrain.size == (1254, 1254), f'Illustrated tile atlas dimensions: {terrain.size}'
               terrain.load()
+              tile = terrain.width // 4
               for y in range(4):
                   for x in range(4):
-                      part = terrain.crop((x*256,y*256,(x+1)*256,(y+1)*256))
+                      part = terrain.crop((x*tile,y*tile,(x+1)*tile,(y+1)*tile))
                       assert part.getbbox(), f'Empty terrain art at {x},{y}'
-              print('16 painted terrain materials validated.')
+              print('16 high-detail painted terrain materials validated.')
           with Image.open('app/src/main/assets/wildlands_vegetation.webp') as props:
               assert props.size == (1024, 256), f'Illustrated prop atlas dimensions: {props.size}'
               assert props.mode == 'RGBA', f'Vegetation transparency missing: {props.mode}'
