@@ -1,5 +1,12 @@
 # Android DnD Roguelike
 
+## v0.2.2 — illustrated character and clearing prototype
+- The outdoor player is drawn with a new independent layered `IllustratedFighter` renderer (hair, pointed ears, face, tunic, armor, gold trim, boots, blade and optional shield) and uses saved character-creator selections. Four facing orientations and a basic animated gait are supported.
+- Outdoor scenery now has layered stone pavers, grass clusters, flowers and a weathered broken arch at ruin landmarks.
+- Keeps the closer 1.6x isometric camera, the existing procedural exploration scene and the original combat arena.
+- **Art caveat:** this is an original vector-rendered *intermediate* art test, **not yet** the painted, high-resolution sprite artwork shown in the earlier concept mockup. Detailed authored character/environment texture sets and polished directional animation remain next-stage deliverables.
+- This version does not change combat mechanics or procedural persistence.
+
 ## v0.2.0 — first isometric outdoor exploration vertical slice
 - Added **Explore Wildlands** on the main menu, and completed character creation now leads into the outdoor scene rather than the classic test arena.
 - New `OutdoorActivity` renders a three-quarter isometric view with a camera following the player and deterministic, coordinate-based outdoor terrain generation.
