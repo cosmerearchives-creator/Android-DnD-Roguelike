@@ -462,22 +462,26 @@ public final class OutdoorActivity extends Activity {
             text(c,paused?"RESUME":"PAUSE",right-103*d,h-56*d,13*d,0xFFF2DBA8);
             text(c,"Tap terrain to move  ·  Joystick to steer",135*d,h-9*d,10*d,0xFFB4C7C1);
             if(paused){
-                rect(c,0xCC0A131C,0,62*d,getWidth(),h-112*d);
-                float panelWidth=Math.min(getWidth()-36*d,330*d);
-                float mid=getWidth()*.5f,top=Math.max(75*d,(h-112*d)*.25f);
-                rounded(c,0xFF182731,mid-panelWidth*.5f-3*d,top,mid+panelWidth*.5f+3*d,top+260*d,12*d);
-                rounded(c,0xFFB49962,mid-panelWidth*.5f,top+3*d,mid+panelWidth*.5f,top+6*d,2*d);
-                text(c,"EXPLORATION PAUSED",mid-panelWidth*.5f+22*d,top+44*d,18*d,0xFFF1D9A4);
-                float x1=mid-panelWidth*.5f+18*d,x2=mid+panelWidth*.5f-18*d;
-                resumeBounds.set(x1,top+62*d,x2,top+112*d);
-                menuBounds.set(x1,top+123*d,x2,top+173*d);
-                quitBounds.set(x1,top+184*d,x2,top+234*d);
-                rounded(c,0xFF46645A,resumeBounds.left,resumeBounds.top,resumeBounds.right,resumeBounds.bottom,8*d);
-                rounded(c,0xFF344A55,menuBounds.left,menuBounds.top,menuBounds.right,menuBounds.bottom,8*d);
-                rounded(c,0xFF654438,quitBounds.left,quitBounds.top,quitBounds.right,quitBounds.bottom,8*d);
-                text(c,"RESUME",x1+20*d,top+95*d,15*d,0xFFF9E5BB);
-                text(c,"RETURN TO MAIN MENU",x1+20*d,top+156*d,14*d,0xFFF9E5BB);
-                text(c,"QUIT GAME",x1+20*d,top+217*d,15*d,0xFFF9E5BB);
+                rect(c,0xD90A131C,0,0,getWidth(),h);
+                // Scale entire panel to FIT the available real screen height.
+                // Previously fixed 260*d often placed the Quit button off-screen.
+                float ps=Math.min(d,Math.min((getWidth()-24f)/350f,(h-12f)/260f));
+                ps=Math.max(.5f,ps);
+                float panelWidth=330f*ps;
+                float mid=getWidth()*.5f,top=(h-260f*ps)*.5f;
+                rounded(c,0xFF182731,mid-panelWidth*.5f-3*ps,top,mid+panelWidth*.5f+3*ps,top+260*ps,12*ps);
+                rounded(c,0xFFB49962,mid-panelWidth*.5f,top+3*ps,mid+panelWidth*.5f,top+6*ps,2*ps);
+                text(c,"EXPLORATION PAUSED",mid-panelWidth*.5f+22*ps,top+44*ps,18*ps,0xFFF1D9A4);
+                float x1=mid-panelWidth*.5f+18*ps,x2=mid+panelWidth*.5f-18*ps;
+                resumeBounds.set(x1,top+62*ps,x2,top+112*ps);
+                menuBounds.set(x1,top+123*ps,x2,top+173*ps);
+                quitBounds.set(x1,top+184*ps,x2,top+234*ps);
+                rounded(c,0xFF46645A,resumeBounds.left,resumeBounds.top,resumeBounds.right,resumeBounds.bottom,8*ps);
+                rounded(c,0xFF344A55,menuBounds.left,menuBounds.top,menuBounds.right,menuBounds.bottom,8*ps);
+                rounded(c,0xFF654438,quitBounds.left,quitBounds.top,quitBounds.right,quitBounds.bottom,8*ps);
+                text(c,"RESUME",x1+20*ps,top+95*ps,15*ps,0xFFF9E5BB);
+                text(c,"RETURN TO MAIN MENU",x1+20*ps,top+156*ps,14*ps,0xFFF9E5BB);
+                text(c,"QUIT GAME",x1+20*ps,top+217*ps,15*ps,0xFFF9E5BB);
             }
             postInvalidateDelayed(32);
         }
