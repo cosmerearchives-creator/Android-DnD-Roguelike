@@ -63,6 +63,8 @@ public final class OutdoorActivity extends Activity {
         private float x=0.5f,y=0.5f,camX=x,camY=y,targetX=x,targetY=y;
         private float joyX,joyY,knobX,knobY;
         private boolean joystick=false,moving=false,paused=false;
+        private final RectF resumeBounds=new RectF(),menuBounds=new RectF(),quitBounds=new RectF();
+        private final Context appContext;
         private int facing=0;
         private float walkTime=0;
         private float idleTime=0;
@@ -76,7 +78,7 @@ public final class OutdoorActivity extends Activity {
         private int[] colorRange={0xFF698D65,0xFF527952,0xFF375C4D,0xFF9B966B,0xFF77858C,0xFF497A8F};
         private final float density;
         Landscape(Context context){
-            super(context);hero=PlayerCharacter.load(context);
+            super(context);appContext=context;hero=PlayerCharacter.load(context);
             fighterArt=new IllustratedFighter(context,hero);
             heroName=hero!=null&&hero.completed?hero.name:"Explorer";
             density=getResources().getDisplayMetrics().density;
@@ -289,7 +291,11 @@ public final class OutdoorActivity extends Activity {
                 if(walkable(x+sx,y))x+=sx;
                 if(walkable(x,y+sy))y+=sy;
                 visuallyWalking=Math.abs(x-oldX)+Math.abs(y-oldY)>0.0001f;
-                if(visuallyWalking)walkTime+=dt;
+                if(visuallyWalking){
+                    walkTime+=dt;
+                }else{
+                    walkTime=0f;
+                }
             }
             float easing=Math.min(1f,dt*7f);
             camX+=(x-camX)*easing;camY+=(y-camY)*easing;
@@ -330,14 +336,18 @@ public final class OutdoorActivity extends Activity {
                     prop(c,tx,ty);
                     // World entities enter the same painter order as terrain and props.
                     // Nearer trees and elevated terrain can now occlude the actor naturally.
-                    if(tx==(int)Math.floor(x-.92f) && ty==(int)Math.floor(y+.84f))
-                        character(c,x-.92f,y+.84f,0xFF4B9275,"Guardian",.80f);
-                    if(tx==(int)Math.floor(x+.92f) && ty==(int)Math.floor(y+.84f))
-                        character(c,x+.92f,y+.84f,0xFF8E6BAE,"Arcanist",.80f);
+                    // Solo visual test: leave the party companion systems untouched elsewhere.
                     if(tx==(int)Math.floor(x) && ty==(int)Math.floor(y)){
                         float feetX=screenX(x,y);
                         float feetY=screenY(x,y)-height(tx,ty)*LEVEL_H;
-                        oval(c,0x66061113,feetX-23,feetY-6,feetX+23,feetY+7);
+                        // Grounded contact shadow and alternating soft footfall.
+                        float stride=(float)Math.sin(walkTime*10f);
+                        oval(c,0x880A1614,feetX-21,feetY-6,feetX+21,feetY+6);
+                        if(visuallyWalking){
+                            float offset=13f*stride;
+                            oval(c,0x5530251A,feetX-13+offset,feetY-3,feetX-5+offset,feetY+3);
+                            oval(c,0x5530251A,feetX+5-offset,feetY-3,feetX+13-offset,feetY+3);
+                        }
                         fighterArt.draw(c,feetX,feetY,.86f,facing,
                             visuallyWalking?walkTime:idleTime,visuallyWalking?1:0);
                         text(c,heroName,feetX-25,feetY-157,12,0xFFFFF0D1);
