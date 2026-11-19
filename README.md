@@ -1,11 +1,11 @@
 # Android DnD Roguelike
 
-## Female High Elf illustrated asset pipeline (pending binary asset packaging)
-- The gameplay renderer now supports a four-direction illustrated atlas at `app/src/main/assets/elf_fighter_atlas.webp` (four horizontal frames in the order front, left, back, right). The user-selected character and classic vector renderer remain safe fallbacks while the atlas is absent.
-- The female sprite prototype has a youthful adult face, pointed ears, partially tied-back golden-blonde hair, medium-weight semi-practical armor, sword and shield, with four directional views.
-- **Important:** The atlas is currently delivered separately as a downloadable asset, since GitHub text-file operations cannot transfer its binary bytes. Until `elf_fighter_atlas.webp` is actually added to the repository, the installed APK will continue displaying the vector fallback. Do not label this as a completed illustrated-sprite release.
-- This single test atlas deliberately does not yet inherit individual creator colors, hair styles, equipment, or genuine walk cycles. Follow-on modular layering is needed to preserve those selections.
-- No version bump was made for this scaffolding change.
+## v0.2.3 — illustrated female High Elf sprite integration
+- The four-facing **female High Elf Fighter sprite atlas** is now stored in `app/src/main/assets/elf_fighter_atlas.webp`. It is a transparent, downsampled WebP test asset (320 × 105, four horizontal 80 × 105 views), not a final production-quality texture.
+- The outdoor renderer loads the WebP atlas and switches front/right/back/left faces based on movement direction. The older vector hero remains a fallback only when the atlas cannot be read.
+- Female Fighter test art: youthful adult features, visible pointed ears, golden-blonde partially tied-back hair, medium-weight semi-practical plate and cloth, sword and shield.
+- Four static views with slight movement bob only, **not** finished gait animation. Atlas is one fixed equipment look and does **not yet** match arbitrary character creator customizations.
+- Prior combat arena and exploration mechanics remain intact. No additional camera zoom was imposed.
 
 ## v0.2.2 — illustrated character and clearing prototype
 - The outdoor player is drawn with a new independent layered `IllustratedFighter` renderer (hair, pointed ears, face, tunic, armor, gold trim, boots, blade and optional shield) and uses saved character-creator selections. Four facing orientations and a basic animated gait are supported.
