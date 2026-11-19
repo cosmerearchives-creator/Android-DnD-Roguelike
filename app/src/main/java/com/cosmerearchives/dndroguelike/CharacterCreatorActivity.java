@@ -158,7 +158,7 @@ public final class CharacterCreatorActivity extends Activity {
         select("High Elf bonus language",PlayerCharacter.LANGUAGES,hero.languageOne,v->hero.languageOne=v);
         if(hero.background.equals("Acolyte")||!hero.background.equals("Caravan Guard"))
             select("Background language",PlayerCharacter.LANGUAGES,hero.languageTwo,v->hero.languageTwo=v);
-        if(hero.background.equals("Acolyte"))note("Acolyte also chooses a second background language; language support will be expanded.");
+        if(hero.background.equals("Acolyte"))select("Second Acolyte language",PlayerCharacter.LANGUAGES,hero.languageThree,v->hero.languageThree=v);
         if(hero.background.equals("Wilderness Pathfinder")||hero.background.equals("Relic Seeker")){
             select("Background tool",hero.background.equals("Wilderness Pathfinder")?
                 new String[]{"cartographer_tools","herbalism_kit"}:
@@ -184,7 +184,7 @@ public final class CharacterCreatorActivity extends Activity {
         note("Leather Armor includes a Longbow with unlimited ordinary arrows.");
         List<String> martial=new ArrayList<>();
         for(Equipment.Item item:Equipment.catalog()){
-            if(item.weapon()&&!item.id.equals("net")&&!item.id.equals("club")&&!item.id.equals("dagger")
+            if(item.weapon()&&!item.id.equals("club")&&!item.id.equals("dagger")
                  &&!item.id.equals("handaxe")&&!item.id.equals("javelin")&&!item.id.equals("light_hammer")
                  &&!item.id.equals("quarterstaff")&&!item.id.equals("spear")&&!item.id.equals("mace")
                  &&!item.id.equals("sickle")&&!item.id.equals("greatclub")&&!item.id.equals("dart")
