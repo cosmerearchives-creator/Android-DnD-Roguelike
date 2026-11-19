@@ -75,7 +75,7 @@ public final class OutdoorActivity extends Activity {
         private final float density;
         Landscape(Context context){
             super(context);hero=PlayerCharacter.load(context);
-            fighterArt=new IllustratedFighter(hero);
+            fighterArt=new IllustratedFighter(context,hero);
             heroName=hero!=null&&hero.completed?hero.name:"Explorer";
             density=getResources().getDisplayMetrics().density;
             setFocusable(true);
