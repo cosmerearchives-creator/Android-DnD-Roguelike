@@ -1,5 +1,11 @@
 # Android DnD Roguelike
 
+## v0.1.8 — visual character forge
+- Replaced the raw vertical field list with a dark-fantasy Character Forge layout: clear step navigation, grouped choice cards, progress controls, live stats footer, and portrait/landscape adaptations.
+- Added an illustrated character preview with distinct full-body and top-down modes, four directional views, and idle/walk/attack preview selectors.
+- Preview responds to selected skin, hair, clothing color, armor, primary weapon and shield; the preview is original illustrative artwork, not yet a shared animation asset with the actual arena.
+- Keeps existing creation options, draft persistence and gameplay entry. Advanced face/body editors and full matching gameplay sprites are still future work.
+
 ## v0.1.6 — first character creator (initial playable milestone)
 - Added a native Android High Elf Fighter creation wizard with identity and basic appearance choices, 4d6-drop-lowest score sets (up to three rerolls), manual ability assignment, background, Fighter skills, Fighting Style, racial cantrip selection, and starting equipment choices.
 - Added character review and local draft/completed-character persistence. The completed character replaces the default Hero in the arena, with selected HP, basic ability-derived weapon calculations, AC, personal currency, and equipment.
