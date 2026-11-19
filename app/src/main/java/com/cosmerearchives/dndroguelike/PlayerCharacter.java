@@ -17,7 +17,7 @@ final class PlayerCharacter {
     static final String[] FIGHTER_SKILLS={"Acrobatics","Animal Handling","Athletics","History","Insight","Intimidation","Perception","Survival"};
     static final String[] LANGUAGES={"Dwarvish","Giant","Gnomish","Goblin","Halfling","Orc","Abyssal","Celestial","Draconic","Deep Speech","Infernal","Primordial","Sylvan","Undercommon"};
     String name="";String gender="Female",background=BACKGROUNDS[0],style=STYLES[0],cantrip=CANTRIPS[0];
-    String skillOne="Athletics",skillTwo="Survival",languageOne="Dwarvish",languageTwo="Sylvan";
+    String skillOne="Athletics",skillTwo="Survival",languageOne="Dwarvish",languageTwo="Sylvan",languageThree="Draconic";
     String toolChoice="cartographer_tools",gamingChoice="dice_set",artisanChoice="smith_tools";
     String armorChoice="chain_mail",martialOne="longsword",martialTwo="shield",rangedChoice="light_crossbow",packChoice="explorer";
     String skin="Fair",hair="Silver",clothingColor="Blue";
@@ -95,7 +95,7 @@ final class PlayerCharacter {
         try{
             o.put("name",name);o.put("gender",gender);o.put("background",background);
             o.put("style",style);o.put("cantrip",cantrip);o.put("skillOne",skillOne);o.put("skillTwo",skillTwo);
-            o.put("languageOne",languageOne);o.put("languageTwo",languageTwo);
+            o.put("languageOne",languageOne);o.put("languageTwo",languageTwo);o.put("languageThree",languageThree);
             o.put("toolChoice",toolChoice);o.put("gamingChoice",gamingChoice);o.put("artisanChoice",artisanChoice);
             o.put("armorChoice",armorChoice);o.put("martialOne",martialOne);o.put("martialTwo",martialTwo);
             o.put("rangedChoice",rangedChoice);o.put("packChoice",packChoice);
@@ -113,7 +113,7 @@ final class PlayerCharacter {
         p.background=o.optString("background",p.background);p.style=o.optString("style",p.style);
         p.cantrip=o.optString("cantrip",p.cantrip);p.skillOne=o.optString("skillOne",p.skillOne);
         p.skillTwo=o.optString("skillTwo",p.skillTwo);p.languageOne=o.optString("languageOne",p.languageOne);
-        p.languageTwo=o.optString("languageTwo",p.languageTwo);
+        p.languageTwo=o.optString("languageTwo",p.languageTwo);p.languageThree=o.optString("languageThree",p.languageThree);
         p.toolChoice=o.optString("toolChoice",p.toolChoice);p.gamingChoice=o.optString("gamingChoice",p.gamingChoice);
         p.artisanChoice=o.optString("artisanChoice",p.artisanChoice);
         p.armorChoice=o.optString("armorChoice",p.armorChoice);
