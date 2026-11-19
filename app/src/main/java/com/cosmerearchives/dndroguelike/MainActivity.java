@@ -60,8 +60,12 @@ public class MainActivity extends Activity {
         create.setText(existing!=null&&!existing.completed?"Resume character creation":"Create High Elf Fighter");
         create.setOnClickListener(v -> startActivity(new Intent(this, CharacterCreatorActivity.class)));
         root.addView(create);
+        Button explore = new Button(this);
+        explore.setText("Explore Wildlands (isometric test)");
+        explore.setOnClickListener(v -> startActivity(new Intent(this, OutdoorActivity.class)));
+        root.addView(explore);
         Button play = new Button(this);
-        play.setText(existing!=null&&existing.completed?"Start adventure":"Play prototype (test arena)");
+        play.setText("Classic combat arena");
         play.setOnClickListener(v -> startActivity(new Intent(this, GameActivity.class)));
         root.addView(play);
         check = new Button(this);
