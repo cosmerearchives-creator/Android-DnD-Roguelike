@@ -55,8 +55,13 @@ public class MainActivity extends Activity {
         TextView intro = text("Your adventure starts here.", 20);
         intro.setPadding(0,pad,0,pad);
         root.addView(intro);
+        PlayerCharacter existing=PlayerCharacter.load(this);
+        Button create = new Button(this);
+        create.setText(existing!=null&&!existing.completed?"Resume character creation":"Create High Elf Fighter");
+        create.setOnClickListener(v -> startActivity(new Intent(this, CharacterCreatorActivity.class)));
+        root.addView(create);
         Button play = new Button(this);
-        play.setText("Play prototype");
+        play.setText(existing!=null&&existing.completed?"Start adventure":"Play prototype (test arena)");
         play.setOnClickListener(v -> startActivity(new Intent(this, GameActivity.class)));
         root.addView(play);
         check = new Button(this);
