@@ -4,6 +4,7 @@ import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Intent;
 import android.graphics.Color;
+import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.content.res.Configuration;
 import android.util.TypedValue;
@@ -51,7 +52,7 @@ public final class CharacterCreatorActivity extends Activity {
         t.setPadding(8,9,8,9);return t;
     }
     private void heading(String s){
-        TextView h=text(s,21);h.setTypeface(null,1);h.setTextColor(0xFFF3DCAD);contents.addView(h);
+        TextView h=text(s,21);h.setTypeface(null,Typeface.BOLD);h.setTextColor(0xFFF3DCAD);contents.addView(h);
     }
     private void note(String s){TextView t=text(s,13);t.setTextColor(0xFFBFC8D2);contents.addView(t);}
     private void persist(){if(!building){hero.save(this);if(summary!=null)summary.setText(stats());if(preview!=null)preview.character(hero);}}
@@ -72,7 +73,7 @@ public final class CharacterCreatorActivity extends Activity {
         root=vertical();root.setBackgroundColor(bg);root.setPadding(dp(12),dp(12),dp(12),dp(8));
         TextView kicker=text("THE ARCHIVES  /  CHARACTER FORGE",12);
         kicker.setTextColor(accent);kicker.setLetterSpacing(.16f);root.addView(kicker);
-        TextView headline=text("Forge your legend",25);headline.setTypeface(null,1);
+        TextView headline=text("Forge your legend",25);headline.setTypeface(null,Typeface.BOLD);
         root.addView(headline);
         // Compact progress with all six sections, navigable by tapping step chips.
         LinearLayout nav=horizontal();
