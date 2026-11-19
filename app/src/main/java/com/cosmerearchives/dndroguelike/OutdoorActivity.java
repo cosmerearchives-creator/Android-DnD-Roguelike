@@ -278,6 +278,10 @@ public final class OutdoorActivity extends Activity {
                 int start=Math.max(minX,sum-maxY),end=Math.min(maxX,sum-minY);
                 for(int tx=start;tx<=end;tx++){
                     int ty=sum-tx;
+                    float screenTileX=ox+screenX(tx+.5f,ty+.5f)*zoom;
+                    float screenTileY=oy+(screenY(tx+.5f,ty+.5f)-height(tx,ty)*LEVEL_H)*zoom;
+                    if(screenTileX < -100*zoom || screenTileX > getWidth()+100*zoom ||
+                        screenTileY < -180*zoom || screenTileY > getHeight()+100*zoom)continue;
                     terrain(c,tx,ty);
                     prop(c,tx,ty);
                 }
@@ -292,29 +296,31 @@ public final class OutdoorActivity extends Activity {
             }
             c.restore();
             float h=getHeight()-controlsBottom;
-            rect(c,0xE51C2B35,0,0,getWidth(),58*density);
-            text(c,"THE WILDLANDS  •  ISOMETRIC EXPLORATION",13*density,22*density,13*density,0xFFF3E5BE);
+            float d=ui();
+            rect(c,0xE51C2B35,0,0,getWidth(),58*d);
+            text(c,"THE WILDLANDS  •  ISOMETRIC EXPLORATION",13*d,22*d,13*d,0xFFF3E5BE);
             text(c,String.format(Locale.US,"REGION 01   ELEV %d   SEEN %d   (%.0f, %.0f)",height((int)x,(int)y),discovered,x,y),
-                13*density,43*density,11*density,0xFFBDD7D7);
-            rect(c,0xE51C2B35,0,h-112*density,getWidth(),h);
-            float cx=65*density,cy=h-62*density;
-            oval(c,0xFF3B5966,cx-46*density,cy-46*density,cx+46*density,cy+46*density);
-            oval(c,0xFF96B8BA,cx+knobX*23*density-19*density,cy+knobY*23*density-19*density,
-                cx+knobX*23*density+19*density,cy+knobY*23*density+19*density);
+                13*d,43*d,11*d,0xFFBDD7D7);
+            rect(c,0xE51C2B35,0,h-112*d,getWidth(),h);
+            float cx=65*d,cy=h-62*d;
+            oval(c,0xFF3B5966,cx-46*d,cy-46*d,cx+46*d,cy+46*d);
+            oval(c,0xFF96B8BA,cx+knobX*23*d-19*d,cy+knobY*23*d-19*d,
+                cx+knobX*23*d+19*d,cy+knobY*23*d+19*d);
             float right=getWidth();
-            rect(c,0xFF3A5560,right-214*density,h-93*density,right-118*density,h-33*density);
-            rect(c,0xFF816944,right-110*density,h-93*density,right-10*density,h-33*density);
-            text(c,"ARENA",right-204*density,h-57*density,13*density,Color.WHITE);
-            text(c,paused?"RESUME":"PAUSE",right-103*density,h-57*density,13*density,Color.WHITE);
-            text(c,"Tap terrain to move • Joystick overrides destination",135*density,h-10*density,10*density,0xFFBFD3D6);
+            rect(c,0xFF3A5560,right-214*d,h-93*d,right-118*d,h-33*d);
+            rect(c,0xFF816944,right-110*d,h-93*d,right-10*d,h-33*d);
+            text(c,"ARENA",right-204*d,h-57*d,13*d,Color.WHITE);
+            text(c,paused?"RESUME":"PAUSE",right-103*d,h-57*d,13*d,Color.WHITE);
+            text(c,"Tap terrain to move • Joystick overrides destination",135*d,h-10*d,10*d,0xFFBFD3D6);
             if(paused){
-                rect(c,0x99000000,0,58*density,getWidth(),h-112*density);
-                text(c,"EXPLORATION PAUSED",getWidth()*.25f,h*.47f,23*density,Color.WHITE);
+                rect(c,0x99000000,0,58*d,getWidth(),h-112*d);
+                text(c,"EXPLORATION PAUSED",getWidth()*.25f,h*.47f,23*d,Color.WHITE);
             }
             postInvalidateDelayed(32);
         }
+        private float ui(){return Math.min(density,Math.max(1f,getWidth()/390f));}
         @Override public boolean onTouchEvent(MotionEvent e){
-            int event=e.getActionMasked();float sx=e.getX(),sy=e.getY(),d=density,h=getHeight()-controlsBottom;
+            int event=e.getActionMasked();float sx=e.getX(),sy=e.getY(),d=ui(),h=getHeight()-controlsBottom;
             if(event==MotionEvent.ACTION_DOWN){
                 if(sy>h)return true;
                 if(sy>h-110*d){
@@ -345,7 +351,7 @@ public final class OutdoorActivity extends Activity {
             return true;
         }
         private void updateStick(float sx,float sy){
-            float vx=(sx-joyX)/(47*density),vy=(sy-joyY)/(47*density);
+            float vx=(sx-joyX)/(47*ui()),vy=(sy-joyY)/(47*ui());
             float mag=(float)Math.sqrt(vx*vx+vy*vy);
             if(mag>1){vx/=mag;vy/=mag;}
             knobX=vx;knobY=vy;
