@@ -65,6 +65,8 @@ public final class OutdoorActivity extends Activity {
         private boolean joystick=false,moving=false,paused=false;
         private int facing=0;
         private float walkTime=0;
+        private float idleTime=0;
+        private boolean visuallyWalking=false;
         private long lastFrame;
         private float zoom=1.8f; // Approved close camera for illustrated character detail.
         private int controlsBottom=0;
@@ -266,6 +268,8 @@ public final class OutdoorActivity extends Activity {
         }
         private void update(float dt){
             if(paused)return;
+            idleTime+=dt;
+            visuallyWalking=false;
             float dx=0,dy=0;
             if(joystick){
                 // Screen-oriented joystick: diagonal isometric world axes.
@@ -277,13 +281,15 @@ public final class OutdoorActivity extends Activity {
             }
             float distance=(float)Math.sqrt(dx*dx+dy*dy);
             if(distance>.02f){
-                walkTime+=dt;
                 float cameraDX=dx-dy,cameraDY=dx+dy;
                 facing=Math.abs(cameraDX)>Math.abs(cameraDY)?(cameraDX>0?1:3):(cameraDY>0?0:2);
                 float speed=(hero!=null&&hero.completed?hero.loadout().movementFactor():1f)*2.4f;
                 float step=Math.min(distance,speed*dt),sx=dx/distance*step,sy=dy/distance*step;
+                float oldX=x,oldY=y;
                 if(walkable(x+sx,y))x+=sx;
                 if(walkable(x,y+sy))y+=sy;
+                visuallyWalking=Math.abs(x-oldX)+Math.abs(y-oldY)>0.0001f;
+                if(visuallyWalking)walkTime+=dt;
             }
             float easing=Math.min(1f,dt*7f);
             camX+=(x-camX)*easing;camY+=(y-camY)*easing;
@@ -332,8 +338,8 @@ public final class OutdoorActivity extends Activity {
                         float feetX=screenX(x,y);
                         float feetY=screenY(x,y)-height(tx,ty)*LEVEL_H;
                         oval(c,0x66061113,feetX-23,feetY-6,feetX+23,feetY+7);
-                        fighterArt.draw(c,feetX,feetY,.86f,facing,walkTime,
-                            joystick||moving?1:0);
+                        fighterArt.draw(c,feetX,feetY,.86f,facing,
+                            visuallyWalking?walkTime:idleTime,visuallyWalking?1:0);
                         text(c,heroName,feetX-25,feetY-157,12,0xFFFFF0D1);
                     }
                 }
