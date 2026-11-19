@@ -1,5 +1,13 @@
 # Android DnD Roguelike
 
+## v0.2.0 — first isometric outdoor exploration vertical slice
+- Added **Explore Wildlands** on the main menu, and completed character creation now leads into the outdoor scene rather than the classic test arena.
+- New `OutdoorActivity` renders a three-quarter isometric view with a camera following the player and deterministic, coordinate-based outdoor terrain generation.
+- Initial generated terrain contains interpolated climate/moisture biomes, tiered elevation with basic movement checks, a meandering road and river, an illustrative bridge, vegetation, rock obstacles and handcrafted ruin landmarks.
+- Joystick and tap-to-move are retained; joystick cancels a previously targeted destination. The scene shows the Fighter's name with two placeholder party members and a live location/terrain HUD.
+- **ARENA** opens the unchanged combat prototype. The new outdoor vertical slice is for exploration; it does not yet have integrated outdoor encounters, finished art assets, robust long-distance pathfinding, proper elevation connectors, map/fog UI, tile streaming/cache, saves for procedural world state, or generated varied expedition seeds.
+- The draw code generates world tiles deterministically by coordinate and culls those outside the current camera view. This is not yet a production chunk-streaming system.
+
 ## v0.1.8 — visual character forge
 - Replaced the raw vertical field list with a dark-fantasy Character Forge layout: clear step navigation, grouped choice cards, progress controls, live stats footer, and portrait/landscape adaptations.
 - Added an illustrated character preview with distinct full-body and top-down modes, four directional views, and idle/walk/attack preview selectors.
