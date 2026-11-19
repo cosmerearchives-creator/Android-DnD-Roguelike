@@ -4,6 +4,9 @@ import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Intent;
 import android.graphics.Color;
+import android.graphics.drawable.GradientDrawable;
+import android.content.res.Configuration;
+import android.util.TypedValue;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextWatcher;
@@ -28,6 +31,9 @@ public final class CharacterCreatorActivity extends Activity {
     private PlayerCharacter hero;
     private LinearLayout root, contents;
     private TextView summary;
+    private CharacterPreviewView preview;
+    private boolean previewGame=false;
+    private int previewDirection=0,previewAnimation=0;
     private int tab=0;
     private boolean building=false;
     private final Random random=new Random();
@@ -44,41 +50,132 @@ public final class CharacterCreatorActivity extends Activity {
         TextView t=new TextView(this);t.setText(value);t.setTextColor(fg);t.setTextSize(size);
         t.setPadding(8,9,8,9);return t;
     }
-    private void heading(String s){contents.addView(text(s,19));}
+    private void heading(String s){
+        TextView h=text(s,21);h.setTypeface(null,1);h.setTextColor(0xFFF3DCAD);contents.addView(h);
+    }
     private void note(String s){TextView t=text(s,13);t.setTextColor(0xFFBFC8D2);contents.addView(t);}
-    private void persist(){if(!building){hero.save(this);if(summary!=null)summary.setText(stats());}}
+    private void persist(){if(!building){hero.save(this);if(summary!=null)summary.setText(stats());if(preview!=null)preview.character(hero);}}
+    private int dp(float n){return Math.round(TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP,n,getResources().getDisplayMetrics()));}
+    private GradientDrawable panel(int color,float radius){
+        GradientDrawable d=new GradientDrawable();d.setColor(color);d.setCornerRadius(dp(radius));
+        d.setStroke(dp(1),0xFF3E5261);return d;
+    }
+    private LinearLayout vertical(){
+        LinearLayout l=new LinearLayout(this);l.setOrientation(LinearLayout.VERTICAL);return l;
+    }
+    private LinearLayout horizontal(){
+        LinearLayout l=new LinearLayout(this);l.setOrientation(LinearLayout.HORIZONTAL);l.setGravity(Gravity.CENTER_VERTICAL);return l;
+    }
     private void show(){
         building=true;
-        ScrollView sc=new ScrollView(this);
-        root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setPadding(14,12,14,26);root.setBackgroundColor(bg);
-        sc.addView(root);
-        root.addView(text("CREATE CHARACTER  •  HIGH ELF FIGHTER",20));
-        LinearLayout nav=new LinearLayout(this);nav.setOrientation(LinearLayout.HORIZONTAL);
-        Button prev=button("◀",()->{if(tab>0){tab--;show();}});
-        Button next=button("▶",()->{if(tab<tabs.length-1){tab++;show();}});
-        nav.addView(prev,new LinearLayout.LayoutParams(0,-2,1));nav.addView(text(tabs[tab],17),new LinearLayout.LayoutParams(0,-2,3));nav.addView(next,new LinearLayout.LayoutParams(0,-2,1));
+        boolean landscape=getResources().getConfiguration().orientation==Configuration.ORIENTATION_LANDSCAPE;
+        root=vertical();root.setBackgroundColor(bg);root.setPadding(dp(12),dp(12),dp(12),dp(8));
+        TextView kicker=text("THE ARCHIVES  /  CHARACTER FORGE",12);
+        kicker.setTextColor(accent);kicker.setLetterSpacing(.16f);root.addView(kicker);
+        TextView headline=text("Forge your legend",25);headline.setTypeface(null,1);
+        root.addView(headline);
+        // Compact progress with all six sections, navigable by tapping step chips.
+        LinearLayout nav=horizontal();
+        for(int i=0;i<tabs.length;i++){
+            final int step=i;
+            Button chip=button((i+1)+(tab==i?"  "+tabs[i]:""),()->{tab=step;show();});
+            chip.setTextSize(landscape?11:12);
+            chip.setPadding(dp(3),0,dp(3),0);
+            chip.setBackground(panel(tab==i?0xFF846F4C:0xFF263643,9));
+            chip.setTextColor(0xFFFFF4D9);
+            LinearLayout.LayoutParams cp=new LinearLayout.LayoutParams(0,dp(42),tab==i?1.8f:1);
+            cp.setMargins(dp(2),dp(3),dp(2),dp(7));nav.addView(chip,cp);
+        }
         root.addView(nav);
-        contents=new LinearLayout(this);contents.setOrientation(LinearLayout.VERTICAL);
-        root.addView(contents);
+        LinearLayout work=horizontal();
+        work.setGravity(Gravity.TOP);
+        root.addView(work,new LinearLayout.LayoutParams(-1,0,1));
+        LinearLayout stage=vertical();
+        stage.setBackground(panel(0xFF172734,16));
+        stage.setPadding(dp(6),dp(6),dp(6),dp(6));
+        if(landscape) {
+            LinearLayout.LayoutParams pp=new LinearLayout.LayoutParams(0,-1,.9f);
+            pp.setMargins(0,0,dp(10),0);work.addView(stage,pp);
+        }else{
+            LinearLayout column=vertical();
+            work.addView(column,new LinearLayout.LayoutParams(-1,-1));
+            LinearLayout.LayoutParams pp=new LinearLayout.LayoutParams(-1,dp(225));
+            pp.setMargins(0,0,0,dp(8));column.addView(stage,pp);
+        }
+        LinearLayout stageLabel=horizontal();
+        TextView label=text("LIVE CHARACTER PREVIEW",12);label.setLetterSpacing(.1f);label.setTextColor(accent);
+        stageLabel.addView(label,new LinearLayout.LayoutParams(0,-2,1));
+        TextView hint=text("High Elf · Fighter",12);hint.setTextColor(0xFFABBDC6);stageLabel.addView(hint);
+        stage.addView(stageLabel);
+        preview=new CharacterPreviewView(this,hero);
+        preview.mode(previewGame);preview.direction(previewDirection);preview.animation(previewAnimation);
+        stage.addView(preview,new LinearLayout.LayoutParams(-1,0,1));
+        LinearLayout previewControls=horizontal();
+        Button mode=button(previewGame?"GAMEPLAY":"FULL BODY",()->{previewGame=!previewGame;preview.mode(previewGame);show();});
+        previewControls.addView(mode,new LinearLayout.LayoutParams(0,dp(39),1.4f));
+        Button left=button("◀",()->{previewDirection=(previewDirection+3)%4;preview.direction(previewDirection);});
+        Button right=button("▶",()->{previewDirection=(previewDirection+1)%4;preview.direction(previewDirection);});
+        previewControls.addView(left,new LinearLayout.LayoutParams(0,dp(39),.65f));
+        previewControls.addView(right,new LinearLayout.LayoutParams(0,dp(39),.65f));
+        Button motion=button(new String[]{"IDLE","WALK","ATTACK"}[previewAnimation],()->{
+            previewAnimation=(previewAnimation+1)%3;preview.animation(previewAnimation);show();
+        });
+        previewControls.addView(motion,new LinearLayout.LayoutParams(0,dp(39),1f));
+        stage.addView(previewControls);
+        ScrollView scroll=new ScrollView(this);scroll.setFillViewport(false);
+        contents=vertical();contents.setPadding(dp(8),dp(7),dp(8),dp(24));
+        scroll.addView(contents);
+        if(landscape){
+            work.addView(scroll,new LinearLayout.LayoutParams(0,-1,1.1f));
+        }else{
+            LinearLayout column=(LinearLayout)stage.getParent();
+            column.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));
+        }
+        heading(tabs[tab]);
         if(tab==0)identity();
         if(tab==1)abilities();
         if(tab==2)background();
         if(tab==3)fighter();
         if(tab==4)equipment();
         if(tab==5)review();
-        summary=text(stats(),14);root.addView(summary);
-        root.addView(button("Save draft",()->{hero.save(this);new AlertDialog.Builder(this).setMessage("Character draft saved locally.").setPositiveButton("OK",null).show();}));
+        LinearLayout footer=vertical();footer.setBackground(panel(0xFF233443,13));
+        footer.setPadding(dp(8),dp(5),dp(8),dp(5));
+        summary=text(stats(),13);summary.setGravity(Gravity.CENTER);summary.setTextColor(0xFFE5D2A9);footer.addView(summary);
+        LinearLayout actions=horizontal();
+        Button previous=button("Previous",()->{if(tab>0){tab--;show();}});
+        previous.setEnabled(tab>0);
+        actions.addView(previous,new LinearLayout.LayoutParams(0,dp(45),1));
+        Button save=button("Save draft",()->{hero.save(this);new AlertDialog.Builder(this).setMessage("Character draft saved locally.").setPositiveButton("OK",null).show();});
+        actions.addView(save,new LinearLayout.LayoutParams(0,dp(45),1));
+        Button next=button(tab==tabs.length-1?"START ADVENTURE":"Next step",()->{
+            if(tab<tabs.length-1){tab++;show();}else finishCharacter();
+        });
+        next.setBackground(panel(0xFF9F8554,9));next.setTextColor(Color.WHITE);
+        actions.addView(next,new LinearLayout.LayoutParams(0,dp(45),1.2f));
+        footer.addView(actions);
+        root.addView(footer);
         building=false;
-        setContentView(sc);
+        setContentView(root);
         persist();
     }
     private Button button(String caption,Runnable onClick){
-        Button b=new Button(this);b.setText(caption);b.setAllCaps(false);b.setOnClickListener(v->onClick.run());return b;
+        Button b=new Button(this);b.setText(caption);b.setAllCaps(false);b.setTextColor(Color.WHITE);
+        b.setTextSize(13);b.setPadding(dp(5),0,dp(5),0);
+        b.setBackground(panel(0xFF304657,9));b.setOnClickListener(v->onClick.run());return b;
     }
     private void select(String label,String[] options,String current,java.util.function.Consumer<String> changed){
-        contents.addView(text(label,15));
+        LinearLayout field=vertical();field.setPadding(dp(12),dp(7),dp(12),dp(9));
+        field.setBackground(panel(0xFF253747,11));
+        LinearLayout.LayoutParams fieldParams=new LinearLayout.LayoutParams(-1,-2);fieldParams.setMargins(0,dp(5),0,dp(5));
+        TextView title=text(label.toUpperCase(),12);title.setTextColor(accent);title.setLetterSpacing(.1f);
+        field.addView(title);
         Spinner spinner=new Spinner(this);
-        ArrayAdapter<String> a=new ArrayAdapter<>(this,android.R.layout.simple_spinner_dropdown_item,options);
+        ArrayAdapter<String> a=new ArrayAdapter<String>(this,android.R.layout.simple_spinner_dropdown_item,options){
+            @Override public View getView(int pos,View convert,android.view.ViewGroup parent){
+                TextView selected=(TextView)super.getView(pos,convert,parent);
+                selected.setTextColor(Color.WHITE);selected.setTextSize(16);return selected;
+            }
+        };
         spinner.setAdapter(a);int index=Arrays.asList(options).indexOf(current);spinner.setSelection(Math.max(0,index));
         spinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener(){
             public void onNothingSelected(AdapterView<?> parent){}
@@ -87,7 +184,7 @@ public final class CharacterCreatorActivity extends Activity {
                 changed.accept(chosen);persist();
             }
         });
-        contents.addView(spinner);
+        field.addView(spinner);contents.addView(field,fieldParams);
     }
     private void identity(){
         heading("Identity and appearance");
@@ -111,7 +208,7 @@ public final class CharacterCreatorActivity extends Activity {
         contents.addView(text("Height: "+hero.heightInches+" inches",15));
         SeekBar height=new SeekBar(this);height.setMax(18);height.setProgress(hero.heightInches-56);
         height.setOnSeekBarChangeListener(seek(v->{hero.heightInches=56+v;persist();}));contents.addView(height);
-        note("Advanced face, build, markings, and live character preview are reserved for the later appearance editor.");
+        note("Your appearance and starting equipment update the live preview above. More detailed facial customization and markings are planned for later.");
     }
     private SeekBar.OnSeekBarChangeListener seek(java.util.function.IntConsumer changed){
         return new SeekBar.OnSeekBarChangeListener(){
@@ -197,7 +294,7 @@ public final class CharacterCreatorActivity extends Activity {
         select("Adventuring pack",new String[]{"explorer","dungeon"},hero.packChoice,v->{hero.packChoice=v;show();});
         Equipment.Bag preview=hero.loadout();
         note(preview.summary()+"\nCoins: "+preview.gold+" gp (weightless)");
-        note("Background wardrobe unlocks are cosmetic and weightless. Basic equipment statistics and weight appear here; detailed model previews are a later pass.");
+        note("Background wardrobe unlocks remain cosmetic and weightless. Equipped armor, shield, and main-hand weapon are reflected in the preview.");
     }
     private String stats(){
         return "STR "+hero.score(0)+"  DEX "+hero.score(1)+"  CON "+hero.score(2)+
