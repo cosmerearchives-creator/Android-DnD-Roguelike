@@ -1,5 +1,12 @@
 # Android DnD Roguelike
 
+## v0.2.6 — perspective-correct female High Elf art test
+- Replaces the old front/side studio-style sprites with four newly illustrated **isometric-angle** views of the same young-adult female elf fighter (front, right, back, left), with golden-blonde partially tied hair, pointed ears, semi-practical silver armor, sword, and shield.
+- Packages a fully verified **960×320 RGBA WebP** atlas (240×320 source pixels per facing). The original asset bytes were transferred directly to GitHub and verified against its Git blob SHA; no extra downsampling for upload.
+- Updates the sprite facing indices to the new image order. The camera stays at the approved 1.8× zoom.
+- The Wildlands renderer now draws the player and placeholder companions at their terrain depth positions rather than as a final foreground overlay. Nearby trees, props, and foreground elevation can occlude characters naturally. A subtle shadow anchors the player's feet.
+- Preserves the existing dungeon arena, exploration, character data, and updater. The new atlas is a fixed visual test: no fully modular equipped gear or genuine walking animations yet.
+
 ## v0.2.5 — closer illustrated elf visual pass (pending release verification)
 - The camera is now 1.8× (was 1.6×) as approved. The player's illustrated sprite is slightly wider and taller for better face, hair and armor readability; companion/environment artwork and all gameplay systems are unchanged.
 - Replaced the previous 320×105 four-view WebP asset (80×105 per view) with a 640×210 four-view asset (160×210 per view), maintaining alpha transparency. This uses more source pixels but is still a compressed static prototype rather than a full-resolution production atlas.
