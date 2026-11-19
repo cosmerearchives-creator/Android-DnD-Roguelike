@@ -77,10 +77,11 @@ final class IllustratedFighter {
             int index=order[Math.max(0,Math.min(3,facing))];
             int fw=spriteAtlas.getWidth()/4,fh=spriteAtlas.getHeight();
             Rect src=new Rect(index*fw,0,(index+1)*fw,fh);
-            float width=116f*scale,height=153f*scale;
+            float width=125f*scale,height=166f*scale; // Larger, less compressed feminine silhouette.
             float bounce=phase==1?(float)Math.sin(elapsed*10f)*1.2f*scale:0f;
             RectF dst=new RectF(footX-width*.5f,footY-height+bounce,footX+width*.5f,footY+bounce);
             spritePaint.setAlpha(255);
+            spritePaint.setFilterBitmap(true);
             c.drawBitmap(spriteAtlas,src,dst,spritePaint);
             return;
         }
