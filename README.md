@@ -1,5 +1,11 @@
 # Android DnD Roguelike
 
+## v0.2.7 — Fantasy Adventurer armor selection (B)
+- Replaces the gameplay female High Elf Fighter artwork with the approved **B / Fantasy Adventurer** armor reference: more feminine sculpted medium armor, exposed upper arms, lighter thigh coverage, ornate silver-and-gold elven detail and blue tabard, while preserving sword and shield.
+- Keeps youthful adult features, distinctly pointed ears and long golden-blonde hair partially tied back.
+- Four isometric-facing illustrated frames (front, right, back, left) are now a **1440×480 transparent WebP atlas**, 360×480 source pixels per frame. Git binary SHA verified against the prepared asset before committing.
+- Preserves existing 1.8× camera, movement, combat test arena, companions, terrain and depth sorting. This is a static visual benchmark, not modular equipment customization or true walk-cycle animation.
+
 ## v0.2.6 — perspective-correct female High Elf art test
 - Replaces the old front/side studio-style sprites with four newly illustrated **isometric-angle** views of the same young-adult female elf fighter (front, right, back, left), with golden-blonde partially tied hair, pointed ears, semi-practical silver armor, sword, and shield.
 - Packages a fully verified **960×320 RGBA WebP** atlas (240×320 source pixels per facing). The original asset bytes were transferred directly to GitHub and verified against its Git blob SHA; no extra downsampling for upload.
