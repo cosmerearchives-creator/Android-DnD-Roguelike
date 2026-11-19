@@ -75,7 +75,7 @@ public final class OutdoorActivity extends Activity {
         private int lastVisitedX=Integer.MIN_VALUE,lastVisitedY=Integer.MIN_VALUE;
         private int discovered=0;
         private final java.util.HashSet<Long> seen=new java.util.HashSet<>();
-        private int[] colorRange={0xFF698D65,0xFF527952,0xFF375C4D,0xFF9B966B,0xFF77858C,0xFF497A8F};
+        private int[] colorRange={0xFF526D47,0xFF425E41,0xFF345044,0xFF807B55,0xFF66766C,0xFF33697A};
         private final float density;
         Landscape(Context context){
             super(context);appContext=context;hero=PlayerCharacter.load(context);
@@ -168,22 +168,36 @@ public final class OutdoorActivity extends Activity {
             p.setColor(color);p.setTypeface(android.graphics.Typeface.create("sans-serif",android.graphics.Typeface.BOLD));
             p.setTextSize(size);p.setStyle(Paint.Style.FILL);c.drawText(s,xx,yy,p);
         }
+        private int shade(int color,int delta){
+            int r=Math.max(0,Math.min(255,Color.red(color)+delta));
+            int g=Math.max(0,Math.min(255,Color.green(color)+delta));
+            int b=Math.max(0,Math.min(255,Color.blue(color)+delta));
+            return Color.rgb(r,g,b);
+        }
         private void terrain(Canvas c,int xx,int yy){
             int level=height(xx,yy),kind=biome(xx,yy);
             float sx=screenX(xx+.5f,yy+.5f),sy=screenY(xx+.5f,yy+.5f)-level*LEVEL_H;
             int base=colorRange[kind];
-            if(road(xx,yy)&&!river(xx,yy))base=0xFF947E60;
-            if(bridge(xx,yy))base=0xFF967653;
+            if(road(xx,yy)&&!river(xx,yy))base=0xFF866D4C;
+            if(bridge(xx,yy))base=0xFF8F7454;
             if(level>0){
                 polygon(c,0xFF313B34,sx-TILE_W*.5f,sy,sx,sy+TILE_H*.5f,
                     sx,sy+TILE_H*.5f+level*LEVEL_H,sx-TILE_W*.5f,sy+level*LEVEL_H);
                 polygon(c,0xFF40463B,sx,sy+TILE_H*.5f,sx+TILE_W*.5f,sy,
                     sx+TILE_W*.5f,sy+level*LEVEL_H,sx,sy+TILE_H*.5f+level*LEVEL_H);
             }
-            polygon(c,base,sx,sy-TILE_H*.5f,sx+TILE_W*.5f,sy,sx,sy+TILE_H*.5f,sx-TILE_W*.5f,sy);
             long seed=hash(xx,yy,27);
+            // Preserve generated terrain but add alternating low-contrast pigment layers.
+            if(kind!=5 && (seed&7)==3)base=shade(base,-9);
+            polygon(c,base,sx,sy-TILE_H*.5f,sx+TILE_W*.5f,sy,sx,sy+TILE_H*.5f,sx-TILE_W*.5f,sy);
+            if(kind!=5 && !road(xx,yy)){
+                polygon(c,0x224C8550,sx-24,sy-2,sx-4,sy-13,sx+17,sy-1,sx+4,sy+8);
+                if((seed&31)==11)oval(c,0x66375438,sx-21,sy-2,sx-3,sy+3);
+            }
             if(kind==5){
-                line(c,0x5539D5E7,1,sx-20,sy-2,sx+3,sy-13);
+                polygon(c,0x334FB0B0,sx-35,sy+3,sx-5,sy-12,sx+24,sy+2,sx+2,sy+11);
+                line(c,0x8874C8CD,1.3f,sx-20,sy-2,sx+3,sy-13);
+                line(c,0x665FA9B2,1.2f,sx+2,sy+7,sx+19,sy-2);
                 if(bridge(xx,yy)){
                     polygon(c,0xFFB19A78,sx,sy-18,sx+40,sy,sx,sy+18,sx-40,sy);
                     line(c,0xFF473728,3,sx-35,sy+3,sx+3,sy+18);
@@ -205,9 +219,14 @@ public final class OutdoorActivity extends Activity {
                 for(int n=0;n<3;n++){
                     float px=sx-20+((seed>>(n*7))&31);
                     float py=sy-8+((seed>>(n*5+11))&15);
-                    int leaf=(kind==3?0xFFB9AB74:0xFF8AAA63);
-                    line(c,leaf,1,px,py+3,px-2,py-3);
-                    line(c,0xFF466B40,1,px,py+3,px+3,py-1);
+                    int leaf=(kind==3?0xFFB8AC78:0xFF80A665);
+                    line(c,0xFF233F2D,1.1f,px,py+4,px,py-5);
+                    line(c,leaf,1.4f,px,py+1,px-3,py-3);
+                    line(c,0xFF6A9256,1.4f,px,py,px+3,py-3);
+                    if(n==0 && (seed&7)==5){
+                        oval(c,0xFFE8D8A0,px-2,py-7,px+2,py-3);
+                        oval(c,0xFFD7A26C,px,py-6,px+2,py-4);
+                    }
                 }
                 if((seed&15)==7){
                     float px=sx+((seed>>19)&15)-8,py=sy+((seed>>24)&7)-4;
@@ -242,13 +261,20 @@ public final class OutdoorActivity extends Activity {
             if(road(xx,yy)||river(xx,yy))return;
             long seed=hash(xx,yy,83);int kind=biome(xx,yy);
             if((seed&31)==4&&(kind==1||kind==2)){
-                oval(c,0x99000000,sx-19,sy-3,sx+17,sy+5);
-                rect(c,0xFF66513A,sx-4,sy-35,sx+4,sy);
-                polygon(c,0xFF244A37,sx-24,sy-33,sx,sy-92,sx+25,sy-33);
-                polygon(c,0xFF37634B,sx-23,sy-47,sx,sy-82,sx+21,sy-47);
+                oval(c,0x99000000,sx-22,sy-4,sx+20,sy+7);
+                polygon(c,0xFF57402C,sx-6,sy+1,sx-5,sy-39,sx+4,sy-39,sx+6,sy+1);
+                polygon(c,0xFF213D33,sx-26,sy-28,sx-10,sy-68,sx,sy-101,sx+14,sy-63,sx+27,sy-26);
+                polygon(c,0xFF305447,sx-27,sy-42,sx-4,sy-83,sx+2,sy-93,sx+21,sy-42);
+                polygon(c,0xFF406952,sx-24,sy-55,sx-5,sy-86,sx+1,sy-96,sx+18,sy-56);
+                polygon(c,0xFF547656,sx-6,sy-82,sx,sy-97,sx+3,sy-79);
+                line(c,0xFF9A9E69,1.3f,sx-12,sy-46,sx-18,sy-34);
+                line(c,0xFF8E9D69,1.2f,sx+8,sy-65,sx+17,sy-42);
             }else if((seed&63)==15&&height(xx,yy)>0){
-                polygon(c,0xFF7F8880,sx-15,sy+1,sx-7,sy-18,sx+5,sy-24,sx+17,sy-8,sx+12,sy+2);
-                line(c,0xFFB1B3A5,2,sx-7,sy-18,sx+1,sy-14);
+                oval(c,0x77000000,sx-19,sy-1,sx+20,sy+6);
+                polygon(c,0xFF525B59,sx-18,sy+1,sx-14,sy-13,sx-3,sy-22,sx+11,sy-16,sx+19,sy-3,sx+12,sy+3);
+                polygon(c,0xFF92968B,sx-14,sy-12,sx-4,sy-25,sx+6,sy-22,sx+13,sy-11,sx+1,sy-7);
+                line(c,0xFFD0C6A1,2,sx-8,sy-17,sx+4,sy-20);
+                line(c,0xFF526D50,2,sx-14,sy-3,sx-5,sy-5);
             }else if((seed&63)==22&&kind==0){
                 oval(c,0xFF557B42,sx-10,sy-7,sx+10,sy+4);
             }
