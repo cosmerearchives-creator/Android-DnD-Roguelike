@@ -4,6 +4,9 @@ import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Canvas;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.graphics.Rect;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Path;
@@ -56,6 +59,10 @@ public final class OutdoorActivity extends Activity {
     static final class Landscape extends View {
         private static final float TILE_W=88f,TILE_H=44f,LEVEL_H=24f;
         private final Paint p=new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final Paint groundPaint=new Paint(Paint.ANTI_ALIAS_FLAG|Paint.FILTER_BITMAP_FLAG);
+        private final Bitmap groundAtlas;
+        private final Rect tileSource=new Rect();
+        private final RectF tileDestination=new RectF();
         private final Path path=new Path();
         private final PlayerCharacter hero;
         private final IllustratedFighter fighterArt;
@@ -79,6 +86,11 @@ public final class OutdoorActivity extends Activity {
         private final float density;
         Landscape(Context context){
             super(context);appContext=context;hero=PlayerCharacter.load(context);
+            Bitmap atlas=null;
+            try(java.io.InputStream input=context.getAssets().open("wildlands_terrain.webp")){
+                atlas=BitmapFactory.decodeStream(input);
+            }catch(java.io.IOException ignored){ }
+            groundAtlas=atlas;
             fighterArt=new IllustratedFighter(context,hero);
             heroName=hero!=null&&hero.completed?hero.name:"Explorer";
             density=getResources().getDisplayMetrics().density;
@@ -178,6 +190,38 @@ public final class OutdoorActivity extends Activity {
             int b=Math.max(0,Math.min(255,Color.blue(color)+delta));
             return Color.rgb(r,g,b);
         }
+        private void texturePoly(Canvas c,int index,float... coordinates){
+            // Clipped high-detail painted ground texture, with a tiny immutable atlas.
+            // Fallback remains available if an asset is missing on an older build.
+            if(groundAtlas==null)return;
+            Path shape=new Path();
+            shape.moveTo(coordinates[0],coordinates[1]);
+            float l=coordinates[0],r=l,t=coordinates[1],b=t;
+            for(int i=2;i<coordinates.length;i+=2){
+                shape.lineTo(coordinates[i],coordinates[i+1]);
+                l=Math.min(l,coordinates[i]);r=Math.max(r,coordinates[i]);
+                t=Math.min(t,coordinates[i+1]);b=Math.max(b,coordinates[i+1]);
+            }
+            shape.close();
+            int size=groundAtlas.getWidth()/4;
+            int id=Math.max(0,Math.min(15,index));
+            tileSource.set((id%4)*size,(id/4)*size,(id%4+1)*size,(id/4+1)*size);
+            tileDestination.set(l,t,r,b);
+            c.save();
+            c.clipPath(shape);
+            c.drawBitmap(groundAtlas,tileSource,tileDestination,groundPaint);
+            c.restore();
+        }
+        private int tileArt(int xx,int yy,int kind,long seed){
+            if(bridge(xx,yy))return 11; // textured wooden footbridge
+            if(kind==5)return 10; // rippling water
+            if(road(xx,yy))return (seed&3)==0?5:4; // two illustrated soil variations
+            if(kind==4)return 8; // rocky plateau
+            if(kind==3)return 3; // drier meadow
+            if(kind==2)return (seed&3)==0?12:2; // ferns and leaf litter
+            if(kind==1)return (seed&3)==0?1:0;
+            return (seed&7)==0?12:0;
+        }
         private void terrain(Canvas c,int xx,int yy){
             int level=height(xx,yy),kind=biome(xx,yy);
             float sx=screenX(xx+.5f,yy+.5f),sy=screenY(xx+.5f,yy+.5f)-level*LEVEL_H;
@@ -189,11 +233,17 @@ public final class OutdoorActivity extends Activity {
                     sx,sy+TILE_H*.5f+level*LEVEL_H,sx-TILE_W*.5f,sy+level*LEVEL_H);
                 polygon(c,0xFF40463B,sx,sy+TILE_H*.5f,sx+TILE_W*.5f,sy,
                     sx+TILE_W*.5f,sy+level*LEVEL_H,sx,sy+TILE_H*.5f+level*LEVEL_H);
+                texturePoly(c,8,sx-TILE_W*.5f,sy,sx,sy+TILE_H*.5f,
+                    sx,sy+TILE_H*.5f+level*LEVEL_H,sx-TILE_W*.5f,sy+level*LEVEL_H);
+                texturePoly(c,8,sx,sy+TILE_H*.5f,sx+TILE_W*.5f,sy,
+                    sx+TILE_W*.5f,sy+level*LEVEL_H,sx,sy+TILE_H*.5f+level*LEVEL_H);
             }
             long seed=hash(xx,yy,27);
             // Preserve generated terrain but add alternating low-contrast pigment layers.
             if(kind!=5 && (seed&7)==3)base=shade(base,-9);
             polygon(c,base,sx,sy-TILE_H*.5f,sx+TILE_W*.5f,sy,sx,sy+TILE_H*.5f,sx-TILE_W*.5f,sy);
+            texturePoly(c,tileArt(xx,yy,kind,seed),sx,sy-TILE_H*.5f,
+                sx+TILE_W*.5f,sy,sx,sy+TILE_H*.5f,sx-TILE_W*.5f,sy);
             if(kind!=5 && !road(xx,yy)){
                 polygon(c,0x224C8550,sx-24,sy-2,sx-4,sy-13,sx+17,sy-1,sx+4,sy+8);
                 if((seed&31)==11)oval(c,0x66375438,sx-21,sy-2,sx-3,sy+3);
@@ -322,9 +372,10 @@ public final class OutdoorActivity extends Activity {
                 if(walkable(x,y+sy))y+=sy;
                 visuallyWalking=Math.abs(x-oldX)+Math.abs(y-oldY)>0.0001f;
                 if(visuallyWalking){
-                    walkTime+=dt;
-                }else{
-                    walkTime=0f;
+                    float travelled=(float)Math.hypot(x-oldX,y-oldY);
+                    // Gait advances by real world distance, not elapsed wall time.
+                    // At ~2.4 tiles/sec this is ~10 animation frames/sec.
+                    walkTime+=travelled*.42f;
                 }
             }
             float easing=Math.min(1f,dt*7f);
