@@ -75,7 +75,7 @@ final class Equipment {
         boolean moveToContainer(String id,String containerId){
             Stack s=find(id),container=find(containerId);
             if(s==null||container==null||s==container||container.item.kind!=Kind.CONTAINER)return false;
-            if(!s.contents.isEmpty()||s.count!=1)return false;
+            if(!s.contents.isEmpty())return false;
             if(container.contentsWeight()+s.weight()>container.item.capacity)return false;
             if(removeReference(roots,s)){container.contents.add(s);return true;}return false;
         }
@@ -104,6 +104,7 @@ final class Equipment {
             if(item.kind!=Kind.SHIELD&&item.kind!=Kind.WEAPON&&!id.equals("torch"))return false;
             Item main=get(slots[0]);
             if(main!=null&&(main.twoHanded||(main.versatile&&versatileTwoHanded)))return false;
+            if(item.kind==Kind.WEAPON&&item.twoHanded)return false;
             slots[i]=id;return true;
         }
         boolean setTwoHanded(boolean value){
@@ -266,12 +267,21 @@ final class Equipment {
         bag.add("tinderbox",1);bag.add("torch",10);bag.add("ration",10);
         bag.add("waterskin",1);bag.add("rope_hemp",1);
         Stack skin=bag.find("waterskin");if(skin!=null)skin.filledPints=4;
+        // Standard supplies fit inside the backpack; bedroll and rope are carried externally.
+        bag.moveToContainer("ration","backpack");
+        bag.moveToContainer("tinderbox","backpack");
+        bag.moveToContainer("mess_kit","backpack");
     }
     static void dungeonPack(Bag bag){
         bag.add("backpack",1);bag.add("crowbar",1);bag.add("hammer",1);
         bag.add("piton",10);bag.add("torch",10);bag.add("tinderbox",1);
         bag.add("ration",10);bag.add("waterskin",1);bag.add("rope_hemp",1);
         Stack skin=bag.find("waterskin");if(skin!=null)skin.filledPints=4;
+        bag.moveToContainer("crowbar","backpack");
+        bag.moveToContainer("hammer","backpack");
+        bag.moveToContainer("piton","backpack");
+        bag.moveToContainer("torch","backpack");
+        bag.moveToContainer("tinderbox","backpack");
     }
     static Bag fighterDemo(){
         Bag bag=new Bag();
