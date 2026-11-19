@@ -21,6 +21,7 @@ final class IllustratedFighter {
     private final Path path=new Path();
     private final PlayerCharacter hero;
     private final Bitmap spriteAtlas;
+    private final Bitmap walkAtlas;
     private final Paint spritePaint=new Paint(Paint.ANTI_ALIAS_FLAG|Paint.FILTER_BITMAP_FLAG);
     IllustratedFighter(Context context, PlayerCharacter hero){
         this.hero=hero;
@@ -31,6 +32,13 @@ final class IllustratedFighter {
             // Retain original vector fallback until artwork is packaged.
         }
         spriteAtlas=art;
+        Bitmap steps=null;
+        try(java.io.InputStream stream=context.getAssets().open("elf_fighter_walk.webp")){
+            steps=BitmapFactory.decodeStream(stream);
+        }catch(java.io.IOException ignored){
+            // If the animated atlas is unavailable, the idle sprite remains usable.
+        }
+        walkAtlas=steps;
     }
     boolean hasIllustratedAtlas(){return spriteAtlas!=null;}
     private void poly(Canvas c,int color,float... coords){
@@ -72,17 +80,31 @@ final class IllustratedFighter {
     void draw(Canvas canvas,float footX,float footY,float scale,int facing,float elapsed,int phase){
         Canvas c=canvas;
         if(spriteAtlas!=null){
-            // Four 240x320 isometric frames: front, right, back, left.
-            int[] order={0,1,2,3};
-            int index=order[Math.max(0,Math.min(3,facing))];
-            int fw=spriteAtlas.getWidth()/4,fh=spriteAtlas.getHeight();
-            Rect src=new Rect(index*fw,0,(index+1)*fw,fh);
-            float width=125f*scale,height=166f*scale; // Larger, less compressed feminine silhouette.
-            float bounce=phase==1?(float)Math.sin(elapsed*10f)*1.2f*scale:0f;
-            RectF dst=new RectF(footX-width*.5f,footY-height+bounce,footX+width*.5f,footY+bounce);
+            // Four directional views: front, right, back, left. Direction changes
+            // are instantaneous; there are no turning/interpolation frames.
+            final int direction=Math.max(0,Math.min(3,facing));
+            final boolean walking=phase==1 && walkAtlas!=null;
+            final Bitmap atlas=walking?walkAtlas:spriteAtlas;
+            // Walking atlas: 4 frames across x 4 direction rows.
+            // Idle atlas: 4 directions across one row.
+            final int columns=4;
+            final int fw=atlas.getWidth()/columns;
+            final int fh=walking?atlas.getHeight()/4:atlas.getHeight();
+            final int frame=walking?((int)(elapsed*7f)%4):direction;
+            final int row=walking?direction:0;
+            Rect src=new Rect(frame*fw,row*fh,(frame+1)*fw,(row+1)*fh);
+            float width=125f*scale,height=166f*scale;
+            // Small idle breathing while preserving original frame shape and alignment.
+            final float idleBreath=phase==0?(float)Math.sin(elapsed*1.7f):0f;
+            final float lift=walking?((frame==1||frame==3)?-1.4f*scale:0):idleBreath*.5f*scale;
+            c.save();
+            c.translate(footX,footY+lift);
+            if(!walking)c.scale(1f+idleBreath*.002f,1f-idleBreath*.003f,0,-height*.35f);
+            RectF dst=new RectF(-width*.5f,-height,width*.5f,0);
             spritePaint.setAlpha(255);
             spritePaint.setFilterBitmap(true);
-            c.drawBitmap(spriteAtlas,src,dst,spritePaint);
+            c.drawBitmap(atlas,src,dst,spritePaint);
+            c.restore();
             return;
         }
         c.save();c.translate(footX,footY);c.scale(scale,scale);
