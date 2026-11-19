@@ -1,5 +1,12 @@
 # Android DnD Roguelike
 
+## v0.1.6 — first character creator (initial playable milestone)
+- Added a native Android High Elf Fighter creation wizard with identity and basic appearance choices, 4d6-drop-lowest score sets (up to three rerolls), manual ability assignment, background, Fighter skills, Fighting Style, racial cantrip selection, and starting equipment choices.
+- Added character review and local draft/completed-character persistence. The completed character replaces the default Hero in the arena, with selected HP, basic ability-derived weapon calculations, AC, personal currency, and equipment.
+- Equipment choices support Fighter's armor, martial weapons, crossbow or handaxes, and Explorer's/Dungeoneer's packs, along with starter background equipment.
+- **Current limits:** this is the first playable creator, not the complete agreed design. Advanced visual customization and preview, personality writing, full background features, cantrip casting, Fighter class abilities, item interactions, and gameplay progression are not all implemented. A full gameplay save beyond the completed creation choices is also pending.
+- Release publication is now gated to changes in `version.properties` (or explicit manual dispatch); other pushes still run build/lint without repeatedly attempting to publish the same version.
+
 ## v0.1.4 — starting equipment foundation (in progress)
 - Added a 2014-based equipment catalog covering Fighter weapon options, armor, shields, adventuring supplies, tools, containers, and key background objects.
 - Added a character inventory model with item weights, container capacity, starting pack lists, gear slots, load limits, and weightless personal currency.
