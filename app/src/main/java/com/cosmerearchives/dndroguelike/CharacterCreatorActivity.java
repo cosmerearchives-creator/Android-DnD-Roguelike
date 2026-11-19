@@ -212,9 +212,9 @@ public final class CharacterCreatorActivity extends Activity {
         note("Skills: "+hero.skillOne+", "+hero.skillTwo+"  •  Cantrip: "+hero.cantrip);
         note("Fey Ancestry, Darkvision 60 ft, Trance, Keen Senses, Elven Weapon Training");
         note(stats()+"\n"+hero.loadout().summary());
-        contents.addView(button("Finish character and enter game",()->finish()));
+        contents.addView(button("Finish character and enter game",()->finishCharacter()));
     }
-    private void finish(){
+    private void finishCharacter(){
         if(!hero.valid()){
             new AlertDialog.Builder(this).setTitle("Incomplete character")
                 .setMessage("Choose a name and two different Fighter skills before starting.")
