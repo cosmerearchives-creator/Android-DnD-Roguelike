@@ -49,6 +49,28 @@ final class RigLegPoseTest {
         RigLegPose.Pose sideB=RigLegPose.solve(.32f,0,1,1f,0f);
         check(Math.abs(sideA.footX-sideB.footX)>12f,
             "side foot needs substantial stride");
+        boolean sawSwing = false;
+        for (int frame = 0; frame < 120; frame++) {
+            float phase = frame / 120f;
+            RigLegPose.Pose pose = RigLegPose.solveProfile(phase, 0, 1f, -1f);
+            check(pose.hipX == 0f, "profile hip must stay under the pelvis");
+            check(pose.kneeY > pose.hipY && pose.kneeY < pose.ankleY,
+                "profile knee must stay between hip and ankle");
+            if (pose.planted) {
+                check(pose.footY == 0f, "stance sole must stay on the ground");
+                check(Math.abs(pose.kneeX - pose.footX * .5f) <= 2.01f,
+                    "stance leg must stay near extension");
+            }
+            if (pose.lift > 7f) {
+                sawSwing = true;
+                check(pose.kneeX - pose.footX * .5f > 8f, "swing knee must flex");
+            }
+            RigLegPose.Pose other = RigLegPose.solveProfile(phase, 1, 1f, -1f);
+            RigLegPose.Pose opposite = RigLegPose.solveProfile(phase + .5f, 0, 1f, -1f);
+            check(other.footX == opposite.footX && other.footY == opposite.footY,
+                "profile feet must alternate by half a cycle");
+        }
+        check(sawSwing, "profile step needs clearance");
         System.out.println("Rig projections passed: upright stance, narrow frontal gait, depth steps");
     }
 }

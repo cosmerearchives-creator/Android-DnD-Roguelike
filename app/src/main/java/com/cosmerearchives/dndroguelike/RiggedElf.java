@@ -76,17 +76,27 @@ final class RiggedElf {
 
         boolean boundBase = !armored && baseArt.ready(facing);
         boolean frontFallback = facing == 0 && !armored && !boundBase;
+        boolean profileBase = boundBase && side;
+        float leftSwing = armSwing, rightSwing = -armSwing;
+        if (profileBase) {
+            leftSwing = GaitModel.sample(cyc, 1).along * 16f * blend + armIdle;
+            rightSwing = GaitModel.sample(cyc, 0).along * 16f * blend - armIdle;
+        }
         float leftShoulder=RigViewProfile.shoulderX(facing,0) - (frontFallback ? .6f : 0f);
         float rightShoulder=RigViewProfile.shoulderX(facing,1) + (frontFallback ? .6f : 0f);
         float shoulderY = frontFallback ? -109f : -108f;
-        float leftElbow=RigViewProfile.elbowX(facing,0)+armSwing*.48f;
-        float rightElbow=RigViewProfile.elbowX(facing,1)-armSwing*.48f;
-        float leftHand=RigViewProfile.handX(facing,0)+armSwing;
-        float rightHand=RigViewProfile.handX(facing,1)-armSwing;
+        float leftElbow=RigViewProfile.elbowX(facing,0)+leftSwing*.48f;
+        float rightElbow=RigViewProfile.elbowX(facing,1)+rightSwing*.48f;
+        float leftHand=RigViewProfile.handX(facing,0)+leftSwing;
+        float rightHand=RigViewProfile.handX(facing,1)+rightSwing;
         float leftElbowY = RigViewProfile.elbowY(facing, 0) + armDepth*.42f;
         float rightElbowY = RigViewProfile.elbowY(facing, 1) - armDepth*.42f;
         float leftHandY=RigViewProfile.handY(facing,0)+armDepth-attack.guard;
         float rightHandY=RigViewProfile.handY(facing,1)-armDepth;
+        if (profileBase) {
+            leftHandY -= .04f * leftSwing * leftSwing;
+            rightHandY -= .04f * rightSwing * rightSwing;
+        }
         if (frontFallback) {
             // Continue the upper arm's line into the lower arm and finish
             // with a relaxed wrist and fingers at the reference height.
@@ -163,13 +173,18 @@ final class RiggedElf {
             c.restore();
         }
 
-        RigLegPose.Pose left=RigLegPose.solve(distanceCycles,0,facing,blend,bounce);
-        RigLegPose.Pose right=RigLegPose.solve(distanceCycles,1,facing,blend,bounce);
-        if (boundBase && facing == 3) {
-            if (showFarLimbs) baseArt.drawLeg(c,facing,0,left);
-            baseArt.drawLeg(c,facing,1,right);
+        RigLegPose.Pose left = profileBase ? RigLegPose.solveProfile(distanceCycles, 0, blend, bounce)
+            : RigLegPose.solve(distanceCycles, 0, facing, blend, bounce);
+        RigLegPose.Pose right = profileBase ? RigLegPose.solveProfile(distanceCycles, 1, blend, bounce)
+            : RigLegPose.solve(distanceCycles, 1, facing, blend, bounce);
+        if (boundBase) {
+            int near = facing == 3 ? 1 : 0;
+            if (showFarLimbs) {
+                baseArt.drawLeg(c, facing, 1 - near, near == 0 ? right : left, torsoX, bounce + breathe);
+            }
+            baseArt.drawLeg(c, facing, near, near == 0 ? left : right, torsoX, bounce + breathe);
         } else {
-            if (showFarLimbs) drawLeg(c,side,back,right,facing,1,armored);
+            drawLeg(c,side,back,right,facing,1,armored);
             drawLeg(c,side,back,left,facing,0,armored);
         }
 
@@ -343,10 +358,6 @@ final class RiggedElf {
         float kneeX=leg.kneeX,kneeY=leg.kneeY;
         float footX=leg.footX,footY=leg.footY;
         float ankleY=leg.ankleY;
-        if (!armored && baseArt.ready(facing)) {
-            baseArt.drawLeg(c,facing,index,leg);
-            return;
-        }
         if(layers.ready()){
             // Lower leg goes behind the upper leg at the shared knee.
             // This conceals the boot segment's rectangular source edge.

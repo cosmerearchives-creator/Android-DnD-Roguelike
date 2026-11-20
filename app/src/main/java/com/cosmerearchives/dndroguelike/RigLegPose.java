@@ -28,6 +28,24 @@ final class RigLegPose {
         }
     }
 
+    static Pose solveProfile(float cycles, int index, float blend, float bounce) {
+        float phase = GaitModel.fractional(cycles + .5f * index);
+        GaitModel.Foot foot = GaitModel.sample(phase, 0);
+        float depth = foot.along * STEP_DEPTH * blend;
+        float lift = foot.lift * 7.5f * blend;
+        float hipY = HIP_Y + bounce;
+        float ankle = -BOOT_ANKLE - lift;
+
+        // The stance leg carries the body with only a small knee bend. The
+        // swing leg flexes as the heel lifts and extends before contact.
+        float stanceProgress = Math.min(1f, phase / GaitModel.STANCE);
+        float kneeFlex = blend * (2f * (float) Math.sin(Math.PI * stanceProgress)
+            + 9f * foot.lift);
+        float kneeX = depth * .5f + kneeFlex;
+        float kneeY = (hipY + ankle) * .5f - kneeFlex * depth / (ankle - hipY);
+        return new Pose(0f, hipY, kneeX, kneeY, depth, -lift, foot.planted, lift);
+    }
+
     static Pose solve(float cycles,int index,int facing,float blend,float bounce) {
         float amount=Math.max(0f,Math.min(1f,blend));
         boolean side=facing==1||facing==3;

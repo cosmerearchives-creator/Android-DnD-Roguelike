@@ -75,13 +75,14 @@ final class ElfBaseArt {
             wristX - RigViewProfile.handX(facing, index), wristY - RigViewProfile.handY(facing, index));
     }
 
-    void drawLeg(Canvas canvas, int facing, int index, RigLegPose.Pose pose) {
+    void drawLeg(Canvas canvas, int facing, int index, RigLegPose.Pose pose,
+                 float pelvisX, float pelvisY) {
         Facing view = facings[facing];
         RigLegPose.Pose rest = view.rest[index];
         Sprite limb = view.limbs[index + 2];
         float footX = pose.footX - rest.footX;
         float footY = pose.footY - rest.footY;
-        limb.draw(canvas, paint, pose.hipX - rest.hipX, pose.hipY - rest.hipY,
+        limb.draw(canvas, paint, pelvisX, pelvisY,
             pose.kneeX - rest.kneeX, pose.kneeY - rest.kneeY, footX, footY);
 
         // Keep the boot grounded and rigid while the calf deforms around the ankle.
@@ -101,12 +102,14 @@ final class ElfBaseArt {
             body = Bitmap.createBitmap(atlas, 0, 0, BODY_WIDTH, ATLAS_HEIGHT);
             for (int i = 0; i < limbs.length; i++) {
                 int x = BODY_WIDTH + i * WIDTH;
-                limbs[i] = new Sprite(Bitmap.createBitmap(atlas, x, 0, WIDTH, HEIGHT), registration[i]);
+                limbs[i] = new Sprite(Bitmap.createBitmap(atlas, x, 0, WIDTH, HEIGHT),
+                    registration[i], i >= 2);
             }
             for (int i = 0; i < boots.length; i++) {
                 int x = BODY_WIDTH + (i + 2) * WIDTH;
                 boots[i] = Bitmap.createBitmap(atlas, x, HEIGHT, WIDTH, ATLAS_HEIGHT - HEIGHT);
-                rest[i] = RigLegPose.solve(0f, i, facing, 0f, 0f);
+                rest[i] = RigViewProfile.isSide(facing) ? RigLegPose.solveProfile(0f, i, 0f, 0f)
+                    : RigLegPose.solve(0f, i, facing, 0f, 0f);
             }
         }
     }
@@ -117,7 +120,7 @@ final class ElfBaseArt {
         final int sourceX;
         private final float rootX, rootY, jointX, jointY, tipX, tipY;
 
-        Sprite(Bitmap bitmap, int[] points) {
+        Sprite(Bitmap bitmap, int[] points, boolean attached) {
             this.bitmap = bitmap;
             sourceX = points[6];
             int y = points[7];
@@ -128,7 +131,7 @@ final class ElfBaseArt {
             tipX = (sourceX + points[4] - CENTER_X) * UNIT;
             tipY = (y + points[5] - SOLE_Y) * UNIT;
             mesh = new LimbMesh(WIDTH, HEIGHT, COLUMNS, ROWS, UNIT,
-                points[0], points[1], points[2], points[3], points[4], points[5]);
+                points[0], points[1], points[2], points[3], points[4], points[5], attached);
         }
 
         void draw(Canvas canvas, Paint paint, float dx0, float dy0, float dx1, float dy1,

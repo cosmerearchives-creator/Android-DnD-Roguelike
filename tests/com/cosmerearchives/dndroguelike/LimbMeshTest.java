@@ -15,6 +15,11 @@ final class LimbMeshTest {
         float crossSection=Math.abs(coordinate(mesh,10,2,0)-coordinate(mesh,10,0,0));
         if(crossSection<2f || crossSection>4.01f)throw new AssertionError("pinched joint");
         for(float vertex:mesh.vertices)if(!Float.isFinite(vertex))throw new AssertionError("invalid vertex");
+        LimbMesh thigh = new LimbMesh(20, 100, 2, 20, .3f, 10, 10, 10, 55, 10, 95, true);
+        thigh.pose(6, 10, 15, 20, 9, 30);
+        point(thigh, 4, 0, 3f, 13f);
+        point(thigh, 4, 2, 9f, 13f);
+        point(thigh, 11, 1, 15f, 20f);
         System.out.println("Limb mesh passed: both bones, shared joint, and continuous bent cross-section.");
     }
 
