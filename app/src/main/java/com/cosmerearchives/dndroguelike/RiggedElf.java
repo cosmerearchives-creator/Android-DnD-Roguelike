@@ -9,15 +9,7 @@ import android.graphics.Path;
 import android.graphics.Rect;
 import android.graphics.RectF;
 
-/**
- * First truly articulated 2D walking prototype for the approved High Elf Fighter.
- * The pelvis, thighs, knees, shins, boots, arms and weapon grips move as separate
- * pieces. No static full-body image is translated to impersonate walking.
- *
- * The original face/hair is cropped from the approved four-facing illustration;
- * lower-body armor and joints are temporary procedural vector components.
- * This is a gait / rigging test, NOT a final illustrated equipment atlas.
- */
+/** Articulated High Elf with independent head, body, and equipment layers. */
 final class RiggedElf {
     private static final int INK=0xFF202632, SILVER=0xFFADB8B7;
     private static final int SHADOW=0xFF526375, LIGHT=0xFFE4E3D5;
@@ -27,29 +19,26 @@ final class RiggedElf {
     private final Paint p=new Paint(Paint.ANTI_ALIAS_FLAG|Paint.FILTER_BITMAP_FLAG);
     private final Paint bitmapPaint=new Paint(Paint.ANTI_ALIAS_FLAG|Paint.FILTER_BITMAP_FLAG);
     private final Path shape=new Path();
-    private final Bitmap approvedAtlas;
+    private static final int HEAD_WIDTH = 192, HEAD_HEIGHT = 152;
+    private static final float HEAD_SCALE = .35f;
+    private final Bitmap headAtlas;
     private final ElfLayerSprites layers;
-    private final Rect portraitSrc=new Rect();
-    private final RectF portraitDst=new RectF();
-    // The original full-body illustration is reused ONLY for the head/hair.
-    // A shaped clip prevents its baked-in armored shoulders, arm and breastplate
-    // from ghosting through the independently animated base torso.
-    private final Path portraitMask=new Path();
+    private final Rect headSrc = new Rect();
+    private final RectF headDst = new RectF();
 
     RiggedElf(Context context) {
-        Bitmap illustration=null;
-        try(java.io.InputStream input=context.getAssets().open("elf_fighter_atlas.webp")) {
-            illustration=BitmapFactory.decodeStream(input);
-        }catch(java.io.IOException ignored){ }
-        approvedAtlas=illustration;
-        layers=new ElfLayerSprites(context);
+        headAtlas = loadHeadAtlas(context);
+        layers = new ElfLayerSprites(context);
     }
 
-    /** The four snap facings use separately projected bodies, not just different heads. */
-    void draw(Canvas canvas,float footX,float footY,float scale,int facing,
-              float distanceCycles,float movementBlend,float idleElapsed,float attackProgress) {
-        draw(canvas,footX,footY,scale,facing,distanceCycles,movementBlend,idleElapsed,
-             attackProgress,true);
+    private static Bitmap loadHeadAtlas(Context context) {
+        try (java.io.InputStream input = context.getAssets().open("elf_head_layers.webp")) {
+            Bitmap atlas = BitmapFactory.decodeStream(input);
+            return atlas != null && atlas.getWidth() == HEAD_WIDTH * 3
+                && atlas.getHeight() == HEAD_HEIGHT ? atlas : null;
+        } catch (java.io.IOException ignored) {
+            return null;
+        }
     }
 
     void draw(Canvas canvas,float footX,float footY,float scale,int facing,
@@ -99,16 +88,17 @@ final class RiggedElf {
                     rightHand,rightHandY,1,facing,armored);
             if(armored)drawSword(c,rightHand,rightHandY,true);
         }
-        // The previous portrait mask removed the original illustrated
-        // collar/neck together with the duplicate armor, leaving a visible
-        // background gap between the cropped head and independent torso.
-        // This new rig-space neck sits behind head/hair and body clothing.
-        if(layers.ready())drawNeckBridge(c,facing);
-        // Put the old portrait behind the separate body; its source also
-        // contains shoulder and chest pixels that otherwise double-render.
-        if(approvedAtlas!=null)drawOriginalPortrait(c,facing,side);
-        else drawHeadFallback(c,back,side);
+        float neckX = side ? -3f : 0f;
+        drawNeck(c, neckX, side, back);
         drawIllustratedTorso(c,facing,side,armored);
+        if (headAtlas != null) {
+            drawHead(c, facing, neckX);
+        } else {
+            c.save();
+            c.translate(neckX, 2f);
+            drawHeadFallback(c, back);
+            c.restore();
+        }
 
         drawArm(c,leftShoulder,-103f,leftElbow,-81f,leftHand,leftHandY,0,facing,armored);
         if(armored)drawShield(c,leftHand,leftHandY,side,back);
@@ -123,35 +113,25 @@ final class RiggedElf {
         c.restore();
     }
 
-    /**
-     * A narrow skin-colored bridge connects jaw, neck and collar in all four
-     * facings without restoring the baked-in armored shoulders in portrait art.
-     * Its upper end is concealed by the facial illustration; the lower end is
-     * covered by the illustrated torso. Thus no green terrain can show between
-     * them, and BASE ONLY / ARMOR ON share identical geometry.
-     */
-    private void drawNeckBridge(Canvas c,int facing) {
-        boolean side=RigViewProfile.isSide(facing);
-        boolean back=facing==2;
-        float center=side?-1.5f:0f;
-        float width=side?5.0f:6.6f;
-        // Connected region deliberately extends beyond the painted chin and
-        // the base garment's neckline: overlap rather than merely touch.
-        polygon(c,0xFFAB7964,
-            center-width-1f,-149f,center+width*.82f,-149f,
-            center+width+1f,-110f,center-width*.9f,-110f);
-        polygon(c,back?0xFFC49D80:0xFFE5BA99,
-            center-width*.74f,-150f,center+width*.60f,-150f,
-            center+width*.76f,-111f,center-width*.66f,-111f);
-        if(!back)polygon(c,0x55FFE7C6,
-            center-width*.36f,-148f,center+width*.02f,-148f,
-            center+width*.08f,-116f,center-width*.29f,-116f);
-        // Slight jaw shadow, which remains behind the face bitmap.
-        if(!back)oval(c,0x44764A36,center-width*.73f,-144f,
-                      center+width*.58f,-139f);
+    private void drawNeck(Canvas c, float x, boolean side, boolean back) {
+        float half = side ? 3.8f : 4.6f;
+        polygon(c, back ? 0xFFC49D80 : 0xFFE5BA99,
+            x-half, ElfLayerSprites.COLLAR_Y-4f, x+half, ElfLayerSprites.COLLAR_Y-4f,
+            x+half+1f, ElfLayerSprites.COLLAR_Y+6f, x-half-1f, ElfLayerSprites.COLLAR_Y+6f);
     }
 
-    /** Actual approved armor pixels, clipped to a directional, articulated silhouette. */
+    private void drawHead(Canvas c, int facing, float neckX) {
+        int column = facing == 3 ? 1 : facing; // The caller mirrors the side profile.
+        int left = column * HEAD_WIDTH;
+        headSrc.set(left, 0, left + HEAD_WIDTH, HEAD_HEIGHT);
+        // Every cell is registered at (96, 88), where the head meets the collar.
+        float x = neckX - 96 * HEAD_SCALE;
+        float y = ElfLayerSprites.COLLAR_Y - 88 * HEAD_SCALE;
+        headDst.set(x, y, x + HEAD_WIDTH * HEAD_SCALE, y + HEAD_HEIGHT * HEAD_SCALE);
+        c.drawBitmap(headAtlas, headSrc, headDst, bitmapPaint);
+    }
+
+    /** The painted torso uses a vector fallback if the body atlas fails to load. */
     private void drawIllustratedTorso(Canvas c,int facing,boolean side,boolean armored) {
         float half=RigViewProfile.torsoHalfWidth(facing);
         if(layers.torso(c,facing,half,armored))return;
@@ -167,29 +147,8 @@ final class RiggedElf {
         polygon(c,0xFF8898A6,-half,-109f,half,-109f,
             half*.85f,-85f,half*.46f,-72f,-half*.58f,-72f,-half*.9f,-86f);
 
-        if(approvedAtlas!=null){
-            int direction=facing==3?1:facing; // Canvas is already mirrored.
-            int fw=approvedAtlas.getWidth()/4,fh=approvedAtlas.getHeight();
-            int cropL=side?30:26,cropR=side?70:74;
-            Rect src=new Rect(direction*fw+fw*cropL/100,fh*29/100,
-                direction*fw+fw*cropR/100,fh*69/100);
-            RectF dst=new RectF(-half-4f,-114f,half+4f,-65f);
-            Path clip=new Path();
-            clip.moveTo(-half,-112f);
-            clip.lineTo(half,-112f);
-            clip.lineTo(half+(side?0f:3f),-96f);
-            clip.lineTo(half*.76f,-82f);
-            clip.lineTo(half*.55f,-69f);
-            clip.lineTo(-half*.65f,-69f);
-            clip.lineTo(-half*.8f,-83f);
-            clip.close();
-            c.save();c.clipPath(clip);
-            c.drawBitmap(approvedAtlas,src,dst,bitmapPaint);
-            c.restore();
-        } else {
-            polygon(c,SILVER,-half+3,-109,half-3,-109,half*.56f,-88,
-                half*.35f,-77,-half*.35f,-77,-half*.6f,-89);
-        }
+        polygon(c,SILVER,-half+3,-109,half-3,-109,half*.56f,-88,
+            half*.35f,-77,-half*.35f,-77,-half*.6f,-89);
         // The gold cinch hides the bottom texture seam and retains her blue tabard.
         polygon(c,DEEP_GOLD,-half*.75f,-72f,half*.65f,-72f,
             half*.5f,-65f,-half*.65f,-65f);
@@ -228,7 +187,6 @@ final class RiggedElf {
         bone(c,hipX,hipY,kneeX,kneeY,11.5f,back?0xFF65717E:0xFF8D9BA5);
         bone(c,hipX-1f,hipY+1,kneeX-1f,kneeY,4f,0xFFB7C1C1);
         bone(c,hipX+2.5f,hipY+2,kneeX+2f,kneeY,1.6f,GOLD);
-        paintIllustratedArmor(c,hipX,hipY,kneeX,kneeY,8.7f,facing,index,false);
         joint(c,kneeX,kneeY,8.2f,INK);
         joint(c,kneeX,kneeY,6.4f,SILVER);
         joint(c,kneeX,kneeY,2.6f,GOLD);
@@ -236,7 +194,6 @@ final class RiggedElf {
         bone(c,kneeX,kneeY,footX,ankleY,11f,SHADOW);
         bone(c,kneeX-2f,kneeY,footX-2f,ankleY-1f,3.4f,LIGHT);
         bone(c,kneeX+2.5f,kneeY,footX+2.5f,ankleY,1.5f,GOLD);
-        paintIllustratedArmor(c,kneeX,kneeY,footX,ankleY,8.5f,facing,index,true);
 
         if(side) {
             // Side view uses an elongated toe. Its planted stance stays at
@@ -262,34 +219,6 @@ final class RiggedElf {
         }
     }
 
-    /** Rotated narrow plate texture sampled from the ORIGINAL facing's shin guards.
-     * The gait and joint positions remain procedural; only the finish is borrowed.
-     */
-    private void paintIllustratedArmor(Canvas c,float x1,float y1,float x2,float y2,
-                                       float halfWidth,int facing,int index,boolean shin){
-        if(approvedAtlas==null)return;
-        int direction=facing==3?1:facing;
-        int fw=approvedAtlas.getWidth()/4,fh=approvedAtlas.getHeight();
-        float mid=index==0?.42f:.58f;
-        int left=(int)(fw*(mid-.095f));
-        int right=(int)(fw*(mid+.095f));
-        int top=(int)(fh*(shin?.66f:.53f));
-        int bottom=(int)(fh*(shin?.93f:.75f));
-        Rect src=new Rect(direction*fw+left,top,direction*fw+right,bottom);
-        float dx=x2-x1,dy=y2-y1;
-        float length=(float)Math.hypot(dx,dy);
-        if(length<2f)return;
-        c.save();
-        c.translate(x1,y1);
-        c.rotate((float)Math.toDegrees(Math.atan2(dy,dx))-90f);
-        RectF target=new RectF(-halfWidth,1f,halfWidth,length-1f);
-        c.clipRect(target);
-        bitmapPaint.setAlpha(216);
-        c.drawBitmap(approvedAtlas,src,target,bitmapPaint);
-        bitmapPaint.setAlpha(255);
-        c.restore();
-    }
-
     private void drawArm(Canvas c,float shoulderX,float shoulderY,float elbowX,float elbowY,
                          float handX,float handY,int hand,int facing,boolean armored) {
         if(layers.ready()){
@@ -306,7 +235,6 @@ final class RiggedElf {
         bone(c,shoulderX,shoulderY,elbowX,elbowY,9f,SKIN);
         bone(c,elbowX,elbowY,handX,handY,12f,INK);
         bone(c,elbowX,elbowY,handX,handY,9f,SHADOW);
-        paintIllustratedSleeve(c,elbowX,elbowY,handX,handY,facing,hand);
         bone(c,elbowX-1.6f,elbowY,handX-1.6f,handY,1.6f,LIGHT);
         stripe(c,GOLD,1.65f,elbowX+2,elbowY+3,handX+2,handY-3);
         polygon(c,INK,shoulderX-12f,shoulderY-6f,shoulderX-7f,shoulderY-14f,
@@ -318,29 +246,6 @@ final class RiggedElf {
         stripe(c,GOLD,1.8f,shoulderX-6f,shoulderY+4,shoulderX+5f,shoulderY+4);
         joint(c,handX,handY,6f,LEATHER);
         joint(c,handX,handY,3.5f,0xFFB39A73);
-    }
-
-    private void paintIllustratedSleeve(Canvas c,float x1,float y1,float x2,float y2,
-                                         int facing,int hand) {
-        if(approvedAtlas==null)return;
-        int direction=facing==3?1:facing;
-        int fw=approvedAtlas.getWidth()/4,fh=approvedAtlas.getHeight();
-        // Arm-area samples retain authentic plated detail from the approved outfit.
-        float center=RigViewProfile.isSide(facing)?.55f:(hand==0?.32f:.66f);
-        Rect src=new Rect(direction*fw+(int)(fw*(center-.065f)),(int)(fh*.40f),
-            direction*fw+(int)(fw*(center+.065f)),(int)(fh*.66f));
-        float dx=x2-x1,dy=y2-y1;
-        float len=(float)Math.hypot(dx,dy);
-        if(len<2f)return;
-        c.save();
-        c.translate(x1,y1);
-        c.rotate((float)Math.toDegrees(Math.atan2(dy,dx))-90f);
-        RectF target=new RectF(-4.9f,0f,4.9f,len);
-        c.clipRect(target);
-        bitmapPaint.setAlpha(232);
-        c.drawBitmap(approvedAtlas,src,target,bitmapPaint);
-        bitmapPaint.setAlpha(255);
-        c.restore();
     }
 
     private void drawShield(Canvas c,float handX,float handY,boolean side,boolean back){
@@ -367,81 +272,7 @@ final class RiggedElf {
         stripe(c,LIGHT,1.3f,0,12,0,53);
         c.restore();
     }
-    private void drawOriginalPortrait(Canvas c,int facing,boolean side){
-        int fw=approvedAtlas.getWidth()/4;
-        int fh=approvedAtlas.getHeight();
-        // Narrow crop avoids baked-in weapons. The crop is intentionally limited
-        // to the HEAD and hair; articulated body parts never come from this bitmap.
-        int left=fw*27/100,right=fw*73/100,bot=fh*28/100;
-        // Left-facing canvas is mirrored, so source the RIGHT portrait before mirroring.
-        int artDirection=facing==3?1:facing;
-        portraitSrc.set(fw*artDirection+left,0,fw*artDirection+right,bot);
-        // Match ORIGINAL's full 360x480 frame projection exactly. Earlier
-        // hand-selected bounds scaled the head crop ~12% larger than the
-        // source artwork and caused a false-looking camera zoom mismatch.
-        // The cropped head stays foot-anchored to the articulated rig.
-        portraitDst.set(SpriteProjection.x(left,fw),SpriteProjection.y(0,fh),
-            SpriteProjection.x(right,fw),SpriteProjection.y(bot,fh));
-        // The painted sprite's upper 28% is NOT a head-only image: it also
-        // includes pauldrons, breastplate and even an arm. Clip in rig-space,
-        // retaining the face and long hair but excluding the body pixels.
-        portraitMask.reset();
-        if(backFacing(facing)) {
-            portraitMask.moveTo(-11f,-168f);
-            portraitMask.cubicTo(-25f,-166f,-29f,-153f,-24f,-140f);
-            portraitMask.lineTo(-22f,-116f);
-            portraitMask.lineTo(22f,-116f);
-            portraitMask.lineTo(24f,-140f);
-            portraitMask.cubicTo(29f,-153f,25f,-166f,11f,-168f);
-            portraitMask.close();
-        } else if(side) {
-            // Local side-facing art looks right; left-facing is mirrored by
-            // the enclosing canvas, so the rear hair remains on the correct side.
-            portraitMask.moveTo(-8f,-168f);
-            portraitMask.cubicTo(-24f,-164f,-24f,-149f,-19f,-142f);
-            portraitMask.quadTo(-13f,-131f,-4f,-131f);
-            portraitMask.lineTo(10f,-132f);
-            portraitMask.cubicTo(23f,-139f,24f,-153f,13f,-165f);
-            portraitMask.quadTo(3f,-169f,-8f,-168f);
-            portraitMask.close();
-            portraitMask.moveTo(-12f,-155f);
-            portraitMask.cubicTo(-28f,-151f,-30f,-137f,-25f,-130f);
-            portraitMask.quadTo(-32f,-122f,-24f,-117f);
-            portraitMask.lineTo(-14f,-120f);
-            portraitMask.quadTo(-13f,-134f,-8f,-143f);
-            portraitMask.close();
-        } else {
-            portraitMask.moveTo(-10f,-168f);
-            portraitMask.cubicTo(-27f,-164f,-24f,-145f,-18f,-139f);
-            portraitMask.quadTo(-12f,-132f,-7f,-132f);
-            portraitMask.lineTo(7f,-132f);
-            portraitMask.quadTo(12f,-132f,18f,-139f);
-            portraitMask.cubicTo(24f,-145f,27f,-164f,10f,-168f);
-            portraitMask.close();
-            // Separate hair tails preserve the long hairstyle without
-            // retaining the original armored shoulders beneath the head.
-            portraitMask.moveTo(-17f,-158f);
-            portraitMask.cubicTo(-29f,-150f,-28f,-136f,-23f,-131f);
-            portraitMask.quadTo(-28f,-122f,-19f,-117f);
-            portraitMask.lineTo(-14f,-122f);
-            portraitMask.quadTo(-13f,-138f,-12f,-146f);
-            portraitMask.close();
-            portraitMask.moveTo(17f,-158f);
-            portraitMask.cubicTo(29f,-150f,28f,-136f,23f,-131f);
-            portraitMask.quadTo(28f,-122f,19f,-117f);
-            portraitMask.lineTo(14f,-122f);
-            portraitMask.quadTo(13f,-138f,12f,-146f);
-            portraitMask.close();
-        }
-        c.save();
-        c.clipPath(portraitMask);
-        c.drawBitmap(approvedAtlas,portraitSrc,portraitDst,bitmapPaint);
-        c.restore();
-    }
-
-    private static boolean backFacing(int facing){return facing==2;}
-
-    private void drawHeadFallback(Canvas c,boolean back,boolean side){
+    private void drawHeadFallback(Canvas c,boolean back){
         joint(c,0,-143f,19f,0xFFCDA969);
         joint(c,0,-142f,15f,SKIN);
         polygon(c,SKIN,-10,-135,-24,-141,-13,-126);

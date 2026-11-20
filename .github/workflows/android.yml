@@ -29,30 +29,21 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.11.1'
-      - name: Verify illustrated sprite atlas
+      - name: Verify illustrated art assets
         run: |
           python3 -m pip install --quiet Pillow
           python3 - <<'PY'
           from PIL import Image
-          path = 'app/src/main/assets/elf_fighter_atlas.webp'
-          with Image.open(path) as art:
-              assert art.size == (1440, 480), f'Unexpected sprite atlas size: {art.size}'
-              assert art.mode == 'RGBA', f'No transparency channel: {art.mode}'
-              art.load()
-              for index in range(4):
-                  frame = art.crop((index * 360, 0, (index + 1) * 360, 480))
-                  assert frame.getchannel('A').getbbox(), f'Empty facing frame: {index}'
-              print('Illustrated sprite atlas decoded successfully: 4 directions at 360x480.')
-          walk_path = 'app/src/main/assets/elf_fighter_walk.webp'
-          with Image.open(walk_path) as walk:
-              assert walk.size == (2880, 1920), f'Unexpected walking atlas size: {walk.size}'
-              assert walk.mode == 'RGBA', f'No transparency in walk atlas: {walk.mode}'
-              walk.load()
-              for direction in range(4):
-                  for frame_idx in range(8):
-                      frame = walk.crop((frame_idx * 360, direction * 480, (frame_idx + 1) * 360, (direction + 1) * 480))
-                      assert frame.getchannel('A').getbbox(), f'Empty walking frame {direction}:{frame_idx}'
-              print('Directional walking atlas validated: 4 directions x 8 frames.')
+          with Image.open('app/src/main/assets/elf_head_layers.webp') as heads:
+              assert heads.size == (576, 152), f'Unexpected head atlas size: {heads.size}'
+              assert heads.mode == 'RGBA', f'Head atlas transparency missing: {heads.mode}'
+              for index in range(3):
+                  alpha = heads.crop((index * 192, 0, (index + 1) * 192, 152)).getchannel('A')
+                  assert alpha.crop((90, 82, 102, 92)).getbbox(), (
+                      f'Head art does not reach the collar anchor for facing {index}')
+                  assert not alpha.crop((0, 149, 192, 152)).getbbox(), (
+                      f'Head art reaches the bottom edge for facing {index}')
+              print('Front, side and back head layers validated.')
           with Image.open('app/src/main/assets/wildlands_terrain_v031.png') as terrain:
               assert terrain.size == (1254, 1254), f'Illustrated tile atlas dimensions: {terrain.size}'
               terrain.load()
@@ -95,15 +86,12 @@ jobs:
             app/src/main/java/com/cosmerearchives/dndroguelike/GaitModel.java \
             app/src/main/java/com/cosmerearchives/dndroguelike/RigLegPose.java \
             app/src/main/java/com/cosmerearchives/dndroguelike/RigViewProfile.java \
-            app/src/main/java/com/cosmerearchives/dndroguelike/SpriteProjection.java \
             tests/com/cosmerearchives/dndroguelike/GaitModelTest.java \
             tests/com/cosmerearchives/dndroguelike/RigLegPoseTest.java \
-            tests/com/cosmerearchives/dndroguelike/RigViewProfileTest.java \
-            tests/com/cosmerearchives/dndroguelike/SpriteProjectionTest.java
+            tests/com/cosmerearchives/dndroguelike/RigViewProfileTest.java
           java -cp "$RUNNER_TEMP/gait-tests" com.cosmerearchives.dndroguelike.GaitModelTest
           java -cp "$RUNNER_TEMP/gait-tests" com.cosmerearchives.dndroguelike.RigLegPoseTest
           java -cp "$RUNNER_TEMP/gait-tests" com.cosmerearchives.dndroguelike.RigViewProfileTest
-          java -cp "$RUNNER_TEMP/gait-tests" com.cosmerearchives.dndroguelike.SpriteProjectionTest
       - name: Build and lint
         run: gradle :app:assembleDebug :app:lintDebug --no-daemon
       - name: Upload check results

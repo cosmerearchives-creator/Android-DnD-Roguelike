@@ -1,5 +1,9 @@
 # Android DnD Roguelike
 
+## v0.3.10 — single Wildlands character rig
+- Removes the Original comparison mode and its full-body and walking atlases from the app. The Base Only / Armor On button sits on the right side of the HUD.
+- Uses a dedicated face and hair atlas. Front, side, and back artwork attaches at the rig's collar, and the left-facing view mirrors the side profile.
+
 ## v0.3.9 — unify original portrait and rig world-space scaling
 - Investigated the apparent 1.6× versus 1.8× zoom difference seen when switching between ORIGINAL and RIG TEST. Both renderers share the same 1.8× camera and receive the same .86f character scale; the toggle is an exclusive draw branch and does **not** paint two models at once.
 - Found the actual regression: `RiggedElf.drawOriginalPortrait` scales the original image's 27–73% horizontal / 0–28% vertical head crop to a separately hand-sized rectangle (64 × 52 local units front), while `IllustratedFighter` maps the full 360×480 source to 125 × 166 local units. The portrait therefore looked about **12% larger** than the source body—similar to a 1.8 / 1.6 zoom discrepancy.

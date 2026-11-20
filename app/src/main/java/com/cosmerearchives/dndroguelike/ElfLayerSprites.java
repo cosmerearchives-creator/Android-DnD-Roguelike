@@ -15,10 +15,11 @@ import android.graphics.RectF;
  *
  * Bones, stride speed, knee positions and attack transforms are never changed by
  * the armor toggle. Base art always renders FIRST, armor over it at the same
- * anchors. Original approved portrait is handled separately by RiggedElf.
+ * anchors. The head layer is handled by RiggedElf.
  */
 final class ElfLayerSprites {
     static final int TORSO=0, UPPER_ARM=1, FOREARM=2, THIGH=3, SHIN=4;
+    static final float COLLAR_Y = -122f;
     private static final int CELL=192;
     private final Bitmap base,armor;
     private final Paint paint=new Paint(Paint.ANTI_ALIAS_FLAG|Paint.FILTER_BITMAP_FLAG);
@@ -86,8 +87,8 @@ final class ElfLayerSprites {
     boolean torso(Canvas canvas,int facing,float halfWidth,boolean armored) {
         if(base==null)return false;
         float width=halfWidth*2f+4f;
-        paintOne(canvas,base,facing,TORSO,-width*.5f,-122f,width*.5f,-66f);
-        if(armored)paintOne(canvas,armor,facing,TORSO,-width*.55f,-124f,
+        paintOne(canvas,base,facing,TORSO,-width*.5f,COLLAR_Y,width*.5f,-66f);
+        if(armored)paintOne(canvas,armor,facing,TORSO,-width*.55f,COLLAR_Y-2f,
                            width*.55f,-65f);
         return true;
     }
