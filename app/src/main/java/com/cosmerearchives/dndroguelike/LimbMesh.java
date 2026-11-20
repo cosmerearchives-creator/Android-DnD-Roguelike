@@ -5,7 +5,8 @@ final class LimbMesh {
     private final int width, height, columns, rows;
     private final float jointY, jointFeather;
     private final Bone upper, lower;
-    private final float pixelsToRig, rootX, rootY;
+    private static final float PELVIS_OVERLAP = 5f;
+    private final float pixelsToRig, rootX, rootY, restKneeOffsetX, restKneeOffsetY;
     private final boolean attached;
     final float[] vertices;
 
@@ -22,6 +23,8 @@ final class LimbMesh {
         this.rootY = rootY;
         this.pixelsToRig = pixelsToRig;
         this.attached = attached;
+        restKneeOffsetX = (jointX - rootX) * pixelsToRig;
+        restKneeOffsetY = (jointY - rootY) * pixelsToRig;
         this.height = height;
         this.columns = columns;
         this.rows = rows;
@@ -33,24 +36,23 @@ final class LimbMesh {
     }
 
     void pose(float rootX,float rootY,float jointX,float jointY,float tipX,float tipY) {
-        upper.pose(rootX,rootY,jointX,jointY);
+        if (!attached) upper.pose(rootX,rootY,jointX,jointY);
         lower.pose(jointX,jointY,tipX,tipY);
+        float kneeShiftX = jointX - rootX - restKneeOffsetX;
+        float kneeShiftY = jointY - rootY - restKneeOffsetY;
         int index = 0;
         for (int row=0; row<=rows; row++) {
             float y=height*(float)row/rows;
             float weight = smoothStep((y - this.jointY + jointFeather) / (2f * jointFeather));
-            // Keep the part of the thigh tucked under the shorts aligned
-            // with the pelvis, then blend into the rotating upper leg.
-            float bend = attached ? smoothStep(((y - this.rootY) * pixelsToRig - 5f) / 7f) : 1f;
+            // Below the fixed shorts overlap, distribute knee travel across
+            // the available thigh length so a lifted knee cannot fold the seam.
+            float fromRoot = (y - this.rootY) * pixelsToRig;
+            float thigh = Math.max(0f, (fromRoot - PELVIS_OVERLAP) / (restKneeOffsetY - PELVIS_OVERLAP));
             for (int column=0; column<=columns; column++) {
                 float x=width*(float)column/columns;
-                float ux = upper.x(x,y), uy = upper.y(x,y);
-                if (bend < 1f) {
-                    float fixedX = rootX + (x - this.rootX) * pixelsToRig;
-                    float fixedY = rootY + (y - this.rootY) * pixelsToRig;
-                    ux = fixedX + (ux - fixedX) * bend;
-                    uy = fixedY + (uy - fixedY) * bend;
-                }
+                float ux = attached ? rootX + (x - this.rootX) * pixelsToRig + thigh * kneeShiftX
+                    : upper.x(x,y);
+                float uy = attached ? rootY + fromRoot + thigh * kneeShiftY : upper.y(x,y);
                 vertices[index++] = ux + (lower.x(x,y) - ux) * weight;
                 vertices[index++] = uy + (lower.y(x,y) - uy) * weight;
             }

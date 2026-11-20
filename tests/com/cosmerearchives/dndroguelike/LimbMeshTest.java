@@ -20,6 +20,12 @@ final class LimbMeshTest {
         point(thigh, 4, 0, 3f, 13f);
         point(thigh, 4, 2, 9f, 13f);
         point(thigh, 11, 1, 15f, 20f);
+        thigh.pose(6, 10, 9, 17, 7, 28);
+        for (int row = 4; row < 10; row++) {
+            if (coordinate(thigh, row + 1, 1, 1) <= coordinate(thigh, row, 1, 1)) {
+                throw new AssertionError("raised thigh folded under the pelvis");
+            }
+        }
         System.out.println("Limb mesh passed: both bones, shared joint, and continuous bent cross-section.");
     }
 

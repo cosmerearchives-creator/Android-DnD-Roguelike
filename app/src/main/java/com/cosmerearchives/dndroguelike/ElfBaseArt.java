@@ -82,8 +82,15 @@ final class ElfBaseArt {
         Sprite limb = view.limbs[index + 2];
         float footX = pose.footX - rest.footX;
         float footY = pose.footY - rest.footY;
+        float kneeY = pose.kneeY - rest.kneeY;
+        if (facing == 2) {
+            // The rear projection foreshortens the lift. Keep it within the
+            // authored thigh length so the knee cannot rise into the shorts.
+            float hipY = pose.hipY - rest.hipY;
+            kneeY = hipY + (kneeY - hipY) * .55f;
+        }
         limb.draw(canvas, paint, pelvisX, pelvisY,
-            pose.kneeX - rest.kneeX, pose.kneeY - rest.kneeY, footX, footY);
+            pose.kneeX - rest.kneeX, kneeY, footX, footY);
 
         // Keep the boot grounded and rigid while the calf deforms around the ankle.
         float x = (limb.sourceX - CENTER_X) * UNIT + footX;
