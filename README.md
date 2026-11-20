@@ -1,5 +1,11 @@
 # Android DnD Roguelike
 
+## v0.3.7 — isolate the painted portrait from the rigged base body
+- Phone screenshots of v0.3.6 revealed a remaining *second upper body* behind the real base torso. The approved original bitmap's supposed head crop included its original metal shoulders, chest and arm; changing painter order did not remove those pixels.
+- The rig now clips that inherited illustration to separate head/hair silhouettes for front, rear and true side facings. The torso, shoulders and arms come only from the detachable illustrated rig layers, with no full-body fragments double-rendering.
+- The lower leg is painted behind the thigh at its knee connection, and the skin bridge is smaller to reduce stark knee rings. Both changes use the existing base and armor atlas parts; no gait math, movement rate or facing changes.
+- Keep checking actual device screenshots in BASE ONLY (front, side, back, moving), then ARMOR ON. The portrait clipping silhouettes are a targeted fix and still need actual phone review before treating the art as final.
+
 ## v0.3.6 — targeted base-body seam correction
 - Fixes visible disconnected knees/elbows in BASE ONLY: per-part atlas cells have transparent padding, so painting the full source cell leaves illustrated limbs short of their rig endpoints.
 - Measures the painted alpha bounds once at startup and uses a **shared crop for base and armor**, maintaining their alignment. Adds modest bone-end overlap and skin bridges behind both joint sections.

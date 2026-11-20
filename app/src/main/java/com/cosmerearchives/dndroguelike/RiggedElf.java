@@ -31,6 +31,10 @@ final class RiggedElf {
     private final ElfLayerSprites layers;
     private final Rect portraitSrc=new Rect();
     private final RectF portraitDst=new RectF();
+    // The original full-body illustration is reused ONLY for the head/hair.
+    // A shaped clip prevents its baked-in armored shoulders, arm and breastplate
+    // from ghosting through the independently animated base torso.
+    private final Path portraitMask=new Path();
 
     RiggedElf(Context context) {
         Bitmap illustration=null;
@@ -177,11 +181,13 @@ final class RiggedElf {
             // Skin bridge under both painted leg parts keeps knee anatomy
             // continuous even in extreme flexion.
             p.setColor(SKIN);p.setStyle(Paint.Style.FILL);
-            c.drawOval(kneeX-4.6f,kneeY-5.1f,kneeX+4.6f,kneeY+5.1f,p);
-            layers.limb(c,facing,ElfLayerSprites.THIGH,index,hipX,hipY,kneeX,kneeY,
-                        17f,armored);
+            c.drawOval(kneeX-3.4f,kneeY-3.9f,kneeX+3.4f,kneeY+3.9f,p);
+            // Lower leg goes behind the upper leg at the shared knee.
+            // This conceals the boot segment's rectangular source edge.
             layers.limb(c,facing,ElfLayerSprites.SHIN,index,kneeX,kneeY,footX,footY+1f,
                         16f,armored);
+            layers.limb(c,facing,ElfLayerSprites.THIGH,index,hipX,hipY,kneeX,kneeY,
+                        17f,armored);
             return;
         }
         // Fallback only if illustration assets are unavailable.
@@ -338,8 +344,65 @@ final class RiggedElf {
         int artDirection=facing==3?1:facing;
         portraitSrc.set(fw*artDirection+left,0,fw*artDirection+right,bot);
         portraitDst.set(side?-28f:-32f,-167f,side?28f:32f,-115f);
+        // The painted sprite's upper 28% is NOT a head-only image: it also
+        // includes pauldrons, breastplate and even an arm. Clip in rig-space,
+        // retaining the face and long hair but excluding the body pixels.
+        portraitMask.reset();
+        if(backFacing(facing)) {
+            portraitMask.moveTo(-11f,-168f);
+            portraitMask.cubicTo(-25f,-166f,-29f,-153f,-24f,-140f);
+            portraitMask.lineTo(-22f,-116f);
+            portraitMask.lineTo(22f,-116f);
+            portraitMask.lineTo(24f,-140f);
+            portraitMask.cubicTo(29f,-153f,25f,-166f,11f,-168f);
+            portraitMask.close();
+        } else if(side) {
+            // Local side-facing art looks right; left-facing is mirrored by
+            // the enclosing canvas, so the rear hair remains on the correct side.
+            portraitMask.moveTo(-8f,-168f);
+            portraitMask.cubicTo(-24f,-164f,-24f,-149f,-19f,-142f);
+            portraitMask.quadTo(-13f,-131f,-4f,-131f);
+            portraitMask.lineTo(10f,-132f);
+            portraitMask.cubicTo(23f,-139f,24f,-153f,13f,-165f);
+            portraitMask.quadTo(3f,-169f,-8f,-168f);
+            portraitMask.close();
+            portraitMask.moveTo(-12f,-155f);
+            portraitMask.cubicTo(-28f,-151f,-30f,-137f,-25f,-130f);
+            portraitMask.quadTo(-32f,-122f,-24f,-117f);
+            portraitMask.lineTo(-14f,-120f);
+            portraitMask.quadTo(-13f,-134f,-8f,-143f);
+            portraitMask.close();
+        } else {
+            portraitMask.moveTo(-10f,-168f);
+            portraitMask.cubicTo(-27f,-164f,-24f,-145f,-18f,-139f);
+            portraitMask.quadTo(-12f,-132f,-7f,-132f);
+            portraitMask.lineTo(7f,-132f);
+            portraitMask.quadTo(12f,-132f,18f,-139f);
+            portraitMask.cubicTo(24f,-145f,27f,-164f,10f,-168f);
+            portraitMask.close();
+            // Separate hair tails preserve the long hairstyle without
+            // retaining the original armored shoulders beneath the head.
+            portraitMask.moveTo(-17f,-158f);
+            portraitMask.cubicTo(-29f,-150f,-28f,-136f,-23f,-131f);
+            portraitMask.quadTo(-28f,-122f,-19f,-117f);
+            portraitMask.lineTo(-14f,-122f);
+            portraitMask.quadTo(-13f,-138f,-12f,-146f);
+            portraitMask.close();
+            portraitMask.moveTo(17f,-158f);
+            portraitMask.cubicTo(29f,-150f,28f,-136f,23f,-131f);
+            portraitMask.quadTo(28f,-122f,19f,-117f);
+            portraitMask.lineTo(14f,-122f);
+            portraitMask.quadTo(13f,-138f,12f,-146f);
+            portraitMask.close();
+        }
+        c.save();
+        c.clipPath(portraitMask);
         c.drawBitmap(approvedAtlas,portraitSrc,portraitDst,bitmapPaint);
+        c.restore();
     }
+
+    private static boolean backFacing(int facing){return facing==2;}
+
     private void drawHeadFallback(Canvas c,boolean back,boolean side){
         joint(c,0,-143f,19f,0xFFCDA969);
         joint(c,0,-142f,15f,SKIN);
