@@ -47,14 +47,14 @@ final class RigIdlePoseTest {
         torso.offsets(16f, RigTorsoPose.CHEST_Y, points, 2);
         check(points[1] < -.75f && points[3] > .75f, "shoulders counter-rotate during walking");
         float[] arm = {0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f};
-        torso.bindShoulder(arm, -18f, -110f, 4f, 20f, 1, 1, -16f, -108f, -1f, 0f, points);
+        torso.bindShoulder(arm, -18f, -110f, 4f, 20f, 1, 1, -16f, -108f, -1f, 0f, 0f, points);
         torso.offsets(18f, -110f, points, 0);
         check(Math.abs(arm[0] - (-17.5f - points[0])) < .001f
             && Math.abs(arm[1] - (-110f + points[1])) < .001f, "rear shoulder follows mirrored torso");
         check(arm[4] == 0f && arm[5] == 0f, "lower arm keeps its independent pose");
         float idleShoulderX = arm[0];
-        torso.bindShoulder(arm, -18f, -110f, 4f, 20f, 1, 1, -16f, -108f, -1f, 1f, points);
-        check(Math.abs(arm[0] - idleShoulderX - 1.1f) < .001f, "rear punch keeps shoulder tucked");
+        torso.bindShoulder(arm, -18f, -110f, 4f, 20f, 1, 1, -16f, -108f, -1f, 2f, 1f, points);
+        check(Math.abs(arm[0] - idleShoulderX - 2.45f) < .001f, "rear punch keeps shoulder tucked");
         check(arm[4] == 0f && arm[5] == 0f, "rear shoulder fit does not shift the lower arm");
         System.out.println("Idle poses passed: weight transfer, looping, transitions, and planted feet.");
     }

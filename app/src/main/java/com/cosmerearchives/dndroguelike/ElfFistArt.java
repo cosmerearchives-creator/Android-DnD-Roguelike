@@ -37,6 +37,13 @@ final class ElfFistArt {
         shape.close();
         fill(canvas, 0xFF3D3A48, leather, alpha);
 
+        if (facing == 1) {
+            // The camera is on the palm side of the striking arm in this profile.
+            drawPalm(canvas, alpha);
+            canvas.restore();
+            return;
+        }
+
         // The fingerless glove exposes the knuckles. Short arcs divide the
         // curled fingers without drawing over the wrist connection.
         shape.reset();
@@ -63,6 +70,34 @@ final class ElfFistArt {
         fill(canvas, 0xFFD4A07D, skin, alpha);
         stroke(canvas, 0xC596744B, alpha, .47f, -1.3f, -2.35f, -.95f, 2.36f);
         canvas.restore();
+    }
+
+    private void drawPalm(Canvas canvas, int alpha) {
+        // The curled finger pads face inward toward the heel of the palm.
+        shape.reset();
+        shape.moveTo(3.25f, -3.35f);
+        shape.cubicTo(5.25f, -4.1f, 7.55f, -3.8f, 7.95f, -2.04f);
+        shape.cubicTo(8.35f, -.32f, 7.15f, 1.96f, 5.9f, 2.55f);
+        shape.quadTo(4.8f, 3.05f, 3.9f, 2.38f);
+        shape.quadTo(4.85f, .53f, 3.65f, -.76f);
+        shape.quadTo(2.85f, -1.78f, 3.25f, -3.35f);
+        shape.close();
+        fill(canvas, 0xFFD4A07D, skin, alpha);
+        stroke(canvas, 0xAA704637, alpha, .43f, 5.4f, -2.03f, 7.94f, -1.58f);
+        stroke(canvas, 0xAA704637, alpha, .43f, 5.28f, -.56f, 7.68f, .12f);
+        stroke(canvas, 0x99704637, alpha, .38f, 4.98f, .88f, 6.65f, 1.68f);
+
+        // The thumb lies across the curled fingers, visible on the palm side.
+        shape.reset();
+        shape.moveTo(1.1f, 2.9f);
+        shape.cubicTo(1.55f, .79f, 2.85f, -.27f, 4.65f, -1.43f);
+        shape.quadTo(5.65f, -2.04f, 6.02f, -1.14f);
+        shape.quadTo(6.08f, -.4f, 5.19f, .27f);
+        shape.quadTo(3.5f, 1.78f, 3.45f, 3.17f);
+        shape.quadTo(2.18f, 3.67f, 1.1f, 2.9f);
+        shape.close();
+        fill(canvas, 0xFFD4A07D, skin, alpha);
+        stroke(canvas, 0x9E754B3D, alpha, .4f, 3.65f, .63f, 5.16f, -.49f);
     }
 
     private void fill(Canvas canvas, int color, Shader shader, int alpha) {

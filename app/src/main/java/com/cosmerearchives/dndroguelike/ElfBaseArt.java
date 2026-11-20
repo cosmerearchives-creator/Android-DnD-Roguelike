@@ -90,19 +90,29 @@ final class ElfBaseArt {
             elbowDx, elbowDy, wristDx, wristDy);
         if (!RigViewProfile.isSide(facing)) {
             // Skin at the top of the arm follows the same deformation as its armhole.
+            float armholeFit = facing == 0 ? (index == 0 ? 1.7f : 1.05f)
+                : index == 1 ? 2f : 0f;
             torso.bindShoulder(arm.mesh.vertices, (arm.sourceX - CENTER_X) * UNIT,
                 (arm.sourceY - SOLE_Y) * UNIT, WIDTH * UNIT, HEIGHT * UNIT, COLUMNS, ROWS,
-                arm.rootX, arm.rootY, facing == 2 ? -1f : 1f, facing == 2 && index == 1 ? closure : 0f, shoulderPoint);
+                arm.rootX, arm.rootY, facing == 2 ? -1f : 1f, armholeFit,
+                facing == 2 && index == 1 ? closure : 0f, shoulderPoint);
         }
         if (closure > 0f && arm.sleeve != null) {
+            boolean fistBehindArm = facing == 2;
+            if (fistBehindArm) {
+                fistArt.draw(canvas, facing, arm.jointX + elbowDx, arm.jointY + elbowDy,
+                    arm.tipX + wristDx, arm.tipY + wristDy, closure, impact);
+            }
             arm.draw(canvas, paint, arm.sleeve);
             if (closure < 1f) {
                 paint.setAlpha(Math.round(255f * (1f - closure)));
                 arm.draw(canvas, paint, arm.openHand);
                 paint.setAlpha(255);
             }
-            fistArt.draw(canvas, facing, arm.jointX + elbowDx, arm.jointY + elbowDy,
-                arm.tipX + wristDx, arm.tipY + wristDy, closure, impact);
+            if (!fistBehindArm) {
+                fistArt.draw(canvas, facing, arm.jointX + elbowDx, arm.jointY + elbowDy,
+                    arm.tipX + wristDx, arm.tipY + wristDy, closure, impact);
+            }
         } else {
             arm.draw(canvas, paint, arm.bitmap);
         }
