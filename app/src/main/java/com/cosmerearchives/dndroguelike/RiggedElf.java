@@ -197,8 +197,10 @@ final class RiggedElf {
         if(facing==3)c.scale(-1f,1f); // Real side profile mirrored instantly.
 
         boolean rightArmBehind = RigViewProfile.drawSwordArmBehindTorso(facing)
-            && !(punching ? punch.reaching : attack.swordInFront);
-        boolean rearPunchBehind = punching && back && punch.reaching;
+            && !attack.swordInFront;
+        // In the rear punch, the shoulder stays on this side of the vest.
+        // The rest of the striking arm travels on the far side throughout.
+        boolean rearPunchBehind = punching && back && boundBase;
         boolean shieldInBack = facing == 3;
         boolean showFarLimbs = !boundBase || !side || blend > .02f || attackProgress > 0f;
         if (showFarLimbs && (rightArmBehind || rearPunchBehind || shieldInBack)) {
@@ -277,6 +279,7 @@ final class RiggedElf {
 
         // Front and rear views look at opposite sides of the same hands.
         if (back) c.scale(-1f,1f);
+        if (rearPunchBehind) baseArt.drawRearPunchShoulder(c);
         if (!shieldInBack) {
             if (back && armored) drawShield(c,leftElbow,leftElbowY,leftHand,leftHandY,false,true);
             drawArm(c,leftShoulder,leftShoulderY,leftElbow,leftElbowY,

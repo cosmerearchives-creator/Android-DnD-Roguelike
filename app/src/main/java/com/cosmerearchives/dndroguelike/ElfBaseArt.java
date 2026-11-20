@@ -111,6 +111,12 @@ final class ElfBaseArt {
         }
     }
 
+    void drawRearPunchShoulder(Canvas canvas) {
+        Sprite arm = facings[2].limbs[1];
+        // Reuse the exact deformation drawn for the far arm in this frame.
+        arm.draw(canvas, paint, arm.shoulderCover);
+    }
+
     private void drawFist(Canvas canvas, float elbowX, float elbowY, float wristX, float wristY,
                           float opacity, float size) {
         int alpha = Math.round(255f * opacity);
@@ -119,21 +125,21 @@ final class ElfBaseArt {
         canvas.rotate((float) Math.toDegrees(Math.atan2(wristY - elbowY, wristX - elbowX)));
         canvas.scale(size, size);
         fistShape.reset();
-        fistShape.moveTo(-1.4f, -2.15f);
-        fistShape.lineTo(2f, -2.85f);
+        fistShape.moveTo(-3.3f, -2.35f);
+        fistShape.quadTo(-.6f, -2.6f, 2f, -2.85f);
         fistShape.quadTo(5.3f, -3.4f, 5.8f, -.9f);
         fistShape.quadTo(6.1f, 1.9f, 4.7f, 2.6f);
         fistShape.lineTo(1.8f, 2.7f);
-        fistShape.lineTo(-1.4f, 1.8f);
+        fistShape.quadTo(-.9f, 2.65f, -3.3f, 2.35f);
         fistShape.close();
         fistPaint.setColor((alpha << 24) | 0x302E35);
         canvas.drawPath(fistShape, fistPaint);
         fistShape.reset();
-        fistShape.moveTo(2.8f, -2.2f);
+        fistShape.moveTo(1.5f, -2.1f);
         fistShape.quadTo(5.35f, -3f, 5.55f, -.85f);
         fistShape.quadTo(5.95f, 1.05f, 4.75f, 1.9f);
-        fistShape.lineTo(3.5f, 2.05f);
-        fistShape.quadTo(2.45f, .45f, 2.8f, -2.2f);
+        fistShape.lineTo(2.15f, 2.1f);
+        fistShape.quadTo(1.15f, .65f, 1.5f, -2.1f);
         fistShape.close();
         fistPaint.setColor((alpha << 24) | 0xC59063);
         canvas.drawPath(fistShape, fistPaint);
@@ -179,7 +185,7 @@ final class ElfBaseArt {
             for (int i = 0; i < limbs.length; i++) {
                 int x = BODY_WIDTH + i * WIDTH;
                 limbs[i] = new Sprite(Bitmap.createBitmap(atlas, x, 0, WIDTH, HEIGHT),
-                    registration[i], i >= 2, i >= 2 ? rearHipFit : 0f, i == 1);
+                    registration[i], i >= 2, i >= 2 ? rearHipFit : 0f, i == 1, facing == 2 && i == 1);
             }
             for (int i = 0; i < boots.length; i++) {
                 int x = BODY_WIDTH + (i + 2) * WIDTH;
@@ -191,13 +197,15 @@ final class ElfBaseArt {
     }
 
     private static final class Sprite {
-        final Bitmap bitmap, sleeve, openHand;
+        final Bitmap bitmap, sleeve, openHand, shoulderCover;
         final LimbMesh mesh;
         final int sourceX, sourceY;
         private final float rootX, rootY, jointX, jointY, tipX, tipY;
 
-        Sprite(Bitmap bitmap, int[] points, boolean attached, float rearHipFit, boolean punchingArm) {
+        Sprite(Bitmap bitmap, int[] points, boolean attached, float rearHipFit,
+               boolean punchingArm, boolean rearPunchArm) {
             this.bitmap = bitmap;
+            shoulderCover = rearPunchArm ? armSection(bitmap, 0, points[1] + 24) : null;
             if (punchingArm) {
                 int wrist = points[5] + 3;
                 sleeve = armSection(bitmap, 0, wrist);

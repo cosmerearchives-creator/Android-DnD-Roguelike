@@ -18,13 +18,12 @@ final class RigPunchPose {
     };
     private static final float[][] REAR = {
         {0,0,0,0,0,0,0,0}, {3,-13,0,-34,1.5f,1.4f,.7f,-1},
-        {5,-19,5,-45,-2,2.2f,.78f,2.3f}, {4,-19,4,-44,-1.8f,1.8f,.78f,2},
+        {0,-18,0,-45,-2,2.2f,.78f,2.3f}, {0,-18,0,-44,-1.8f,1.8f,.78f,2},
         {3,-14,3,-37,-.4f,1,.62f,.6f}, {2,-12,1,-32,.4f,.6f,.5f,-.4f},
         {0,0,0,0,0,0,0,0}
     };
 
     float elbowX, elbowY, wristX, wristY, lean, brace, guard, shoulderDrive, closure, impact;
-    boolean reaching;
 
     void sample(float progress, int facing) {
         float time = Math.max(0f, Math.min(1f, progress));
@@ -43,7 +42,6 @@ final class RigPunchPose {
         shoulderDrive = mix(from[7], to[7], eased);
         closure = ease(time, .04f, .21f) * (1f - ease(time, .77f, .97f));
         impact = ease(time, .32f, .45f) * (1f - ease(time, .52f, .67f));
-        reaching = time >= .32f && time < .72f;
     }
 
     private static float ease(float value, float start, float end) {
