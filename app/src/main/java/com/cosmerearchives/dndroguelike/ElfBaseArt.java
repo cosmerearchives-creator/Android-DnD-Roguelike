@@ -19,21 +19,26 @@ final class ElfBaseArt {
 
     // Coordinates within each limb cell, followed by the cell's origin in the
     // facing artwork. Rear arm art is flipped to match the renderer's projection.
-    private static final int[][] FRONT = {
-        {50,47,35,141,32,229,145,672}, {37,47,53,141,59,229,311,672},
-        {55,48,58,163,52,277,177,845}, {60,48,53,163,52,277,254,845}
+    private static final int[][][] FEMALE = {
+        {{56,45,43,142,30,232,146,666}, {46,45,53,142,70,232,300,666},
+         {60,45,60,161,57,272,174,847}, {56,45,49,161,50,272,256,847}},
+        {{65,46,61,145,73,235,183,661}, {65,46,61,145,73,235,183,661},
+         {57,41,66,163,62,273,205,847}, {57,41,66,163,62,273,205,847}},
+        {{86,43,74,136,63,221,111,670}, {74,42,85,136,101,221,267,670},
+         {56,49,62,160,56,273,179,847}, {48,49,51,160,56,273,260,847}},
+        {{64,46,61,145,73,234,184,659}, {64,46,61,145,73,234,184,659},
+         {60,39,65,162,63,273,204,847}, {60,39,65,162,63,273,204,847}}
     };
-    private static final int[][] RIGHT = {
-        {56,53,49,149,60,235,192,664}, {56,53,49,149,60,235,192,664},
-        {54,45,61,160,58,278,208,845}, {54,45,61,160,58,278,208,845}
-    };
-    private static final int[][] BACK = {
-        {84,43,74,137,58,215,111,674}, {73,43,86,137,96,215,279,674},
-        {56,51,65,161,59,276,176,847}, {54,51,50,161,52,276,254,847}
-    };
-    private static final int[][] LEFT = {
-        {59,55,59,154,63,234,190,658}, {59,55,59,154,63,234,190,658},
-        {58,43,61,158,59,276,208,845}, {58,43,61,158,59,276,208,845}
+
+    private static final int[][][] MALE = {
+        {{55,49,42,139,27,228,135,626}, {42,49,57,139,69,228,306,626},
+         {56,43,53,129,46,269,179,841}, {52,43,55,128,55,269,255,841}},
+        {{44,41,40,143,55,223,220,630}, {44,41,40,143,55,223,220,630},
+         {52,44,49,135,44,268,227,842}, {52,44,49,135,44,268,227,842}},
+        {{83,43,71,134,63,222,108,631}, {82,43,95,134,102,222,270,631},
+         {58,44,53,134,49,269,177,841}, {51,44,52,134,56,269,256,841}},
+        {{43,42,40,143,55,223,220,630}, {43,42,40,143,55,223,220,630},
+         {53,44,49,135,45,268,226,842}, {53,44,49,135,45,268,226,842}}
     };
 
     private final Facing[] facings = new Facing[4];
@@ -46,10 +51,11 @@ final class ElfBaseArt {
         (125 - CENTER_X) * UNIT, (510 - SOLE_Y) * UNIT,
         (125 + BODY_WIDTH - CENTER_X) * UNIT, (510 + ATLAS_HEIGHT - SOLE_Y) * UNIT);
 
-    ElfBaseArt(Context context) {
-        int[][][] registrations = {FRONT, RIGHT, BACK, LEFT};
+    ElfBaseArt(Context context, boolean male) {
+        int[][][] registrations = male ? MALE : FEMALE;
+        String prefix = male ? "elf_male_facing_" : "elf_base_facing_";
         for (int facing = 0; facing < facings.length; facing++) {
-            try (InputStream stream = context.getAssets().open("elf_base_facing_" + facing + ".webp")) {
+            try (InputStream stream = context.getAssets().open(prefix + facing + ".webp")) {
                 Bitmap atlas = BitmapFactory.decodeStream(stream);
                 if (atlas != null && atlas.getWidth() == BODY_WIDTH + 4 * WIDTH
                     && atlas.getHeight() == ATLAS_HEIGHT) {
