@@ -10,7 +10,7 @@ package com.cosmerearchives.dndroguelike;
  * with the stride calibrated to character speed this holds its world position.
  */
 final class GaitModel {
-    static final float CYCLE_TILES = 1.44f;
+    static final float CYCLE_TILES = 1.68f;
     static final float STANCE = .64f;
     private float cycles;
 

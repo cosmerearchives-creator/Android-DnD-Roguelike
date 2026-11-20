@@ -11,6 +11,7 @@ final class RigTorsoPose {
 
     void sample(boolean side, float walk, float stride, float step, float breath, float hipShift) {
         this.side = side;
+        breath *= .78f;
         chestX = walk * (side ? 2.3f + stride * 1.15f : -1.15f * stride) - hipShift * .8f;
         neckX = chestX * .76f;
         chestY = -.75f * breath + .5f * walk * step;

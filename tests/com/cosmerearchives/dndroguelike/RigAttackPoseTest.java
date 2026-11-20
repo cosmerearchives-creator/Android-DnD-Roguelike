@@ -4,6 +4,26 @@ final class RigAttackPoseTest {
     public static void main(String[] args) {
         checkTrack(true);
         checkTrack(false);
+        RigPunchPose punch = new RigPunchPose();
+        for (int facing = 0; facing < 4; facing++) {
+            punch.sample(.28f, facing);
+            if (!punch.fist || punch.guard <= 0f || punch.reaching) {
+                throw new AssertionError("punch wind-up and guard for facing " + facing);
+            }
+            float windupWristY = punch.wristY;
+            punch.sample(.46f, facing);
+            if (!punch.reaching || punch.wristY >= windupWristY) {
+                throw new AssertionError("punch release for facing " + facing);
+            }
+            if (RigViewProfile.isSide(facing) && punch.wristX <= punch.elbowX + 15f) {
+                throw new AssertionError("profile punch should extend forward");
+            }
+            punch.sample(1f, facing);
+            if (punch.fist || punch.reaching || punch.elbowX != 0f || punch.wristY != 0f
+                || punch.lean != 0f || punch.guard != 0f || punch.brace != 0f) {
+                throw new AssertionError("punch returns to neutral");
+            }
+        }
         System.out.println("Attack poses passed: wind-up, swing, recovery and return to idle.");
     }
 

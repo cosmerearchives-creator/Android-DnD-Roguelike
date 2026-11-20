@@ -11,7 +11,7 @@ final class GaitModelTest {
     public static void main(String[] args) {
         GaitModel g=new GaitModel();
         require(g.cycles()==0f,"Initial phase zero");
-        g.advance(.36f);
+        g.advance(.42f);
         close(g.cycles(),.25f,.0001f,"Stride responds to travel distance");
         g.advance(0);
         close(g.cycles(),.25f,.0001f,"No advance while stopped");

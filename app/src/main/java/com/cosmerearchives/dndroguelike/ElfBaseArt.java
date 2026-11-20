@@ -5,6 +5,7 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Paint;
+import android.graphics.Path;
 import android.graphics.RectF;
 import java.io.IOException;
 import java.io.InputStream;
@@ -38,6 +39,8 @@ final class ElfBaseArt {
 
     private final Facing[] facings = new Facing[4];
     private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
+    private final Paint fistPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Path fistShape = new Path();
     private final float[] shoulderPoint = new float[2];
     private final RigTorsoPose.Mesh bodyMesh = new RigTorsoPose.Mesh();
     private final RectF bootBounds = new RectF();
@@ -79,19 +82,55 @@ final class ElfBaseArt {
 
     void drawArm(Canvas canvas, int facing, int index, RigTorsoPose torso,
                  float shoulderX, float shoulderY, float elbowX, float elbowY,
-                 float wristX, float wristY) {
+                 float wristX, float wristY, boolean fist) {
         Sprite arm = facings[facing].limbs[index];
-        arm.pose(
-            shoulderX - RigViewProfile.shoulderX(facing, index), shoulderY + 108f,
-            elbowX - RigViewProfile.elbowX(facing, index), elbowY - RigViewProfile.elbowY(facing, index),
-            wristX - RigViewProfile.handX(facing, index), wristY - RigViewProfile.handY(facing, index));
+        float elbowDx = elbowX - RigViewProfile.elbowX(facing, index);
+        float elbowDy = elbowY - RigViewProfile.elbowY(facing, index);
+        float wristDx = wristX - RigViewProfile.handX(facing, index);
+        float wristDy = wristY - RigViewProfile.handY(facing, index);
+        arm.pose(shoulderX - RigViewProfile.shoulderX(facing, index), shoulderY + 108f,
+            elbowDx, elbowDy, wristDx, wristDy);
         if (!RigViewProfile.isSide(facing)) {
             // Skin at the top of the arm follows the same deformation as its armhole.
             torso.bindShoulder(arm.mesh.vertices, (arm.sourceX - CENTER_X) * UNIT,
                 (arm.sourceY - SOLE_Y) * UNIT, WIDTH * UNIT, HEIGHT * UNIT, COLUMNS, ROWS,
                 arm.rootX, arm.rootY, facing == 2 ? -1f : 1f, shoulderPoint);
         }
-        arm.draw(canvas, paint);
+        if (fist && arm.closedHandArm != null) {
+            arm.draw(canvas, paint, arm.closedHandArm);
+            drawFist(canvas, arm.jointX + elbowDx, arm.jointY + elbowDy,
+                arm.tipX + wristDx, arm.tipY + wristDy);
+        } else {
+            arm.draw(canvas, paint, arm.bitmap);
+        }
+    }
+
+    private void drawFist(Canvas canvas, float elbowX, float elbowY, float wristX, float wristY) {
+        canvas.save();
+        canvas.translate(wristX, wristY);
+        canvas.rotate((float) Math.toDegrees(Math.atan2(wristY - elbowY, wristX - elbowX)));
+        fistShape.reset();
+        fistShape.moveTo(-1.4f, -2.15f);
+        fistShape.lineTo(2f, -2.85f);
+        fistShape.quadTo(5.3f, -3.4f, 5.8f, -.9f);
+        fistShape.quadTo(6.1f, 1.9f, 4.7f, 2.6f);
+        fistShape.lineTo(1.8f, 2.7f);
+        fistShape.lineTo(-1.4f, 1.8f);
+        fistShape.close();
+        fistPaint.setColor(0xFF302E35);
+        canvas.drawPath(fistShape, fistPaint);
+        fistShape.reset();
+        fistShape.moveTo(2.8f, -2.2f);
+        fistShape.quadTo(5.35f, -3f, 5.55f, -.85f);
+        fistShape.quadTo(5.95f, 1.05f, 4.75f, 1.9f);
+        fistShape.lineTo(3.5f, 2.05f);
+        fistShape.quadTo(2.45f, .45f, 2.8f, -2.2f);
+        fistShape.close();
+        fistPaint.setColor(0xFFC59063);
+        canvas.drawPath(fistShape, fistPaint);
+        fistPaint.setColor(0xFFE5B286);
+        canvas.drawOval(3.1f, -2.25f, 5.1f, -1.05f, fistPaint);
+        canvas.restore();
     }
 
     void drawLeg(Canvas canvas, int facing, int index, RigLegPose.Pose pose,
@@ -109,7 +148,7 @@ final class ElfBaseArt {
             kneeY = hipY + (kneeY - hipY) * .55f;
         }
         limb.pose(pelvisX, pelvisY, pose.kneeX - rest.kneeX + kneeSway, kneeY, footX, footY);
-        limb.draw(canvas, paint);
+        limb.draw(canvas, paint, limb.bitmap);
 
         // Keep the boot grounded and rigid while the calf deforms around the ankle.
         float x = (limb.sourceX - CENTER_X) * UNIT + footX;
@@ -131,7 +170,7 @@ final class ElfBaseArt {
             for (int i = 0; i < limbs.length; i++) {
                 int x = BODY_WIDTH + i * WIDTH;
                 limbs[i] = new Sprite(Bitmap.createBitmap(atlas, x, 0, WIDTH, HEIGHT),
-                    registration[i], i >= 2, i >= 2 ? rearHipFit : 0f);
+                    registration[i], i >= 2, i >= 2 ? rearHipFit : 0f, i == 1);
             }
             for (int i = 0; i < boots.length; i++) {
                 int x = BODY_WIDTH + (i + 2) * WIDTH;
@@ -143,13 +182,22 @@ final class ElfBaseArt {
     }
 
     private static final class Sprite {
-        final Bitmap bitmap;
+        final Bitmap bitmap, closedHandArm;
         final LimbMesh mesh;
         final int sourceX, sourceY;
         private final float rootX, rootY, jointX, jointY, tipX, tipY;
 
-        Sprite(Bitmap bitmap, int[] points, boolean attached, float rearHipFit) {
+        Sprite(Bitmap bitmap, int[] points, boolean attached, float rearHipFit, boolean punchingArm) {
             this.bitmap = bitmap;
+            if (punchingArm) {
+                // Keep the sleeve and wrist. The closed fist is drawn at the posed wrist.
+                closedHandArm = Bitmap.createBitmap(WIDTH, HEIGHT, Bitmap.Config.ARGB_8888);
+                Canvas cutout = new Canvas(closedHandArm);
+                cutout.clipRect(0, 0, WIDTH, points[5] + 3);
+                cutout.drawBitmap(bitmap, null, new RectF(0, 0, WIDTH, HEIGHT), null);
+            } else {
+                closedHandArm = null;
+            }
             sourceX = points[6];
             sourceY = points[7];
             rootX = (sourceX + points[0] - CENTER_X) * UNIT;
@@ -166,8 +214,8 @@ final class ElfBaseArt {
             mesh.pose(rootX + dx0, rootY + dy0, jointX + dx1, jointY + dy1, tipX + dx2, tipY + dy2);
         }
 
-        void draw(Canvas canvas, Paint paint) {
-            canvas.drawBitmapMesh(bitmap, COLUMNS, ROWS, mesh.vertices, 0, null, 0, paint);
+        void draw(Canvas canvas, Paint paint, Bitmap image) {
+            canvas.drawBitmapMesh(image, COLUMNS, ROWS, mesh.vertices, 0, null, 0, paint);
         }
     }
 }

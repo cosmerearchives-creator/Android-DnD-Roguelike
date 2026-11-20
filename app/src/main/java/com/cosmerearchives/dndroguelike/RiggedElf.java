@@ -28,6 +28,7 @@ final class RiggedElf {
     private static final float THIGH_ART_DROP = 6f;
     private static final float THIGH_PELVIS_OVERLAP = 4.5f;
     private final RigAttackPose attack = new RigAttackPose();
+    private final RigPunchPose punch = new RigPunchPose();
     private final RigIdlePose idle = new RigIdlePose();
     private final RigTorsoPose torso = new RigTorsoPose();
     private final float[] joints = new float[6];
@@ -76,8 +77,10 @@ final class RiggedElf {
         float armIdle = idle.armDrift;
         float armSwing = armStride * (side ? 5f : .8f) + armIdle;
         float armDepth = side ? 0f : armStride * (back ? -2f : 2f);
-        attack.sample(attackProgress, side);
-        bounce += attack.brace + idle.hipY;
+        boolean punching = !armored && attackProgress > 0f;
+        attack.sample(armored ? attackProgress : 0f, side);
+        punch.sample(punching ? attackProgress : 0f, facing);
+        bounce += attack.brace + punch.brace + idle.hipY;
 
         boolean boundBase = !armored && baseArt.ready(facing);
         boolean frontFallback = facing == 0 && !armored && !boundBase;
@@ -115,7 +118,16 @@ final class RiggedElf {
 
         // Rotate the two bone vectors independently around their joints. This keeps
         // the forearm and hand attached even at the top of the wind-up.
-        if (attackProgress > 0f) {
+        if (punching) {
+            rightElbow += punch.elbowX;
+            rightElbowY += punch.elbowY;
+            rightHand += punch.wristX;
+            rightHandY += punch.wristY;
+            leftElbow += punch.guard * (side ? 4f : 2f);
+            leftElbowY -= punch.guard * 6f;
+            leftHand += punch.guard * (side ? 10f : 7f);
+            leftHandY -= punch.guard * 22f;
+        } else if (attackProgress > 0f) {
             float upperX = rightElbow - rightShoulder, upperY = rightElbowY - shoulderY;
             float lowerX = rightHand - rightElbow, lowerY = rightHandY - rightElbowY;
             float upperAngle = (float)Math.toRadians(attack.upper);
@@ -149,11 +161,11 @@ final class RiggedElf {
         rightHandY += joints[3];
 
         float torsoX = sway * .35f + idle.hipX;
-        float torsoLean = attack.lean + idle.lean;
+        float torsoLean = attack.lean + punch.lean + idle.lean;
         if (closeUpWidth > 0f) {
             // Keep a steady close-up until the pose needs room for the blade.
             float blade = (float)Math.toRadians(attack.blade);
-            float reach = armored ? BLADE_TIP_Y : 0f;
+            float reach = armored ? BLADE_TIP_Y : punching ? 6f : 0f;
             float hipY = RigLegPose.HIP_Y;
             float lean = (float)Math.toRadians(torsoLean);
             float tipX = torsoX + rotateX(rightHand + rotateX(0f, reach, blade),
@@ -180,18 +192,25 @@ final class RiggedElf {
         c.scale(scale,scale);
         if(facing==3)c.scale(-1f,1f); // Real side profile mirrored instantly.
 
-        boolean swordInBack = RigViewProfile.drawSwordArmBehindTorso(facing) && !attack.swordInFront;
+        boolean rightArmBehind = RigViewProfile.drawSwordArmBehindTorso(facing)
+            && !(punching ? punch.reaching : attack.swordInFront);
+        boolean rearPunchBehind = punching && back && punch.reaching;
         boolean shieldInBack = facing == 3;
         boolean showFarLimbs = !boundBase || !side || blend > .02f || attackProgress > 0f;
-        if (showFarLimbs && (swordInBack || shieldInBack)) {
+        if (showFarLimbs && (rightArmBehind || rearPunchBehind || shieldInBack)) {
             c.save();
             positionTorso(c, torsoX, bounce, torsoLean);
             // Far-side hands pass behind the hips and thighs as well as the chest.
-            if (swordInBack) {
+            if (rightArmBehind || rearPunchBehind) {
+                if (rearPunchBehind) {
+                    c.save();
+                    c.scale(-1f, 1f);
+                }
                 if (armored) drawSword(c,rightHand,rightHandY,attack.blade);
                 drawArm(c,rightShoulder,rightShoulderY,rightElbow,rightElbowY,
                     rightHand,rightHandY,1,facing,armored);
                 if (armored) drawSwordGrip(c,rightHand,rightHandY,attack.blade);
+                if (rearPunchBehind) c.restore();
             }
             if (shieldInBack) {
                 drawArm(c,leftShoulder,leftShoulderY,leftElbow,leftElbowY,
@@ -263,7 +282,7 @@ final class RiggedElf {
                 else drawShield(c,leftElbow,leftElbowY,leftHand,leftHandY,side,false);
             }
         }
-        if (!swordInBack) {
+        if (!rightArmBehind && !rearPunchBehind) {
             if (armored) drawSword(c,rightHand,rightHandY,attack.blade);
             drawArm(c,rightShoulder,rightShoulderY,rightElbow,rightElbowY,
                 rightHand,rightHandY,1,facing,armored);
@@ -458,7 +477,8 @@ final class RiggedElf {
     private void drawArm(Canvas c,float shoulderX,float shoulderY,float elbowX,float elbowY,
                          float handX,float handY,int hand,int facing,boolean armored) {
         if (!armored && baseArt.ready(facing)) {
-            baseArt.drawArm(c,facing,hand,torso,shoulderX,shoulderY,elbowX,elbowY,handX,handY);
+            baseArt.drawArm(c,facing,hand,torso,shoulderX,shoulderY,elbowX,elbowY,handX,handY,
+                hand == 1 && punch.fist);
             return;
         }
         if(layers.ready()){
