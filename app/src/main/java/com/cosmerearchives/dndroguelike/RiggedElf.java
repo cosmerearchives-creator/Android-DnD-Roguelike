@@ -276,7 +276,11 @@ final class RiggedElf {
 
     private void drawShield(Canvas c,float handX,float handY,boolean side,boolean back){
         // Shield and star emboss move as one assembly with the left hand.
-        c.save();c.translate(handX-7f,handY+2f);c.rotate(side?8f:-8f);
+        c.save();
+        c.translate(handX-7f,handY+2f);
+        // A turned fighter presents the shield at an angle, not full-on.
+        if(side)c.scale(.66f,1f);
+        c.rotate(side?8f:-8f);
         polygon(c,INK,-21,-21,4,-29,17,-19,16,11,-2,29,-20,9);
         polygon(c,GOLD,-19,-20,4,-27,15,-18,14,10,-2,26,-18,8);
         polygon(c,DEEP_BLUE,-16,-16,4,-23,12,-15,10,8,-2,22,-15,6);
