@@ -95,6 +95,10 @@ final class RiggedElf {
                     rightHand,rightHandY,1,facing,armored);
             if(armored)drawSword(c,rightHand,rightHandY,true);
         }
+        // Put the old portrait behind the separate body; its source also
+        // contains shoulder and chest pixels that otherwise double-render.
+        if(approvedAtlas!=null)drawOriginalPortrait(c,facing,side);
+        else drawHeadFallback(c,back,side);
         drawIllustratedTorso(c,facing,side,armored);
 
         drawArm(c,leftShoulder,-103f,leftElbow,-81f,leftHand,leftHandY,0,facing,armored);
@@ -106,9 +110,6 @@ final class RiggedElf {
             if(armored)drawSword(c,rightHand,rightHandY,false);
         }
 
-        // Reuse the authentic approved face/hair from the original sprite.
-        if(approvedAtlas!=null)drawOriginalPortrait(c,facing,side);
-        else drawHeadFallback(c,back,side);
         c.restore();
         c.restore();
     }
@@ -173,6 +174,10 @@ final class RiggedElf {
         float footX=leg.footX,footY=leg.footY;
         float ankleY=leg.ankleY;
         if(layers.ready()){
+            // Skin bridge under both painted leg parts keeps knee anatomy
+            // continuous even in extreme flexion.
+            p.setColor(SKIN);p.setStyle(Paint.Style.FILL);
+            c.drawOval(kneeX-4.6f,kneeY-5.1f,kneeX+4.6f,kneeY+5.1f,p);
             layers.limb(c,facing,ElfLayerSprites.THIGH,index,hipX,hipY,kneeX,kneeY,
                         17f,armored);
             layers.limb(c,facing,ElfLayerSprites.SHIN,index,kneeX,kneeY,footX,footY+1f,
@@ -249,6 +254,8 @@ final class RiggedElf {
     private void drawArm(Canvas c,float shoulderX,float shoulderY,float elbowX,float elbowY,
                          float handX,float handY,int hand,int facing,boolean armored) {
         if(layers.ready()){
+            p.setColor(SKIN);p.setStyle(Paint.Style.FILL);
+            c.drawOval(elbowX-3.8f,elbowY-4.3f,elbowX+3.8f,elbowY+4.3f,p);
             layers.limb(c,facing,ElfLayerSprites.UPPER_ARM,hand,
                         shoulderX,shoulderY,elbowX,elbowY,14f,armored);
             layers.limb(c,facing,ElfLayerSprites.FOREARM,hand,

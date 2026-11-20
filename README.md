@@ -1,5 +1,11 @@
 # Android DnD Roguelike
 
+## v0.3.6 — targeted base-body seam correction
+- Fixes visible disconnected knees/elbows in BASE ONLY: per-part atlas cells have transparent padding, so painting the full source cell leaves illustrated limbs short of their rig endpoints.
+- Measures the painted alpha bounds once at startup and uses a **shared crop for base and armor**, maintaining their alignment. Adds modest bone-end overlap and skin bridges behind both joint sections.
+- Draws the approved head/hair portrait behind the new torso and arms, preventing baked-in shoulder/chest imagery from covering the independent base-body art.
+- Four-facing stance, gait timing, equipment toggle, terrain, and gameplay are unchanged. Device screenshot/video testing is still needed, and final hair/armor illustration refinements remain future work.
+
 ## v0.3.5 — articulated base body and removable illustrated armor
 - Introduces **two real illustrated transparent WebP layer atlases**, each 768×960 with **20 independent four-facing body-part images**: torso, upper arm, forearm/hand, thigh, and lower leg/boot. `elf_base_layers.webp` depicts an adult High Elf's fitted navy underclothing, leather footwear and skin. `elf_armor_layers.webp` contains matching fantasy silver/gold armor pieces and blue fabric. These are artwork elements, not regenerated full-body walking poses.
 - Adds `ElfLayerSprites.java`, which attaches each illustrated body part to **the existing gait IK hip/knee/ankle and shoulder/elbow/hand positions**. The base layer is always drawn first; when enabled, each armor part draws over the **same** attachment transforms. Armor visibility does not change movement, proportions, stride length or facing.

@@ -24,10 +24,17 @@ final class ElfLayerSprites {
     private final Paint paint=new Paint(Paint.ANTI_ALIAS_FLAG|Paint.FILTER_BITMAP_FLAG);
     private final Rect src=new Rect();
     private final RectF dest=new RectF();
+    // Illustration cells contain transparent margins. Use one measured envelope
+    // for both base and armor so their pixels remain registered on the same rig.
+    private final Rect[][] visibleCells=new Rect[4][5];
 
     ElfLayerSprites(Context context) {
         base=decode(context,"elf_base_layers.webp");
         armor=decode(context,"elf_armor_layers.webp");
+        for(int facing=0;facing<4;facing++){
+            for(int part=0;part<5;part++)
+                visibleCells[facing][part]=measureCell(facing,part);
+        }
     }
 
     private static Bitmap decode(Context ctx,String name) {
@@ -38,6 +45,31 @@ final class ElfLayerSprites {
         }catch(java.io.IOException ignored){return null;}
     }
 
+    /** Scan alpha only at initialization, not during the animation loop. */
+    private Rect measureCell(int facing,int part){
+        int column=facing==3?1:facing;
+        int ox=column*CELL,oy=part*CELL;
+        int minX=CELL,minY=CELL,maxX=-1,maxY=-1;
+        int[] pixels=new int[CELL*CELL];
+        for(Bitmap atlas:new Bitmap[]{base,armor}){
+            if(atlas==null)continue;
+            atlas.getPixels(pixels,0,CELL,ox,oy,CELL,CELL);
+            for(int y=0;y<CELL;y++){
+                for(int x=0;x<CELL;x++){
+                    if((pixels[y*CELL+x]>>>24)<24)continue;
+                    if(x<minX)minX=x;
+                    if(y<minY)minY=y;
+                    if(x>maxX)maxX=x;
+                    if(y>maxY)maxY=y;
+                }
+            }
+        }
+        if(maxX<minX||maxY<minY)
+            return new Rect(ox,oy,ox+CELL,oy+CELL);
+        return new Rect(ox+Math.max(0,minX-2),oy+Math.max(0,minY-2),
+            ox+Math.min(CELL,maxX+3),oy+Math.min(CELL,maxY+3));
+    }
+
     boolean ready(){return base!=null;}
     boolean armorReady(){return armor!=null;}
 
@@ -45,8 +77,7 @@ final class ElfLayerSprites {
                           float left,float top,float right,float bottom) {
         if(atlas==null)return;
         // Art is mirrored from the right-facing source into left-facing space.
-        int column=facing==3?1:Math.max(0,Math.min(3,facing));
-        src.set(column*CELL,part*CELL,(column+1)*CELL,(part+1)*CELL);
+        src.set(visibleCells[Math.max(0,Math.min(3,facing))][part]);
         dest.set(left,top,right,bottom);
         paint.setAlpha(255);
         canvas.drawBitmap(atlas,src,dest,paint);
@@ -75,8 +106,11 @@ final class ElfLayerSprites {
         // Horizontal mirroring prevents a duplicate same-sided glove/knee pattern.
         if(index==1&&!RigViewProfile.isSide(facing))canvas.scale(-1f,1f);
         float half=width*.5f;
-        paintOne(canvas,base,facing,part,-half,0f,half,length);
-        if(armored)paintOne(canvas,armor,facing,part,-half-1f,-1f,half+1f,length+1f);
+        // Bone endpoints are joints, not art-cell boundaries.
+        float seam=part==THIGH||part==SHIN?2.7f:1.8f;
+        paintOne(canvas,base,facing,part,-half,-seam,half,length+seam);
+        if(armored)paintOne(canvas,armor,facing,part,
+                           -half-1f,-seam,half+1f,length+seam);
         canvas.restore();
         return true;
     }
