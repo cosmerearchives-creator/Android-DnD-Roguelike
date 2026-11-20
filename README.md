@@ -1,5 +1,9 @@
 # Android DnD Roguelike
 
+## v0.3.14 — Wildlands model and equipment alignment
+- Aligns base and armored shoulder, elbow, and knee seams. Tapers the rear hair and fits the neck to the collar.
+- Layers far limbs behind the body in profile, centers the rear tabard on the waist, and keeps the sword and shield on the same hands across facings.
+
 ## v0.3.13 — Wildlands attack and close-up view
 - The Wildlands attack preview now winds up, swings the blade, and recovers into the idle pose. Both arms and the torso follow the attack.
 - Wildlands opens with a large character preview for inspecting walking, armor layers, and attacks. Tap the view button to return to the regular world view.

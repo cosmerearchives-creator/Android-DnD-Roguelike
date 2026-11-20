@@ -14,26 +14,28 @@ final class RigViewProfile {
     }
 
     static float shoulderX(int facing,int arm) {
-        if(isSide(facing)) return arm==0 ? -6f : 2f;
-        return arm==0 ? -18f : 18f;
+        if(isSide(facing)) return arm==0 ? -4.5f : -3.5f;
+        return arm==0 ? -16.5f : 16.5f;
     }
 
     static float elbowX(int facing,int arm) {
-        if(isSide(facing)) return arm==0 ? -7f : 4f;
+        if(isSide(facing)) return arm==0 ? -6.5f : -5.5f;
         return arm==0 ? -21f : 21f;
     }
 
     static float handX(int facing,int arm) {
-        if(isSide(facing)) return arm==0 ? -6f : 5f;
+        if(isSide(facing)) return arm==0 ? -6f : -6.5f;
         return arm==0 ? -22f : 23f;
     }
 
     static float handY(int facing,int arm) {
-        return isSide(facing) ? (arm==0 ? -54f : -58f) : -55f;
+        if (!isSide(facing)) return -55f;
+        boolean far = facing == 1 ? arm == 1 : arm == 0;
+        return far ? -57f : -54f;
     }
 
     static boolean drawSwordArmBehindTorso(int facing) {
-        return isSide(facing);
+        return facing == 1;
     }
 
     static float sideToFrontShoulderRatio() {

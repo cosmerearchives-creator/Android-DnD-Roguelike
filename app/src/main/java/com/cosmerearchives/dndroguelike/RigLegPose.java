@@ -51,12 +51,13 @@ final class RigLegPose {
 
         float hx,fx,kx,fy,ky;
         if(side) {
-            hx=index==0?-3f:3f; // near/far leg separation, not an exaggerated stance
+            float separation = .2f + 2.8f*amount;
+            hx=index==0 ? -separation : separation;
             fx=hx+depth;
             float layer=index==0?-1f:1f;
-            fy=-lift+layer*.55f;
+            fy=-lift+layer*.55f*amount;
             kx=hx+kneeDepth;
-            ky=kneeVertical+layer*.35f;
+            ky=kneeVertical+layer*.35f*amount;
         }else {
             hx=index==0?-8f:8f;
             // Perspective: both legs stay beneath their respective hips.

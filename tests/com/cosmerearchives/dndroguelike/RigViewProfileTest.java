@@ -14,8 +14,14 @@ final class RigViewProfileTest {
                 "near arm needs to remain close to the narrow side torso");
             check(Math.abs(RigViewProfile.shoulderX(d,1))<12f,
                 "far arm needs to remain close to the narrow side torso");
-            check(RigViewProfile.drawSwordArmBehindTorso(d),
-                "far arm must go behind the profile torso");
+            check(RigViewProfile.drawSwordArmBehindTorso(d) == (d == 1),
+                "sword depth must follow the same hand through both profiles");
+            check(Math.abs(RigViewProfile.handX(d,0)-RigViewProfile.handX(d,1))<2f,
+                "the far hand should tuck behind the near hand at rest");
+            RigLegPose.Pose near=RigLegPose.solve(0f,0,d,0f,0f);
+            RigLegPose.Pose far=RigLegPose.solve(0f,1,d,0f,0f);
+            check(Math.abs(near.footX-far.footX)<1f && near.footY==far.footY,
+                "the far boot should tuck behind the near boot at rest");
         }
         check(RigViewProfile.sideToFrontShoulderRatio()<.5f,
             "side shoulders must compress significantly");

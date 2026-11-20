@@ -22,7 +22,7 @@ final class RiggedElf {
     private static final int HEAD_WIDTH = 192, HEAD_HEIGHT = 152;
     private static final float HEAD_SCALE = .35f;
     private static final float PROFILE_HEAD_LIFT = 5f;
-    private static final float BLADE_TIP_Y = 66f;
+    private static final float BLADE_TIP_Y = 55f;
     private final RigAttackPose attack = new RigAttackPose();
     private final Bitmap headAtlas;
     private final ElfLayerSprites layers;
@@ -104,7 +104,7 @@ final class RiggedElf {
                 Math.min(wristX-14f, elbowX-10f)));
             float right = Math.max(side ? 36f : 48f, Math.max(tipX+3f,
                 Math.max(wristX+14f, elbowX+10f)));
-            if (facing == 3) {
+            if (facing == 3 || back) {
                 float originalLeft = left;
                 left = -right;
                 right = -originalLeft;
@@ -120,27 +120,42 @@ final class RiggedElf {
         c.scale(scale,scale);
         if(facing==3)c.scale(-1f,1f); // Real side profile mirrored instantly.
 
+        boolean swordInBack = RigViewProfile.drawSwordArmBehindTorso(facing) && !attack.swordInFront;
+        boolean shieldInBack = facing == 3;
+        if (swordInBack || shieldInBack) {
+            c.save();
+            c.translate(torsoX,bounce+breathe);
+            c.rotate(attack.lean,0f,RigLegPose.HIP_Y);
+            // Far-side hands pass behind the hips and thighs as well as the chest.
+            if (swordInBack) {
+                if (armored) drawSword(c,rightHand,rightHandY,attack.blade);
+                drawArm(c,rightShoulder,shoulderY,rightElbow,rightElbowY,
+                    rightHand,rightHandY,1,facing,armored);
+            }
+            if (shieldInBack) {
+                drawArm(c,leftShoulder,shoulderY,leftElbow,leftElbowY,
+                    leftHand,leftHandY,0,facing,armored);
+                if (armored) drawShield(c,leftElbow,leftElbowY,leftHand,leftHandY,true,true);
+            }
+            c.restore();
+        }
+
         RigLegPose.Pose left=RigLegPose.solve(distanceCycles,0,facing,blend,bounce);
         RigLegPose.Pose right=RigLegPose.solve(distanceCycles,1,facing,blend,bounce);
-
-        // Far-side leg always lies beneath the near leg in a profile.
         drawLeg(c,side,back,right,facing,1,armored);
         drawLeg(c,side,back,left,facing,0,armored);
 
         c.save();
         c.translate(torsoX,bounce+breathe);
         c.rotate(attack.lean,0f,RigLegPose.HIP_Y);
-        boolean swordInBack = side && !attack.swordInFront;
-        if(swordInBack) {
-            // Sword hand is the FAR arm. Draw behind breastplate, rather than
-            // putting two equally prominent shoulders on the front plane.
-            if(armored)drawSword(c,rightHand,rightHandY,attack.blade);
-            drawArm(c,rightShoulder,shoulderY,rightElbow,rightElbowY,
-                    rightHand,rightHandY,1,facing,armored);
-        }
         float neckX = side ? -3f : 0f;
         drawNeck(c, neckX, side, back);
+        if (side && armored) {
+            // A fabric-covered shoulder fills the torso socket as the arm swings.
+            oval(c,0xFF3B3845,-9.8f,-115f,4.8f,-99f);
+        }
         drawIllustratedTorso(c,facing,side,armored);
+        if (back && armored) layers.rearTabard(c);
         if (headAtlas != null) {
             drawHead(c, facing, neckX);
         } else {
@@ -150,13 +165,17 @@ final class RiggedElf {
             c.restore();
         }
 
-        drawArm(c,leftShoulder,shoulderY,leftElbow,leftElbowY,leftHand,leftHandY,0,facing,armored);
-        if(armored)drawShield(c,leftHand,leftHandY,side,back);
-
-        if(!swordInBack) {
-            if(armored)drawSword(c,rightHand,rightHandY,attack.blade);
+        // Front and rear views look at opposite sides of the same hands.
+        if (back) c.scale(-1f,1f);
+        if (!shieldInBack) {
+            drawArm(c,leftShoulder,shoulderY,leftElbow,leftElbowY,
+                leftHand,leftHandY,0,facing,armored);
+            if (armored) drawShield(c,leftElbow,leftElbowY,leftHand,leftHandY,side,back);
+        }
+        if (!swordInBack) {
+            if (armored) drawSword(c,rightHand,rightHandY,attack.blade);
             drawArm(c,rightShoulder,shoulderY,rightElbow,rightElbowY,
-                    rightHand,rightHandY,1,facing,armored);
+                rightHand,rightHandY,1,facing,armored);
         }
 
         c.restore();
@@ -172,18 +191,25 @@ final class RiggedElf {
             shape.moveTo(x-4f,collar-12f);
             shape.lineTo(x+5f,collar-12f);
             shape.quadTo(x+2.9f,collar-5f,x+4.2f,collar+3f);
-            shape.lineTo(x-5f,collar+3f);
-            shape.quadTo(x-2f,collar-4f,x-4f,collar-12f);
+            shape.lineTo(x-4.3f,collar+3f);
+            shape.quadTo(x-2.5f,collar-5f,x-3.6f,collar-12f);
             shape.close();
             p.setStyle(Paint.Style.FILL);
-            p.setColor(0xFFCA9678);
+            p.setColor(0xFFD19F83);
             c.drawPath(shape,p);
-            polygon(c,0xFFE9B695,x+1.5f,collar-10f,x+4.5f,collar-11f,
-                x+3.3f,collar-5f,x+4f,collar+2f,x+2f,collar+2f,x+.5f,collar-5f);
+            polygon(c,0xFFE1AD91,x+1.9f,collar-10f,x+4.3f,collar-11f,
+                x+3.3f,collar-5f,x+3.9f,collar+1f,x+2.4f,collar+1f,x+1.1f,collar-5f);
             return;
         }
-        polygon(c, back ? 0xFFC49D80 : 0xFFE5BA99,
-            x-4.6f,collar-4f,x+4.6f,collar-4f,x+5.6f,collar+6f,x-5.6f,collar+6f);
+        shape.reset();
+        shape.moveTo(x-4.1f,collar+5f);
+        shape.quadTo(x-3.7f,collar,x-4.2f,collar-5.5f);
+        shape.quadTo(x,collar-8f,x+4.2f,collar-5.5f);
+        shape.quadTo(x+3.7f,collar,x+4.9f,collar+5f);
+        shape.close();
+        p.setStyle(Paint.Style.FILL);
+        p.setColor(back ? 0xFFC49D80 : 0xFFD4A183);
+        c.drawPath(shape,p);
     }
 
     private void drawHead(Canvas c, int facing, float neckX) {
@@ -192,10 +218,29 @@ final class RiggedElf {
         headSrc.set(left, 0, left + HEAD_WIDTH, HEAD_HEIGHT);
         // The atlas anchor is at the jaw/collar join. The profile uses extra neck clearance.
         float x = neckX - 96 * HEAD_SCALE;
-        float collarOffset = RigViewProfile.isSide(facing) ? PROFILE_HEAD_LIFT : 0f;
+        float collarOffset = RigViewProfile.isSide(facing) ? PROFILE_HEAD_LIFT : facing == 0 ? 1.5f : 0f;
         float y = ElfLayerSprites.COLLAR_Y - collarOffset - 88 * HEAD_SCALE;
         headDst.set(x, y, x + HEAD_WIDTH * HEAD_SCALE, y + HEAD_HEIGHT * HEAD_SCALE);
+        c.save();
+        if (facing == 2) {
+            shape.reset();
+            shape.moveTo(x,y);
+            shape.lineTo(x+HEAD_WIDTH*HEAD_SCALE,y);
+            shape.lineTo(x+HEAD_WIDTH*HEAD_SCALE,y+123f*HEAD_SCALE);
+            shape.lineTo(x+139f*HEAD_SCALE,y+122f*HEAD_SCALE);
+            shape.quadTo(x+129f*HEAD_SCALE,y+133f*HEAD_SCALE,x+118f*HEAD_SCALE,y+135f*HEAD_SCALE);
+            shape.quadTo(x+119f*HEAD_SCALE,y+132f*HEAD_SCALE,x+115f*HEAD_SCALE,y+130f*HEAD_SCALE);
+            shape.quadTo(x+112f*HEAD_SCALE,y+136f*HEAD_SCALE,x+101f*HEAD_SCALE,y+139f*HEAD_SCALE);
+            shape.lineTo(x+102f*HEAD_SCALE,y+132f*HEAD_SCALE);
+            shape.quadTo(x+94f*HEAD_SCALE,y+138f*HEAD_SCALE,x+86f*HEAD_SCALE,y+135f*HEAD_SCALE);
+            shape.lineTo(x+85f*HEAD_SCALE,y+129f*HEAD_SCALE);
+            shape.quadTo(x+77f*HEAD_SCALE,y+130f*HEAD_SCALE,x+66f*HEAD_SCALE,y+122f*HEAD_SCALE);
+            shape.lineTo(x,y+119f*HEAD_SCALE);
+            shape.close();
+            c.clipPath(shape);
+        }
         c.drawBitmap(headAtlas, headSrc, headDst, bitmapPaint);
+        c.restore();
     }
 
     /** The painted torso uses a vector fallback if the body atlas fails to load. */
@@ -241,6 +286,11 @@ final class RiggedElf {
             // This conceals the boot segment's rectangular source edge.
             layers.limb(c,facing,ElfLayerSprites.SHIN,index,kneeX,kneeY,footX,footY,
                         16f,armored);
+            if (back && armored) {
+                // The cropped rear armor cell leaves the leg visible under the skirt.
+                layers.limb(c,facing,ElfLayerSprites.THIGH,index,hipX,hipY,kneeX,kneeY,
+                    15f,false);
+            }
             layers.limb(c,facing,ElfLayerSprites.THIGH,index,hipX,hipY,kneeX,kneeY,
                         17f,armored);
             return;
@@ -309,19 +359,26 @@ final class RiggedElf {
         joint(c,handX,handY,3.5f,0xFFB39A73);
     }
 
-    private void drawShield(Canvas c,float handX,float handY,boolean side,boolean back){
-        // Shield and star emboss move as one assembly with the left hand.
+    private void drawShield(Canvas c,float elbowX,float elbowY,float handX,float handY,
+                            boolean side,boolean inside){
         c.save();
-        c.translate(handX-7f,handY+2f);
-        // A turned fighter presents the shield at an angle, not full-on.
-        if(side)c.scale(.66f,1f);
-        c.rotate(side?8f:-8f);
+        c.translate(handX,handY);
+        c.rotate((float)Math.toDegrees(Math.atan2(elbowX-handX,handY-elbowY)));
+        c.translate(-3f,-9f);
+        c.scale(side ? .49f : .83f,.84f);
         polygon(c,INK,-21,-21,4,-29,17,-19,16,11,-2,29,-20,9);
         polygon(c,GOLD,-19,-20,4,-27,15,-18,14,10,-2,26,-18,8);
-        polygon(c,DEEP_BLUE,-16,-16,4,-23,12,-15,10,8,-2,22,-15,6);
-        polygon(c,0xFF4C6C87,-9,-14,3,-20,6,-13,4,13,-5,17);
-        polygon(c,GOLD,-1,-17,3,-4,16,1,3,5,-1,19,-5,5,-17,1,-5,-4);
-        joint(c,-1,1,3f,LIGHT);
+        if (inside) {
+            polygon(c,0xFF51423C,-16,-16,4,-23,12,-15,10,8,-2,22,-15,6);
+            bone(c,-11,-9,10,-9,4f,LEATHER);
+            bone(c,-11,4,10,4,4f,LEATHER);
+            bone(c,-3,4,5,4,2.5f,0xFFAE8359);
+        } else {
+            polygon(c,DEEP_BLUE,-16,-16,4,-23,12,-15,10,8,-2,22,-15,6);
+            polygon(c,0xFF4C6C87,-9,-14,3,-20,6,-13,4,13,-5,17);
+            polygon(c,GOLD,-1,-17,3,-4,16,1,3,5,-1,19,-5,5,-17,1,-5,-4);
+            joint(c,-1,1,3f,LIGHT);
+        }
         c.restore();
     }
     private static float rotateX(float x,float y,float radians) {
@@ -336,12 +393,12 @@ final class RiggedElf {
         c.save();
         c.translate(handX,handY);
         c.rotate(angle);
-        bone(c,0,-5,0,11,5f,LEATHER);
-        joint(c,0,-5f,2.8f,GOLD);
-        stripe(c,GOLD,4f,-9,10,9,10);
-        polygon(c,SHADOW,-4,10,4,10,3,54,0,BLADE_TIP_Y,-3,54);
-        polygon(c,0xFFDDE6E8,-2,11,2,11,1,60,-2,54);
-        stripe(c,LIGHT,1.3f,0,13,0,53);
+        bone(c,0,-7,0,8,4.5f,LEATHER);
+        joint(c,0,-7f,2.5f,GOLD);
+        stripe(c,GOLD,3f,-7,8,7,8);
+        polygon(c,SHADOW,-3.5f,8,3.5f,8,2.5f,45,0,BLADE_TIP_Y,-2.5f,45);
+        polygon(c,0xFFDDE6E8,-1.7f,9,1.7f,9,.8f,49,-1.7f,44);
+        stripe(c,LIGHT,1f,0,11,0,44);
         c.restore();
     }
     private void drawHeadFallback(Canvas c,boolean back){
