@@ -1,5 +1,14 @@
 # Android DnD Roguelike
 
+## v0.3.5 — articulated base body and removable illustrated armor
+- Introduces **two real illustrated transparent WebP layer atlases**, each 768×960 with **20 independent four-facing body-part images**: torso, upper arm, forearm/hand, thigh, and lower leg/boot. `elf_base_layers.webp` depicts an adult High Elf's fitted navy underclothing, leather footwear and skin. `elf_armor_layers.webp` contains matching fantasy silver/gold armor pieces and blue fabric. These are artwork elements, not regenerated full-body walking poses.
+- Adds `ElfLayerSprites.java`, which attaches each illustrated body part to **the existing gait IK hip/knee/ankle and shoulder/elbow/hand positions**. The base layer is always drawn first; when enabled, each armor part draws over the **same** attachment transforms. Armor visibility does not change movement, proportions, stride length or facing.
+- **RIG TEST** now defaults to **BASE ONLY**. A separate top-bar toggle changes between `BASE ONLY` and `ARMOR ON`, saved across launches. The existing `RIG TEST / ORIGINAL` comparison control still works; the original approved full-body elf artwork remains untouched.
+- The normal path **no longer draws the diagnostic block-shaped thigh, shin and shoulder parts**; those primitives remain as fallback if assets fail to decode.
+- Wildlands redraw now uses `postInvalidateOnAnimation()` instead of `postInvalidateDelayed(32)`. This requests a new frame on each display vsync, potentially ~60 FPS on a 60 Hz phone, but **real frame rate remains limited by device performance**. Gait phase continues to come from actual distance traveled, not frame count.
+- The character's approved blonde elf portrait and four snap facings are preserved. The first-pass base and armor parts use distinct illustrated imagery and can still need alignment and occlusion refinements, particularly when joints flex or the side view overlaps. Existing combat, world, test-area isolation, pause navigation and APK auto-update are unchanged.
+- CI decodes each atlas and verifies transparent background and all 20 populated cells.
+
 ## v0.3.4 — illustrated rig refinement and real side-facing anatomy
 - Based on player screenshots of the v0.3.3 rig: the head turned sideways, but the shoulders, breastplate and arms still faced front.
 - Adds `RigViewProfile.java`: four discrete facings with an actual **narrow profile torso**, much smaller screen-space shoulder separation, and side-view hand/elbow offsets. Left and right are mirrored immediately; **no turning interpolation** is added.
