@@ -1,5 +1,13 @@
 # Android DnD Roguelike
 
+## v0.3.3 — upright gait and front/back stepping correction
+- Fixes the **crab-leg appearance** observed in the v0.3.2 screenshots: front and back legs no longer bend to the left/right of their hips. A new `RigLegPose.java` solves the two-bone gait in the physical **forward/depth plane** and *then* projects that movement into screen Y when facing front/back, or screen X when side-facing.
+- Raises the pelvis/hip anchor from **-58** to **-74** local pixels to restore a straighter stance and longer-looking legs. Resting knees interpolate to a straight aligned position instead of remaining visibly crouched.
+- Keeps the distance-controlled alternating stance/swing phases, feet lifting off the ground, modest torso bounce, full four-direction instant facing, and separate limb components.
+- Narrows front/back boots and keeps knees and boots underneath their respective hips. Side-view strides remain visibly forward/back rather than crab-stepping.
+- Adds `RigLegPoseTest.java` unit/regression checks for upright stance, knee placement, narrow front/back projections and real depth movement. CI runs these alongside the existing gait tests and Android build/lint.
+- The **RIG TEST / ORIGINAL** toggle remains. Original approved elf art, face/hair, terrain, movement, UI, Arena, pause options and APK updater are preserved. The vector limb armor is **still a mechanics-only prototype**, not final illustrated armor. Phone video testing is still needed to verify how the motion looks.
+
 ## v0.3.2 — articulated walking laboratory
 
 This is a **mechanics-first rigging prototype**, not another attempt to disguise the same static sprite as a walk cycle.
