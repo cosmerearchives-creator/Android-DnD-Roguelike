@@ -4,11 +4,8 @@ import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
-import android.graphics.LinearGradient;
 import android.graphics.Paint;
-import android.graphics.Path;
 import android.graphics.RectF;
-import android.graphics.Shader;
 import java.io.IOException;
 import java.io.InputStream;
 
@@ -26,22 +23,22 @@ final class ElfBaseArt {
         {{56,45,43,142,30,232,146,666}, {46,45,53,142,70,232,300,666},
          {60,45,60,161,57,272,174,847}, {56,45,49,161,50,272,256,847}},
         {{65,46,61,145,73,235,183,661}, {65,46,61,145,73,235,183,661},
-         {57,41,66,163,68,292,205,847}, {57,41,66,163,68,292,205,847}},
+         {57,41,66,163,62,273,205,847}, {57,41,66,163,62,273,205,847}},
         {{86,43,74,136,63,221,111,670}, {74,42,85,136,101,221,267,670},
          {56,49,62,160,56,273,179,847}, {48,49,51,160,56,273,260,847}},
         {{64,46,61,145,73,234,184,659}, {64,46,61,145,73,234,184,659},
-         {60,39,65,162,68,292,204,847}, {60,39,65,162,68,292,204,847}}
+         {60,39,65,162,63,273,204,847}, {60,39,65,162,63,273,204,847}}
     };
 
     private static final int[][][] MALE = {
-        {{70,47,55,138,45,227,128,626}, {57,47,74,136,84,226,296,626},
+        {{56,47,42,138,29,227,135,626}, {43,47,61,136,71,226,306,626},
          {55,38,51,137,48,275,179,841}, {52,39,57,135,55,275,255,841}},
-        {{63,42,59,143,75,225,192,630}, {63,42,59,143,75,225,192,630},
-         {49,38,54,138,66,295,227,842}, {49,38,54,138,66,295,227,842}},
-        {{72,42,57,136,43,222,121,631}, {57,41,72,137,85,222,283,631},
+        {{44,42,40,143,62,225,220,630}, {44,42,40,143,62,225,220,630},
+         {49,38,54,138,46,274,227,842}, {49,38,54,138,46,274,227,842}},
+        {{86,42,69,136,64,222,108,631}, {77,41,95,137,107,222,270,631},
          {57,40,58,141,51,275,177,841}, {51,40,55,139,54,275,256,841}},
-        {{63,42,59,143,75,225,192,630}, {63,42,59,143,75,225,192,630},
-         {50,38,55,139,66,295,226,842}, {50,38,55,139,66,295,226,842}}
+        {{44,42,40,143,62,225,220,630}, {44,42,40,143,62,225,220,630},
+         {50,38,55,139,47,274,226,842}, {50,38,55,139,47,274,226,842}}
     };
 
     private final Facing[] facings = new Facing[4];
@@ -62,7 +59,7 @@ final class ElfBaseArt {
                 Bitmap atlas = BitmapFactory.decodeStream(stream);
                 if (atlas != null && atlas.getWidth() == BODY_WIDTH + 4 * WIDTH
                     && atlas.getHeight() == ATLAS_HEIGHT) {
-                    facings[facing] = new Facing(atlas, registrations[facing], facing, male);
+                    facings[facing] = new Facing(atlas, registrations[facing], facing);
                 }
             } catch (IOException ignored) {
                 // The segmented renderer remains available for missing artwork.
@@ -147,7 +144,7 @@ final class ElfBaseArt {
             float hipY = pose.hipY - rest.hipY;
             kneeY = hipY + (kneeY - hipY) * .55f;
         }
-        limb.pose(pelvisX, pelvisY, pose.kneeX - rest.kneeX + kneeSway, kneeY, footX + view.ankleFit, footY);
+        limb.pose(pelvisX, pelvisY, pose.kneeX - rest.kneeX + kneeSway, kneeY, footX, footY);
         limb.draw(canvas, paint, limb.bitmap);
 
         // Keep the boot grounded and rigid while the calf deforms around the ankle.
@@ -163,14 +160,8 @@ final class ElfBaseArt {
         final Bitmap[] boots = new Bitmap[2];
         final RigLegPose.Pose[] rest = new RigLegPose.Pose[2];
 
-        final float ankleFit;
-
-        Facing(Bitmap atlas, int[][] registration, int facing, boolean male) {
-            body = assembleBody(atlas, facing, male);
-            // Profile boots have a cuff behind the center of their image cell.
-            boolean profile = RigViewProfile.isSide(facing);
-            int cuffX = male ? 47 : 48;
-            ankleFit = profile ? (cuffX - registration[2][4]) * UNIT : 0f;
+        Facing(Bitmap atlas, int[][] registration, int facing) {
+            body = Bitmap.createBitmap(atlas, 0, 0, BODY_WIDTH, ATLAS_HEIGHT);
             // The two independently painted profiles have different overlap at the hem.
             float rearHipFit = facing == 1 ? 1.65f : facing == 3 ? .85f : 0f;
             for (int i = 0; i < limbs.length; i++) {
@@ -185,73 +176,6 @@ final class ElfBaseArt {
                     : RigLegPose.solve(0f, i, facing, 0f, 0f);
             }
         }
-    }
-
-    private static Bitmap assembleBody(Bitmap atlas, int facing, boolean male) {
-        Bitmap body = Bitmap.createBitmap(atlas, 0, 0, BODY_WIDTH, ATLAS_HEIGHT);
-        boolean profile = RigViewProfile.isSide(facing);
-        Bitmap assembled = Bitmap.createBitmap(BODY_WIDTH, ATLAS_HEIGHT, Bitmap.Config.ARGB_8888);
-        Canvas canvas = new Canvas(assembled);
-        Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
-        RectF bounds = new RectF(0, 0, BODY_WIDTH, ATLAS_HEIGHT);
-        if (profile) {
-            canvas.drawBitmap(body, null, bounds, paint);
-            // Keep the armhole trim and shade the opening behind the moving arm.
-            float top = male ? 151f : 164f;
-            float bottom = male ? 210f : 226f;
-            float center = male ? 128f : facing == 1 ? 133f : 135f;
-            Path opening = new Path();
-            opening.moveTo(center, top);
-            opening.cubicTo(center - 18f, top, center - 31f, top + 18f,
-                center - 31f, top + 37f);
-            opening.cubicTo(center - 31f, bottom - 9f, center - 16f, bottom, center, bottom);
-            opening.cubicTo(center + 18f, bottom, center + 31f, bottom - 9f,
-                center + 31f, top + 37f);
-            opening.cubicTo(center + 31f, top + 18f, center + 17f, top, center, top);
-            opening.close();
-            paint.setShader(new LinearGradient(center, top, center, bottom,
-                0xFF46434C, 0xFF24252E, Shader.TileMode.CLAMP));
-            canvas.drawPath(opening, paint);
-        } else {
-            canvas.clipPath(vestOutline(male));
-            canvas.drawBitmap(body, null, bounds, paint);
-        }
-        return assembled;
-    }
-
-    private static Path vestOutline(boolean male) {
-        // The body cells include remnants of the shoulders outside the vest.
-        Path vest = new Path();
-        vest.moveTo(0f, 0f);
-        if (male) {
-            vest.lineTo(0f, 142f);
-            vest.lineTo(76f, 142f);
-            vest.cubicTo(88f, 156f, 92f, 181f, 82f, 203f);
-            vest.lineTo(71f, 213f);
-            vest.lineTo(0f, 213f);
-            vest.lineTo(0f, ATLAS_HEIGHT);
-            vest.lineTo(BODY_WIDTH, ATLAS_HEIGHT);
-            vest.lineTo(BODY_WIDTH, 213f);
-            vest.lineTo(218f, 213f);
-            vest.lineTo(206f, 203f);
-            vest.cubicTo(196f, 181f, 202f, 156f, 213f, 142f);
-            vest.lineTo(BODY_WIDTH, 142f);
-        } else {
-            // Start below the hair and follow the diagonal edge of each strap.
-            vest.lineTo(0f, 164f);
-            vest.lineTo(83f, 164f);
-            vest.cubicTo(90f, 172f, 97f, 185f, 96f, 202f);
-            vest.lineTo(0f, 208f);
-            vest.lineTo(0f, ATLAS_HEIGHT);
-            vest.lineTo(BODY_WIDTH, ATLAS_HEIGHT);
-            vest.lineTo(BODY_WIDTH, 208f);
-            vest.lineTo(192f, 202f);
-            vest.cubicTo(191f, 185f, 199f, 172f, 207f, 164f);
-            vest.lineTo(BODY_WIDTH, 164f);
-        }
-        vest.lineTo(BODY_WIDTH, 0f);
-        vest.close();
-        return vest;
     }
 
     private static final class Sprite {
