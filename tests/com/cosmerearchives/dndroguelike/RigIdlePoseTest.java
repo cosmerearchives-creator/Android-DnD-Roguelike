@@ -4,7 +4,7 @@ final class RigIdlePoseTest {
     public static void main(String[] args) {
         RigIdlePose idle = new RigIdlePose();
         idle.sample(RigIdlePose.PERIOD / 4f, 0f, 0f, false);
-        check(idle.hipX > 1f && idle.lean < 0f && idle.spineScale < 1f, "weight and breath");
+        check(idle.hipX > 1f && idle.lean < 0f && idle.spineScale < .96f, "weight and breath");
         float shift = idle.hipX;
         float breath = idle.spineScale;
         idle.sample(1.25f * RigIdlePose.PERIOD, 0f, 0f, false);

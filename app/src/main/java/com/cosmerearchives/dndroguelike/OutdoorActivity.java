@@ -11,9 +11,9 @@ import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Path;
 import android.graphics.RectF;
+import android.graphics.Typeface;
 import android.os.Build;
 import android.os.Bundle;
-import android.os.SystemClock;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.WindowInsets;
@@ -52,7 +52,7 @@ public final class OutdoorActivity extends Activity {
         super.onWindowFocusChanged(focused);if(focused)hideBars();
     }
     @Override public void onBackPressed(){
-        if(landscape!=null){landscape.paused=!landscape.paused;landscape.invalidate();}
+        if(landscape!=null) landscape.setPaused(!landscape.paused);
         else super.onBackPressed();
     }
 
@@ -66,6 +66,18 @@ public final class OutdoorActivity extends Activity {
         private final Rect tileSource=new Rect();
         private final RectF tileDestination=new RectF();
         private final Path path=new Path();
+        private final Path textureClip = new Path();
+        private final Typeface hudTypeface = Typeface.create("sans-serif", Typeface.BOLD);
+        // The viewport spans fewer than 64 tiles on each axis. Reuse a bounded
+        // window of generated properties as the camera moves.
+        private static final int TILE_CACHE_SIDE = 64;
+        private final Tile[] tileCache = new Tile[TILE_CACHE_SIDE * TILE_CACHE_SIDE];
+
+        private static final class Tile {
+            int x, y, level, kind;
+            boolean road, river;
+            long terrainSeed, propSeed;
+        }
         private final PlayerCharacter hero;
         private final RiggedElf riggedArt;
         private final GaitModel gait=new GaitModel();
@@ -131,7 +143,7 @@ public final class OutdoorActivity extends Activity {
             heroName=hero!=null&&hero.completed?hero.name:"Explorer";
             density=getResources().getDisplayMetrics().density;
             setFocusable(true);
-            setLayerType(View.LAYER_TYPE_SOFTWARE,null);
+            if (Build.VERSION.SDK_INT < 28) setLayerType(View.LAYER_TYPE_SOFTWARE, null);
             setOnApplyWindowInsetsListener((v,insets)->{
                 int bottom=Build.VERSION.SDK_INT>=30?
                     insets.getInsets(WindowInsets.Type.navigationBars()).bottom:insets.getSystemWindowInsetBottom();
@@ -154,44 +166,61 @@ public final class OutdoorActivity extends Activity {
             float v1=noise(ix,iy+1,salt)*(1-a)+noise(ix+1,iy+1,salt)*a;
             return v0*(1-b)+v1*b;
         }
-        private boolean river(int xx,int yy){
+        private boolean generateRiver(int xx,int yy){
             if(Math.abs(xx)<7&&Math.abs(yy)<7)return false;
             float meander=(field(yy,0,17,51)-.5f)*13f;
             return Math.abs(xx-(23+meander))<1.5f;
         }
-        private boolean road(int xx,int yy){
+        private boolean generateRoad(int xx,int yy){
             if(Math.abs(xx)<7&&Math.abs(yy)<7)return yy==0;
             float bend=(field(xx,0,23,19)-.5f)*7f;
             return Math.abs(yy-bend)<1.25f;
         }
-        private int height(int xx,int yy){
+        private int generateHeight(int xx,int yy){
             if(Math.abs(xx)<8&&Math.abs(yy)<8)return 0;
             float level=field(xx,yy,16,37)*1.15f+field(xx,yy,7,39)*.35f;
             return level>.93f?2:level>.58f?1:0;
         }
-        private int biome(int xx,int yy){
+        private int generateBiome(int xx,int yy,int level,boolean river){
+            if(river)return 5;
+            if(level==2)return 4;
             float wet=field(xx,yy,29,12),temp=field(xx+300,yy-600,31,17);
-            if(river(xx,yy))return 5;
-            if(height(xx,yy)==2)return 4;
             if(wet>.7f)return 2;
             if(wet<.36f)return 3;
             return temp>.55f?0:1;
         }
-        private boolean bridge(int xx,int yy){return river(xx,yy)&&road(xx,yy);}
-        private boolean blocked(int xx,int yy){
-            if(bridge(xx,yy))return false;
-            if(river(xx,yy))return true;
-            if(Math.abs(xx)<6&&Math.abs(yy)<6)return false;
-            if(road(xx,yy))return false;
-            long h=hash(xx,yy,83);
-            boolean tree=(h&31)==4&&(biome(xx,yy)==1||biome(xx,yy)==2);
-            boolean rock=(h&63)==15&&height(xx,yy)>0;
-            return tree||rock;
+        private Tile tileAt(int xx, int yy) {
+            int mask = TILE_CACHE_SIDE - 1;
+            int index = (xx & mask) * TILE_CACHE_SIDE + (yy & mask);
+            Tile tile = tileCache[index];
+            if (tile != null && tile.x == xx && tile.y == yy) return tile;
+            if (tile == null) tileCache[index] = tile = new Tile();
+            tile.x = xx;
+            tile.y = yy;
+            tile.level = generateHeight(xx, yy);
+            tile.river = generateRiver(xx, yy);
+            tile.road = generateRoad(xx, yy);
+            tile.kind = generateBiome(xx, yy, tile.level, tile.river);
+            tile.terrainSeed = hash(xx, yy, 27);
+            tile.propSeed = hash(xx, yy, 83);
+            return tile;
         }
+
+        private int height(int xx, int yy) { return tileAt(xx, yy).level; }
+
+        private boolean blocked(Tile tile) {
+            if (tile.road) return false;
+            if (tile.river) return true;
+            if (Math.abs(tile.x)<6 && Math.abs(tile.y)<6) return false;
+            boolean tree = (tile.propSeed&31)==4 && (tile.kind==1 || tile.kind==2);
+            boolean rock = (tile.propSeed&63)==15 && tile.level>0;
+            return tree || rock;
+        }
+
         private boolean walkable(float xx,float yy){
-            int tx=(int)Math.floor(xx),ty=(int)Math.floor(yy);
-            int fromH=height((int)Math.floor(x),(int)Math.floor(y));
-            return !blocked(tx,ty)&&Math.abs(height(tx,ty)-fromH)<=1;
+            int fromH = height((int)Math.floor(x),(int)Math.floor(y));
+            Tile tile = tileAt((int)Math.floor(xx), (int)Math.floor(yy));
+            return !blocked(tile) && Math.abs(tile.level - fromH)<=1;
         }
         private float screenX(float tx,float ty){return (tx-ty)*TILE_W*.5f;}
         private float screenY(float tx,float ty){return (tx+ty)*TILE_H*.5f;}
@@ -217,7 +246,7 @@ public final class OutdoorActivity extends Activity {
             c.drawRoundRect(x1,y1,x2,y2,radius,radius,p);
         }
         private void text(Canvas c,String s,float xx,float yy,float size,int color){
-            p.setColor(color);p.setTypeface(android.graphics.Typeface.create("sans-serif",android.graphics.Typeface.BOLD));
+            p.setColor(color);p.setTypeface(hudTypeface);
             p.setTextSize(size);p.setStyle(Paint.Style.FILL);c.drawText(s,xx,yy,p);
         }
         private int shade(int color,int delta){
@@ -245,40 +274,41 @@ public final class OutdoorActivity extends Activity {
                     return;
                 }
             }
-            Path shape=new Path();
-            shape.moveTo(coordinates[0],coordinates[1]);
+            textureClip.reset();
+            textureClip.moveTo(coordinates[0],coordinates[1]);
             float l=coordinates[0],r=l,t=coordinates[1],b=t;
             for(int i=2;i<coordinates.length;i+=2){
-                shape.lineTo(coordinates[i],coordinates[i+1]);
+                textureClip.lineTo(coordinates[i],coordinates[i+1]);
                 l=Math.min(l,coordinates[i]);r=Math.max(r,coordinates[i]);
                 t=Math.min(t,coordinates[i+1]);b=Math.max(b,coordinates[i+1]);
             }
-            shape.close();
+            textureClip.close();
             int size=groundAtlas.getWidth()/4;
             int id=Math.max(0,Math.min(15,index));
             tileSource.set((id%4)*size,(id/4)*size,(id%4+1)*size,(id/4+1)*size);
             tileDestination.set(l,t,r,b);
             c.save();
-            c.clipPath(shape);
+            c.clipPath(textureClip);
             c.drawBitmap(groundAtlas,tileSource,tileDestination,groundPaint);
             c.restore();
         }
-        private int tileArt(int xx,int yy,int kind,long seed){
-            if(bridge(xx,yy))return 11; // textured wooden footbridge
+        private int tileArt(Tile tile){
+            int kind = tile.kind;
+            long seed = tile.terrainSeed;
+            if(tile.road && tile.river)return 11; // textured wooden footbridge
             if(kind==5)return 10; // rippling water
-            if(road(xx,yy))return (seed&3)==0?5:4; // two illustrated soil variations
+            if(tile.road)return (seed&3)==0?5:4; // two illustrated soil variations
             if(kind==4)return 8; // rocky plateau
             if(kind==3)return 3; // drier meadow
             if(kind==2)return (seed&3)==0?12:2; // ferns and leaf litter
             if(kind==1)return (seed&3)==0?1:0;
             return (seed&7)==0?12:0;
         }
-        private void terrain(Canvas c,int xx,int yy){
-            int level=height(xx,yy),kind=biome(xx,yy);
-            float sx=screenX(xx+.5f,yy+.5f),sy=screenY(xx+.5f,yy+.5f)-level*LEVEL_H;
+        private void terrain(Canvas c, Tile tile, float sx, float sy){
+            int level = tile.level, kind = tile.kind;
             int base=colorRange[kind];
-            if(road(xx,yy)&&!river(xx,yy))base=0xFF866D4C;
-            if(bridge(xx,yy))base=0xFF8F7454;
+            if(tile.road && !tile.river)base=0xFF866D4C;
+            if(tile.road && tile.river)base=0xFF8F7454;
             if(level>0){
                 polygon(c,0xFF313B34,sx-TILE_W*.5f,sy,sx,sy+TILE_H*.5f,
                     sx,sy+TILE_H*.5f+level*LEVEL_H,sx-TILE_W*.5f,sy+level*LEVEL_H);
@@ -289,13 +319,13 @@ public final class OutdoorActivity extends Activity {
                 texturePoly(c,8,sx,sy+TILE_H*.5f,sx+TILE_W*.5f,sy,
                     sx+TILE_W*.5f,sy+level*LEVEL_H,sx,sy+TILE_H*.5f+level*LEVEL_H);
             }
-            long seed=hash(xx,yy,27);
+            long seed=tile.terrainSeed;
             // Preserve generated terrain but add alternating low-contrast pigment layers.
             if(kind!=5 && (seed&7)==3)base=shade(base,-9);
             polygon(c,base,sx,sy-TILE_H*.5f,sx+TILE_W*.5f,sy,sx,sy+TILE_H*.5f,sx-TILE_W*.5f,sy);
-            texturePoly(c,tileArt(xx,yy,kind,seed),sx,sy-TILE_H*.5f,
+            texturePoly(c,tileArt(tile),sx,sy-TILE_H*.5f,
                 sx+TILE_W*.5f,sy,sx,sy+TILE_H*.5f,sx-TILE_W*.5f,sy);
-            if(kind!=5 && !road(xx,yy)){
+            if(kind!=5 && !tile.road){
                 polygon(c,0x224C8550,sx-24,sy-2,sx-4,sy-13,sx+17,sy-1,sx+4,sy+8);
                 if((seed&31)==11)oval(c,0x66375438,sx-21,sy-2,sx-3,sy+3);
             }
@@ -303,7 +333,7 @@ public final class OutdoorActivity extends Activity {
                 polygon(c,0x334FB0B0,sx-35,sy+3,sx-5,sy-12,sx+24,sy+2,sx+2,sy+11);
                 line(c,0x8874C8CD,1.3f,sx-20,sy-2,sx+3,sy-13);
                 line(c,0x665FA9B2,1.2f,sx+2,sy+7,sx+19,sy-2);
-                if(bridge(xx,yy)){
+                if(tile.road && tile.river){
                     polygon(c,0xFFB19A78,sx,sy-18,sx+40,sy,sx,sy+18,sx-40,sy);
                     line(c,0xFF473728,3,sx-35,sy+3,sx+3,sy+18);
                 }
@@ -312,7 +342,7 @@ public final class OutdoorActivity extends Activity {
             }
             // Low-cost hand-illustrated texture accents: ground clusters and irregular
             // fitted stone pavers (repeat deterministically across generated tiles).
-            if(road(xx,yy)&&!river(xx,yy)){
+            if(tile.road && !tile.river){
                 for(int n=0;n<3;n++){
                     float px=sx-19+n*15+((seed>>(n*5))&3);
                     float py=sy-3+((seed>>(n*4+1))&3);
@@ -343,17 +373,16 @@ public final class OutdoorActivity extends Activity {
         private void illustratedProp(Canvas c,int tile,float centerX,float footY,float width,float height){
             if(vegetationAtlas==null)return;
             int size=vegetationAtlas.getWidth()/4;
-            Rect src=new Rect(tile*size,0,(tile+1)*size,size);
-            RectF dest=new RectF(centerX-width*.5f,footY-height,centerX+width*.5f,footY);
-            c.drawBitmap(vegetationAtlas,src,dest,groundPaint);
+            tileSource.set(tile*size,0,(tile+1)*size,size);
+            tileDestination.set(centerX-width*.5f,footY-height,centerX+width*.5f,footY);
+            c.drawBitmap(vegetationAtlas,tileSource,tileDestination,groundPaint);
         }
         private boolean landmark(int xx,int yy){
             // Stable landmark positions, clearly separated from starting clearing.
             return (xx==13&&yy==-11)||(xx==-19&&yy==12)||(xx==30&&yy==25);
         }
-        private void prop(Canvas c,int xx,int yy){
-            float sx=screenX(xx+.5f,yy+.5f),sy=screenY(xx+.5f,yy+.5f)-height(xx,yy)*LEVEL_H;
-            if(landmark(xx,yy)){
+        private void prop(Canvas c, Tile tile, float sx, float sy){
+            if(landmark(tile.x,tile.y)){
                 oval(c,0x88000000,sx-24,sy-6,sx+28,sy+10);
                 polygon(c,0xFF97958A,sx-17,sy-2,sx-14,sy-53,sx-3,sy-60,sx+4,sy-3);
                 polygon(c,0xFF7B817D,sx+7,sy+1,sx+9,sy-39,sx+19,sy-43,sx+21,sy+3);
@@ -369,9 +398,10 @@ public final class OutdoorActivity extends Activity {
                 oval(c,0xFF476C45,sx-24,sy-18,sx-12,sy-10);
                 text(c,"RUINS",sx-18,sy-69,11,0xFFE9D7A2);return;
             }
-            if(Math.abs(xx)<7&&Math.abs(yy)<7)return;
-            if(road(xx,yy)||river(xx,yy))return;
-            long seed=hash(xx,yy,83);int kind=biome(xx,yy);
+            if(Math.abs(tile.x)<7&&Math.abs(tile.y)<7)return;
+            if(tile.road || tile.river)return;
+            long seed = tile.propSeed;
+            int kind = tile.kind;
             // The painted forest now has more canopy cover, with a separate, stable
             // placement rule so the clearer starting area and paths stay open.
             if((seed&15)==4&&(kind==1||kind==2)){
@@ -388,7 +418,7 @@ public final class OutdoorActivity extends Activity {
                 polygon(c,0xFF547656,sx-6,sy-82,sx,sy-97,sx+3,sy-79);
                 line(c,0xFF9A9E69,1.3f,sx-12,sy-46,sx-18,sy-34);
                 line(c,0xFF8E9D69,1.2f,sx+8,sy-65,sx+17,sy-42);
-            }else if((seed&31)==15&&height(xx,yy)>0){
+            }else if((seed&31)==15&&tile.level>0){
                 if(vegetationAtlas!=null){
                     oval(c,0x77000000,sx-17,sy-3,sx+19,sy+6);
                     illustratedProp(c,2,sx,sy+6,102,76);
@@ -499,9 +529,11 @@ public final class OutdoorActivity extends Activity {
 
         @Override protected void onDraw(Canvas c){
             super.onDraw(c);
-            long now=SystemClock.uptimeMillis();
-            if(lastFrame==0)lastFrame=now;
-            float dt=Math.min(.05f,(now-lastFrame)/1000f);lastFrame=now;update(dt);
+            long now = System.nanoTime();
+            if (lastFrame == 0) lastFrame = now;
+            float dt = Math.min(.05f, (now - lastFrame) * 1e-9f);
+            lastFrame = now;
+            update(dt);
             c.drawColor(0xFF101D22);
             float ox=originX(),oy=originY();
             c.save();c.translate(ox,oy);c.scale(zoom,zoom);
@@ -510,6 +542,7 @@ public final class OutdoorActivity extends Activity {
             radiusX=Math.min(28,Math.max(13,radiusX));
             radiusY=Math.min(27,Math.max(15,radiusY));
             int ix=(int)Math.floor(camX),iy=(int)Math.floor(camY);
+            int heroTileX = (int)Math.floor(x), heroTileY = (int)Math.floor(y);
             // Painter order matches iso projected depth. Draw all tiles at depth, then their
             // props and party so taller props correctly overlap tiles behind them.
             int minX=ix-radiusX,maxX=ix+radiusX,minY=iy-radiusY,maxY=iy+radiusY;
@@ -517,18 +550,21 @@ public final class OutdoorActivity extends Activity {
                 int start=Math.max(minX,sum-maxY),end=Math.min(maxX,sum-minY);
                 for(int tx=start;tx<=end;tx++){
                     int ty=sum-tx;
-                    float screenTileX=ox+screenX(tx+.5f,ty+.5f)*zoom;
-                    float screenTileY=oy+(screenY(tx+.5f,ty+.5f)-height(tx,ty)*LEVEL_H)*zoom;
-                    if(screenTileX < -100*zoom || screenTileX > getWidth()+100*zoom ||
-                        screenTileY < -180*zoom || screenTileY > getHeight()+100*zoom)continue;
-                    terrain(c,tx,ty);
-                    prop(c,tx,ty);
+                    float tileX = screenX(tx+.5f,ty+.5f);
+                    float screenTileX = ox + tileX * zoom;
+                    if (screenTileX < -100*zoom || screenTileX > getWidth()+100*zoom) continue;
+                    Tile tile = tileAt(tx, ty);
+                    float tileY = screenY(tx+.5f,ty+.5f) - tile.level*LEVEL_H;
+                    float screenTileY = oy + tileY * zoom;
+                    if (screenTileY < -180*zoom || screenTileY > getHeight()+100*zoom) continue;
+                    terrain(c, tile, tileX, tileY);
+                    prop(c, tile, tileX, tileY);
                     // World entities enter the same painter order as terrain and props.
                     // Nearer trees and elevated terrain can now occlude the actor naturally.
                     // Solo visual test: leave the party companion systems untouched elsewhere.
-                    if(!closeUp && tx==(int)Math.floor(x) && ty==(int)Math.floor(y)){
+                    if(!closeUp && tx==heroTileX && ty==heroTileY){
                         float feetX=screenX(x,y);
-                        float feetY=screenY(x,y)-height(tx,ty)*LEVEL_H;
+                        float feetY=screenY(x,y)-tile.level*LEVEL_H;
                         oval(c,0x880A1614,feetX-21,feetY-6,feetX+21,feetY+6);
                         riggedArt.draw(c,feetX,feetY,WORLD_RIG_SCALE,facing,walkTime,
                             gaitBlend,idleTime,attackProgress(),armorVisible,0f);
@@ -603,14 +639,20 @@ public final class OutdoorActivity extends Activity {
             }
             // Display-synchronized invalidation replaces the old 32 ms (~31 fps)
             // timer. The rig interpolates continuously; actual FPS depends on device load.
-            postInvalidateOnAnimation();
+            if (!paused) postInvalidateOnAnimation();
         }
+        private void setPaused(boolean value) {
+            paused = value;
+            lastFrame = 0;
+            invalidate();
+        }
+
         private float ui(){return Math.min(density,Math.max(1f,getWidth()/390f));}
         @Override public boolean onTouchEvent(MotionEvent e){
             int event=e.getActionMasked();float sx=e.getX(),sy=e.getY(),d=ui(),h=getHeight()-controlsBottom;
             if(event==MotionEvent.ACTION_DOWN){
                 if(paused){
-                    if(resumeBounds.contains(sx,sy)){paused=false;invalidate();return true;}
+                    if(resumeBounds.contains(sx,sy)){setPaused(false);return true;}
                     if(menuBounds.contains(sx,sy)){
                         Intent home=new Intent(getContext(),MainActivity.class);
                         home.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP|Intent.FLAG_ACTIVITY_SINGLE_TOP);
@@ -623,7 +665,7 @@ public final class OutdoorActivity extends Activity {
                         return true;
                     }
                     if(sy>h-110*d && sx>getWidth()-111*d){
-                        paused=false;invalidate();
+                        setPaused(false);
                     }
                     return true;
                 }
@@ -648,7 +690,7 @@ public final class OutdoorActivity extends Activity {
                 if(sy<62*d)return true;
                 if(sy>h-110*d){
                     if(sx>getWidth()-111*d){
-                        paused=!paused;lastFrame=SystemClock.uptimeMillis();invalidate();return true;
+                        setPaused(!paused);return true;
                     }
                     if(sx>getWidth()-218*d){
                         getContext().startActivity(new Intent(getContext(),GameActivity.class));return true;

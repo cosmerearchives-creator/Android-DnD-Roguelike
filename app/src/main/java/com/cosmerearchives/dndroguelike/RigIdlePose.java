@@ -19,7 +19,7 @@ final class RigIdlePose {
         hipX = strength * transfer * (side ? .75f : 1.45f);
         hipY = strength * transfer * transfer * .42f;
         lean = strength * transfer * (side ? -.84f : -1.3f);
-        spineScale = 1f + strength * breath * .016f;
+        spineScale = 1f + strength * breath * .046f;
         armDrift = strength * (transfer * .6f + (float) Math.sin(3f * phase - .65f) * .23f);
     }
 }
