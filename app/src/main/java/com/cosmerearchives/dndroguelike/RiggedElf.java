@@ -37,22 +37,20 @@ final class RiggedElf {
         new float[]{0f,.44f,1f},Shader.TileMode.CLAMP);
     private final Bitmap headAtlas;
     private final ElfLayerSprites layers;
-    private final ElfBaseArt femaleArt;
-    private final ElfBaseArt maleArt;
+    private final Context context;
     private ElfBaseArt baseArt;
     private final Rect headSrc = new Rect();
     private final RectF headDst = new RectF();
 
-    RiggedElf(Context context) {
+    RiggedElf(Context context, ElfAppearance appearance) {
+        this.context = context;
         headAtlas = loadHeadAtlas(context);
         layers = new ElfLayerSprites(context);
-        femaleArt = new ElfBaseArt(context, false);
-        maleArt = new ElfBaseArt(context, true);
-        baseArt = femaleArt;
+        setAppearance(appearance);
     }
 
-    void setMaleModel(boolean male) {
-        baseArt = male ? maleArt : femaleArt;
+    void setAppearance(ElfAppearance appearance) {
+        baseArt = new ElfBaseArt(context, appearance);
     }
 
     private static Bitmap loadHeadAtlas(Context context) {

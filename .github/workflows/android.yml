@@ -33,20 +33,43 @@ jobs:
         run: |
           python3 -m pip install --quiet Pillow
           python3 - <<'PY'
+          from pathlib import Path
+          import re
           from PIL import Image
-          for model in ('base', 'male'):
+
+          assets = Path('app/src/main/assets')
+          appearance_source = Path('app/src/main/java/com/cosmerearchives/dndroguelike/ElfAppearance.java')
+          models = set(re.findall(r'^    [A-Z_]+\("([a-z_]+)",', appearance_source.read_text(), re.M))
+          assert 'classic' in models
+          roster = assets / 'elf_roster'
+          assert {model.name for model in roster.iterdir() if model.is_dir()} == models - {'classic'}
+          assert not list(assets.glob('elf_base_facing_*.webp')), 'Legacy female atlases remain'
+
+          for model in sorted(models):
+              if model != 'classic':
+                  values = [int(value) for value in (roster / model / 'rig.txt').read_text().split()]
+                  assert len(values) == 4 * 4 * 8, f'Invalid registration for {model}'
               for facing in range(4):
-                  with Image.open(f'app/src/main/assets/elf_{model}_facing_{facing}.webp') as art:
-                      assert art.size == (800, 400) and art.mode == 'RGBA', f'Invalid facing {facing}'
+                  path = (assets / f'elf_male_facing_{facing}.webp' if model == 'classic'
+                          else roster / model / f'{facing}.webp')
+                  with Image.open(path) as art:
+                      assert art.size == (800, 400) and art.mode == 'RGBA', f'Invalid atlas {path}'
                       alpha = art.getchannel('A')
-                      assert alpha.crop((0, 0, 288, 400)).getbbox(), f'Missing body for facing {facing}'
+                      assert alpha.crop((0, 0, 288, 400)).getbbox(), f'Missing body in {path}'
                       for limb in range(4):
                           x = 288 + 128 * limb
-                          assert alpha.crop((x, 0, x + 128, 320)).getbbox(), (
-                              f'Missing limb {limb} for facing {facing}')
+                          cell = alpha.crop((x, 0, x + 128, 320))
+                          assert cell.getbbox(), f'Missing limb {limb} in {path}'
                           if limb >= 2:
-                              assert alpha.crop((x, 320, x + 128, 400)).getbbox(), (
-                                  f'Missing boot {limb} for facing {facing}')
+                              boot = alpha.crop((x, 320, x + 128, 400))
+                              assert boot.getbbox(), f'Missing boot {limb} in {path}'
+                          if model != 'classic':
+                              start = (facing * 4 + limb) * 8
+                              points = values[start:start + 6]
+                              assert 0 <= points[1] < points[3] < points[5] < 320, (path, points)
+                              for px, py in zip(points[::2], points[1::2]):
+                                  assert 0 <= px < 128 and cell.getpixel((px, py)) > 100, (path, px, py)
+          print(f'Validated {len(models)} High Elf appearances.')
           with Image.open('app/src/main/assets/elf_front_lower_limbs.webp') as limbs:
               assert limbs.size == (576, 192) and limbs.mode == 'RGBA'
               assert all(limbs.crop((x,0,x+192,192)).getchannel('A').getbbox()

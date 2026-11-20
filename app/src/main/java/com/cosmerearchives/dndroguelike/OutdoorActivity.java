@@ -3,6 +3,7 @@ package com.cosmerearchives.dndroguelike;
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.graphics.Canvas;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
@@ -81,11 +82,9 @@ public final class OutdoorActivity extends Activity {
         private final PlayerCharacter hero;
         private final RiggedElf riggedArt;
         private final GaitModel gait=new GaitModel();
-        // Base first: armor is explicitly opt-in for comparison and layering QA.
-        private boolean armorVisible=false;
-        private boolean maleModel;
+        private final SharedPreferences animationPreferences;
+        private ElfAppearance appearance;
         private final RectF modelToggleBounds = new RectF();
-        private final RectF armorToggleBounds=new RectF();
         private final RectF viewToggleBounds=new RectF();
         private boolean closeUp=true;
         private final String heroName;
@@ -139,12 +138,9 @@ public final class OutdoorActivity extends Activity {
                     cachedGround[id]=tile;
                 }
             }
-            riggedArt=new RiggedElf(context);
-            armorVisible=context.getSharedPreferences("animation_lab",Context.MODE_PRIVATE)
-                .getBoolean("armor_visible",false);
-            maleModel = context.getSharedPreferences("animation_lab",Context.MODE_PRIVATE)
-                .getBoolean("male_elf", false);
-            riggedArt.setMaleModel(maleModel);
+            animationPreferences=context.getSharedPreferences("animation_lab",Context.MODE_PRIVATE);
+            appearance=ElfAppearance.fromId(animationPreferences.getString("elf_appearance", null));
+            riggedArt=new RiggedElf(context,appearance);
             heroName=hero!=null&&hero.completed?hero.name:"Explorer";
             density=getResources().getDisplayMetrics().density;
             setFocusable(true);
@@ -509,28 +505,26 @@ public final class OutdoorActivity extends Activity {
             return attackRemaining>0f ? 1f-attackRemaining/RigAttackPose.DURATION : 0f;
         }
 
-        private boolean showArmor() { return armorVisible && !maleModel; }
-
         private void drawCloseUp(Canvas c,float h,float d){
             float top=62*d, bottom=h-158*d;
             if(bottom<=top)return;
             rect(c,0xC0101D22,0,top,getWidth(),h-112*d);
             // 1.0x means the same physical size as the normal World View.
-            float referenceScale=WORLD_RIG_SCALE*zoom*WORLD_COMPARISON_ZOOM;
+            float referenceScale=WORLD_RIG_SCALE*zoom*WORLD_COMPARISON_ZOOM*appearance.heightScale;
             float referenceWidth=Math.min(getWidth()*.34f,
                 Math.max(getWidth()*.23f,124f*referenceScale+8*d));
             float closeWidth=getWidth()-referenceWidth;
-            float scale=Math.min(closeWidth/124f,(bottom-top)/178f);
+            float scale=Math.min(closeWidth/124f*appearance.heightScale,(bottom-top)/178f);
             float feetY=bottom-Math.max(15f*d,13f*scale);
             float phase=attackProgress();
             riggedArt.draw(c,closeWidth*.5f,feetY,scale,facing,walkTime,
-                gaitBlend,idleTime,phase,showArmor(),closeWidth);
+                gaitBlend,idleTime,phase,false,closeWidth);
 
             float referenceX=closeWidth+referenceWidth*.5f;
             oval(c,0x99112125,referenceX-23*referenceScale,feetY-4*referenceScale,
                 referenceX+23*referenceScale,feetY+5*referenceScale);
             riggedArt.draw(c,referenceX,feetY,referenceScale,facing,walkTime,
-                gaitBlend,idleTime,phase,showArmor(),0f);
+                gaitBlend,idleTime,phase,false,0f);
             text(c,"1.0× WORLD",referenceX-31*d,feetY+13*d,10*d,0xFFF3DBA4);
         }
 
@@ -573,9 +567,9 @@ public final class OutdoorActivity extends Activity {
                         float feetX=screenX(x,y);
                         float feetY=screenY(x,y)-tile.level*LEVEL_H;
                         oval(c,0x880A1614,feetX-21,feetY-6,feetX+21,feetY+6);
-                        riggedArt.draw(c,feetX,feetY,WORLD_RIG_SCALE,facing,walkTime,
-                            gaitBlend,idleTime,attackProgress(),showArmor(),0f);
-                        text(c,heroName,feetX-25,feetY-157,12,0xFFFFF0D1);
+                        riggedArt.draw(c,feetX,feetY,WORLD_RIG_SCALE*appearance.heightScale,facing,walkTime,
+                            gaitBlend,idleTime,attackProgress(),false,0f);
+                        text(c,heroName,feetX-25,feetY-157*appearance.heightScale,12,0xFFFFF0D1);
                     }
                 }
             }
@@ -597,12 +591,8 @@ public final class OutdoorActivity extends Activity {
                 viewToggleBounds.left,viewToggleBounds.top,
                 viewToggleBounds.right,viewToggleBounds.bottom,6*d);
             text(c,closeUp?"CLOSE-UP":"WORLD VIEW",viewToggleBounds.left+8*d,24*d,10*d,0xFFF3DBA4);
-            armorToggleBounds.set(getWidth()-113*d,8*d,getWidth()-9*d,49*d);
-            rounded(c,maleModel?0xFF394249:showArmor()?0xFF735F3E:0xFF324B55,
-                armorToggleBounds.left,armorToggleBounds.top,
-                armorToggleBounds.right,armorToggleBounds.bottom,6*d);
-            text(c,showArmor()?"ARMOR ON":"BASE ONLY",
-                armorToggleBounds.left+9*d,36*d,11*d,0xFFF3DBA4);
+            rounded(c,0xFF394249,getWidth()-113*d,8*d,getWidth()-9*d,49*d,6*d);
+            text(c,"BASE ONLY",getWidth()-104*d,36*d,11*d,0xFFF3DBA4);
             text(c,String.format(Locale.US,"REGION 01  ·  ELEV %d  ·  EXPLORED %d  ·  %.0f, %.0f",
                 height((int)x,(int)y),discovered,x,y),15*d,45*d,10*d,0xFFBFC5B6);
             rounded(c,0xEF192632,0,h-112*d,getWidth(),h,10*d);
@@ -617,7 +607,7 @@ public final class OutdoorActivity extends Activity {
             rounded(c,0xFF31454A,modelToggleBounds.left,modelToggleBounds.top,
                 modelToggleBounds.right,modelToggleBounds.bottom,7*d);
             rounded(c,0xFF6B543D,right-110*d,h-93*d,right-10*d,h-33*d,7*d);
-            text(c,maleModel?"MALE ELF":"FEMALE ELF",right-204*d,h-56*d,11*d,0xFFF2DBA8);
+            text(c,appearance.label,right-207*d,h-56*d,10*d,0xFFF2DBA8);
             text(c,paused?"RESUME":"PAUSE",right-103*d,h-56*d,13*d,0xFFF2DBA8);
             attackBounds.set(right-110*d,h-158*d,right-10*d,h-112*d);
             rounded(c,attackRemaining>0f?0xFF9B674A:0xFF4E5144,
@@ -683,13 +673,6 @@ public final class OutdoorActivity extends Activity {
                     closeUp=!closeUp;
                     invalidate();return true;
                 }
-                if(armorToggleBounds.contains(sx,sy)){
-                    if (maleModel) return true;
-                    armorVisible=!armorVisible;
-                    getContext().getSharedPreferences("animation_lab",Context.MODE_PRIVATE)
-                        .edit().putBoolean("armor_visible",armorVisible).apply();
-                    invalidate();return true;
-                }
                 if(attackBounds.contains(sx,sy)){
                     if(attackRemaining<=0f){
                         attackRemaining=RigAttackPose.DURATION;
@@ -703,11 +686,10 @@ public final class OutdoorActivity extends Activity {
                         setPaused(!paused);return true;
                     }
                     if(modelToggleBounds.contains(sx,sy)){
-                        maleModel = !maleModel;
-                        riggedArt.setMaleModel(maleModel);
-                        attackRemaining = 0f;
-                        getContext().getSharedPreferences("animation_lab",Context.MODE_PRIVATE)
-                            .edit().putBoolean("male_elf", maleModel).apply();
+                        appearance=appearance.next();
+                        riggedArt.setAppearance(appearance);
+                        attackRemaining=0f;
+                        animationPreferences.edit().putString("elf_appearance",appearance.id).apply();
                         invalidate();
                         return true;
                     }

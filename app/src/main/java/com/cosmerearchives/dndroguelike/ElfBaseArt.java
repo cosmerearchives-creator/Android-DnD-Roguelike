@@ -8,6 +8,8 @@ import android.graphics.Paint;
 import android.graphics.RectF;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.NoSuchElementException;
+import java.util.Scanner;
 
 /** Directional neutral artwork bound to the Explorer's existing limb poses. */
 final class ElfBaseArt {
@@ -19,17 +21,6 @@ final class ElfBaseArt {
 
     // Coordinates within each limb cell, followed by the cell's origin in the
     // facing artwork. Rear arm art is flipped to match the renderer's projection.
-    private static final int[][][] FEMALE = {
-        {{56,45,43,142,30,232,146,666}, {46,45,53,142,70,232,300,666},
-         {60,45,60,161,57,272,174,847}, {56,45,49,161,50,272,256,847}},
-        {{65,46,61,145,73,235,183,661}, {65,46,61,145,73,235,183,661},
-         {57,41,66,163,62,273,205,847}, {57,41,66,163,62,273,205,847}},
-        {{86,43,74,136,63,221,111,670}, {74,42,85,136,101,221,267,670},
-         {56,49,62,160,56,273,179,847}, {48,49,51,160,56,273,260,847}},
-        {{64,46,61,145,73,234,184,659}, {64,46,61,145,73,234,184,659},
-         {60,39,65,162,63,273,204,847}, {60,39,65,162,63,273,204,847}}
-    };
-
     private static final int[][][] MALE = {
         {{56,47,42,138,29,227,135,626}, {43,47,61,136,71,226,306,626},
          {55,38,51,137,48,275,179,841}, {52,39,57,135,55,275,255,841}},
@@ -43,7 +34,7 @@ final class ElfBaseArt {
 
     private final Facing[] facings = new Facing[4];
     private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
-    private final ElfFistArt fistArt = new ElfFistArt();
+    private final ElfFistArt fistArt;
     private final float[] shoulderPoint = new float[2];
     private final RigTorsoPose.Mesh bodyMesh = new RigTorsoPose.Mesh();
     private final RectF bootBounds = new RectF();
@@ -51,19 +42,42 @@ final class ElfBaseArt {
         (125 - CENTER_X) * UNIT, (510 - SOLE_Y) * UNIT,
         (125 + BODY_WIDTH - CENTER_X) * UNIT, (510 + ATLAS_HEIGHT - SOLE_Y) * UNIT);
 
-    ElfBaseArt(Context context, boolean male) {
-        int[][][] registrations = male ? MALE : FEMALE;
-        String prefix = male ? "elf_male_facing_" : "elf_base_facing_";
+    ElfBaseArt(Context context, ElfAppearance appearance) {
+        fistArt = new ElfFistArt(appearance.fistSkin);
+        boolean classic = appearance == ElfAppearance.CLASSIC;
+        String directory = "elf_roster/" + appearance.id + "/";
+        int[][][] registrations = classic ? MALE : readRegistration(context, directory + "rig.txt");
+        if (registrations == null) return;
+
         for (int facing = 0; facing < facings.length; facing++) {
-            try (InputStream stream = context.getAssets().open(prefix + facing + ".webp")) {
+            String path = classic ? "elf_male_facing_" + facing + ".webp"
+                : directory + facing + ".webp";
+            try (InputStream stream = context.getAssets().open(path)) {
                 Bitmap atlas = BitmapFactory.decodeStream(stream);
                 if (atlas != null && atlas.getWidth() == BODY_WIDTH + 4 * WIDTH
                     && atlas.getHeight() == ATLAS_HEIGHT) {
-                    facings[facing] = new Facing(atlas, registrations[facing], facing);
+                    facings[facing] = new Facing(atlas, registrations[facing], facing, classic);
                 }
             } catch (IOException ignored) {
                 // The segmented renderer remains available for missing artwork.
             }
+        }
+    }
+
+    private static int[][][] readRegistration(Context context, String path) {
+        int[][][] result = new int[4][4][8];
+        try (InputStream stream = context.getAssets().open(path);
+             Scanner scanner = new Scanner(stream, "UTF-8")) {
+            for (int[][] facing : result) {
+                for (int[] part : facing) {
+                    for (int i = 0; i < part.length; i++) {
+                        part[i] = scanner.nextInt();
+                    }
+                }
+            }
+            return scanner.hasNext() ? null : result;
+        } catch (IOException | NoSuchElementException ignored) {
+            return null;
         }
     }
 
@@ -160,10 +174,10 @@ final class ElfBaseArt {
         final Bitmap[] boots = new Bitmap[2];
         final RigLegPose.Pose[] rest = new RigLegPose.Pose[2];
 
-        Facing(Bitmap atlas, int[][] registration, int facing) {
+        Facing(Bitmap atlas, int[][] registration, int facing, boolean classic) {
             body = Bitmap.createBitmap(atlas, 0, 0, BODY_WIDTH, ATLAS_HEIGHT);
             // The two independently painted profiles have different overlap at the hem.
-            float rearHipFit = facing == 1 ? 1.65f : facing == 3 ? .85f : 0f;
+            float rearHipFit = classic ? (facing == 1 ? 1.65f : facing == 3 ? .85f : 0f) : 0f;
             for (int i = 0; i < limbs.length; i++) {
                 int x = BODY_WIDTH + i * WIDTH;
                 limbs[i] = new Sprite(Bitmap.createBitmap(atlas, x, 0, WIDTH, HEIGHT),

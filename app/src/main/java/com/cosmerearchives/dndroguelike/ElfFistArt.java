@@ -12,8 +12,24 @@ final class ElfFistArt {
     private final Path shape = new Path();
     private final Shader leather = new LinearGradient(0f, -4f, 0f, 4f,
         new int[]{0xFF55566A, 0xFF383943, 0xFF2D292F}, null, Shader.TileMode.CLAMP);
-    private final Shader skin = new LinearGradient(0f, -4f, 2f, 4f,
-        new int[]{0xFFF0C49B, 0xFFD9A079, 0xFF95624E}, null, Shader.TileMode.CLAMP);
+    private final Shader skin;
+
+    ElfFistArt(int skinTone) {
+        int[] colors = skinTone == 0 ? new int[]{0xFFF0C49B, 0xFFD9A079, 0xFF95624E}
+            : new int[]{shade(skinTone, 27), skinTone, shade(skinTone, -34)};
+        skin = new LinearGradient(0f, -4f, 2f, 4f, colors, null, Shader.TileMode.CLAMP);
+    }
+
+    private static int shade(int color, int amount) {
+        return android.graphics.Color.rgb(
+            channel((color >>> 16) & 255, amount),
+            channel((color >>> 8) & 255, amount),
+            channel(color & 255, amount));
+    }
+
+    private static int channel(int value, int amount) {
+        return Math.max(0, Math.min(255, value + amount));
+    }
 
     void draw(Canvas canvas, int facing, float elbowX, float elbowY, float wristX, float wristY,
               float closure, float impact) {
