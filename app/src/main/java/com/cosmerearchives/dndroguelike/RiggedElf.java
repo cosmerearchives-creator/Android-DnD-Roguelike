@@ -102,7 +102,7 @@ final class RiggedElf {
 
         if(!side) {
             drawArm(c,rightShoulder,-103f,rightElbow,-81f,
-                    rightHand,rightHandY,1,facing);
+                    rightHand,rightHandY,1,facing,armored);
             if(armored)drawSword(c,rightHand,rightHandY,false);
         }
 
