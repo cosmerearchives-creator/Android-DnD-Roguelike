@@ -628,8 +628,12 @@ public final class OutdoorActivity extends Activity {
                 }
                 if(armorToggleBounds.contains(sx,sy)){
                     armorVisible=!armorVisible;
+                    // Armor layers belong to the articulated renderer. If the
+                    // player was comparing ORIGINAL, bring them back to the rig.
+                    rigTest=true;
                     getContext().getSharedPreferences("animation_lab",Context.MODE_PRIVATE)
-                        .edit().putBoolean("armor_visible",armorVisible).apply();
+                        .edit().putBoolean("armor_visible",armorVisible)
+                        .putBoolean("rig_test",true).apply();
                     invalidate();return true;
                 }
                 if(attackBounds.contains(sx,sy)){
