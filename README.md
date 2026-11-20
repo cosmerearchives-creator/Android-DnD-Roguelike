@@ -1,5 +1,14 @@
 # Android DnD Roguelike
 
+## v0.3.4 — illustrated rig refinement and real side-facing anatomy
+- Based on player screenshots of the v0.3.3 rig: the head turned sideways, but the shoulders, breastplate and arms still faced front.
+- Adds `RigViewProfile.java`: four discrete facings with an actual **narrow profile torso**, much smaller screen-space shoulder separation, and side-view hand/elbow offsets. Left and right are mirrored immediately; **no turning interpolation** is added.
+- Reorders side-view drawing by depth: the sword arm and sword sit **behind** the torso, while the shield arm and shield sit in front. Front and back continue to show both arms.
+- **Upgrades the visual model** using selected pixels from the existing approved female High Elf Fighter illustration for the torso/breastplate, shin and thigh plates and sleeves, clipped and attached to the independently moving bones. Replaces conspicuous round shoulder joints with more organic silver-and-gold elven pauldrons; narrows side cloth and waist. The original image asset and the `ORIGINAL` comparison mode remain intact.
+- Keeps the v0.3.3 upright hips, front/back depth-projected knees, distance-based planted foot gait, terrain, solo test, controls and pause actions unchanged.
+- Adds pure-Java `RigViewProfileTest.java` regression checks that prevent side-view shoulders/torso from accidentally reverting to a broad frontal silhouette.
+- **Limitation:** these are *runtime crops and shape masks* from our approved static illustration, not separately authored animation-quality armor layers. Some clipping, stretching or texture seam artifacts may remain, and the updated appearance still requires evaluation on an actual phone. Future asset work should create independent transparent limb, torso and gear layers once the proportions pass inspection.
+
 ## v0.3.3 — upright gait and front/back stepping correction
 - Fixes the **crab-leg appearance** observed in the v0.3.2 screenshots: front and back legs no longer bend to the left/right of their hips. A new `RigLegPose.java` solves the two-bone gait in the physical **forward/depth plane** and *then* projects that movement into screen Y when facing front/back, or screen X when side-facing.
 - Raises the pelvis/hip anchor from **-58** to **-74** local pixels to restore a straighter stance and longer-looking legs. Resting knees interpolate to a straight aligned position instead of remaining visibly crouched.
