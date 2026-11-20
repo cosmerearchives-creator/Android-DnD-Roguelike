@@ -376,7 +376,12 @@ final class RiggedElf {
         // Left-facing canvas is mirrored, so source the RIGHT portrait before mirroring.
         int artDirection=facing==3?1:facing;
         portraitSrc.set(fw*artDirection+left,0,fw*artDirection+right,bot);
-        portraitDst.set(side?-28f:-32f,-167f,side?28f:32f,-115f);
+        // Match ORIGINAL's full 360x480 frame projection exactly. Earlier
+        // hand-selected bounds scaled the head crop ~12% larger than the
+        // source artwork and caused a false-looking camera zoom mismatch.
+        // The cropped head stays foot-anchored to the articulated rig.
+        portraitDst.set(SpriteProjection.x(left,fw),SpriteProjection.y(0,fh),
+            SpriteProjection.x(right,fw),SpriteProjection.y(bot,fh));
         // The painted sprite's upper 28% is NOT a head-only image: it also
         // includes pauldrons, breastplate and even an arm. Clip in rig-space,
         // retaining the face and long hair but excluding the body pixels.

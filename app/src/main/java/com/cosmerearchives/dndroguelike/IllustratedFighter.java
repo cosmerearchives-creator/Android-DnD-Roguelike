@@ -47,7 +47,8 @@ final class IllustratedFighter {
                             float footX,float footY,float scale,int alpha,float breathe,float lift){
         int fw=atlas.getWidth()/cols,fh=atlas.getHeight()/rows;
         Rect src=new Rect(column*fw,row*fh,(column+1)*fw,(row+1)*fh);
-        float width=125f*scale,height=166f*scale;
+        float width=SpriteProjection.FULL_WIDTH*scale;
+        float height=SpriteProjection.FULL_HEIGHT*scale;
         c.save();
         c.translate(footX,footY+lift+breathe*.45f*scale);
         if(breathe!=0f)c.scale(1f+breathe*.002f,1f-breathe*.003f,0,-height*.35f);

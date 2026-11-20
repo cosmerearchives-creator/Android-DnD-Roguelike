@@ -1,5 +1,11 @@
 # Android DnD Roguelike
 
+## v0.3.9 — unify original portrait and rig world-space scaling
+- Investigated the apparent 1.6× versus 1.8× zoom difference seen when switching between ORIGINAL and RIG TEST. Both renderers share the same 1.8× camera and receive the same .86f character scale; the toggle is an exclusive draw branch and does **not** paint two models at once.
+- Found the actual regression: `RiggedElf.drawOriginalPortrait` scales the original image's 27–73% horizontal / 0–28% vertical head crop to a separately hand-sized rectangle (64 × 52 local units front), while `IllustratedFighter` maps the full 360×480 source to 125 × 166 local units. The portrait therefore looked about **12% larger** than the source body—similar to a 1.8 / 1.6 zoom discrepancy.
+- Introduces a shared pure-Java `SpriteProjection`, used by both render paths, so crops of the source sprite retain the same pixel-to-world scale and foot anchoring. Removes the portrait's custom direction-dependent stretch. Adds a CI regression test guarding full-frame and head-crop dimensions.
+- The original comparison mode remains unchanged; the modular rig, base/armor toggles, neck bridge, gait and environment are preserved. This corrects projection only. **The rig still borrows facial artwork from the approved original image until a standalone head atlas is authored**; it is not a completed independent head asset.
+
 ## v0.3.8 — restore anatomically connected neck in base and armored rig
 - Four on-device BASE ONLY screenshots from v0.3.7 confirmed the masked portrait no longer contains the old shoulders, but now the High Elf's head looks detached from her torso in front and side facings because the crop also removed the painted collar/neck.
 - Adds a **slender, direction-aware skin neck bridge** beneath the existing head/hair and independently illustrated torso. It overlaps the portrait's chin and the base garment neckline to eliminate terrain-colored gaps without reviving the original armored chest/shoulders.
