@@ -83,12 +83,12 @@ final class RiggedElf {
             // Sword hand is the FAR arm. Draw behind breastplate, rather than
             // putting two equally prominent shoulders on the front plane.
             drawArm(c,rightShoulder,-103f,rightElbow,-80f,
-                    rightHand,rightHandY,1);
+                    rightHand,rightHandY,1,facing);
             drawSword(c,rightHand,rightHandY,true);
         }
         drawIllustratedTorso(c,facing,side);
 
-        drawArm(c,leftShoulder,-103f,leftElbow,-81f,leftHand,leftHandY,0);
+        drawArm(c,leftShoulder,-103f,leftElbow,-81f,leftHand,leftHandY,0,facing);
         drawShield(c,leftHand,leftHandY,side,back);
 
         if(!side) {
@@ -230,18 +230,48 @@ final class RiggedElf {
     }
 
     private void drawArm(Canvas c,float shoulderX,float shoulderY,float elbowX,float elbowY,
-                         float handX,float handY,int hand) {
-        bone(c,shoulderX,shoulderY,elbowX,elbowY,13f,INK);
-        bone(c,shoulderX,shoulderY,elbowX,elbowY,10f,SKIN);
-        joint(c,shoulderX,shoulderY,13f,INK);
-        joint(c,shoulderX,shoulderY,10.5f,SILVER);
-        joint(c,shoulderX-2f,shoulderY-3f,5f,LIGHT);
-        stripe(c,GOLD,2.2f,shoulderX-9f,shoulderY+5,shoulderX+7f,shoulderY+6);
-        bone(c,elbowX,elbowY,handX,handY,13f,INK);
+                         float handX,float handY,int hand,int facing) {
+        // A real over/under arm chain, with a shaped pauldron instead of a
+        // circular diagnostic joint. Skin between plates echoes Fantasy Adventurer B.
+        bone(c,shoulderX,shoulderY,elbowX,elbowY,12f,INK);
+        bone(c,shoulderX,shoulderY,elbowX,elbowY,9f,SKIN);
+        bone(c,elbowX,elbowY,handX,handY,12f,INK);
         bone(c,elbowX,elbowY,handX,handY,9f,SHADOW);
-        bone(c,elbowX-2f,elbowY,handX-2f,handY,2f,LIGHT);
-        joint(c,handX,handY,6.5f,LEATHER);
-        joint(c,handX,handY,4f,0xFF9C7850);
+        paintIllustratedSleeve(c,elbowX,elbowY,handX,handY,facing,hand);
+        bone(c,elbowX-1.6f,elbowY,handX-1.6f,handY,1.6f,LIGHT);
+        stripe(c,GOLD,1.65f,elbowX+2,elbowY+3,handX+2,handY-3);
+        polygon(c,INK,shoulderX-12f,shoulderY-6f,shoulderX-7f,shoulderY-14f,
+            shoulderX+5f,shoulderY-14f,shoulderX+13f,shoulderY-4f,
+            shoulderX+7f,shoulderY+7f,shoulderX-10f,shoulderY+7f);
+        polygon(c,SILVER,shoulderX-9f,shoulderY-5f,shoulderX-5f,shoulderY-11f,
+            shoulderX+4f,shoulderY-11f,shoulderX+10f,shoulderY-4f,
+            shoulderX+5f,shoulderY+4f,shoulderX-7f,shoulderY+4f);
+        stripe(c,GOLD,1.8f,shoulderX-6f,shoulderY+4,shoulderX+5f,shoulderY+4);
+        joint(c,handX,handY,6f,LEATHER);
+        joint(c,handX,handY,3.5f,0xFFB39A73);
+    }
+
+    private void paintIllustratedSleeve(Canvas c,float x1,float y1,float x2,float y2,
+                                         int facing,int hand) {
+        if(approvedAtlas==null)return;
+        int direction=facing==3?1:facing;
+        int fw=approvedAtlas.getWidth()/4,fh=approvedAtlas.getHeight();
+        // Arm-area samples retain authentic plated detail from the approved outfit.
+        float center=RigViewProfile.isSide(facing)?.55f:(hand==0?.32f:.66f);
+        Rect src=new Rect(direction*fw+(int)(fw*(center-.065f)),(int)(fh*.40f),
+            direction*fw+(int)(fw*(center+.065f)),(int)(fh*.66f));
+        float dx=x2-x1,dy=y2-y1;
+        float len=(float)Math.hypot(dx,dy);
+        if(len<2f)return;
+        c.save();
+        c.translate(x1,y1);
+        c.rotate((float)Math.toDegrees(Math.atan2(dy,dx))-90f);
+        RectF target=new RectF(-4.9f,0f,4.9f,len);
+        c.clipRect(target);
+        bitmapPaint.setAlpha(232);
+        c.drawBitmap(approvedAtlas,src,target,bitmapPaint);
+        bitmapPaint.setAlpha(255);
+        c.restore();
     }
 
     private void drawShield(Canvas c,float handX,float handY,boolean side,boolean back){
