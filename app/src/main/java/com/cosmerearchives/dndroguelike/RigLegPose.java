@@ -12,7 +12,7 @@ package com.cosmerearchives.dndroguelike;
 final class RigLegPose {
     static final float HIP_Y=-74f;
     static final float THIGH=36f, SHIN=35f;
-    static final float STEP_DEPTH=31f;
+    static final float STEP_DEPTH=31f * (GaitModel.CYCLE_TILES / 1.20f);
     private static final float FRONT_DEPTH_PROJECT=.78f;
     private static final float BOOT_ANKLE=7f;
 

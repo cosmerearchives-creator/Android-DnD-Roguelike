@@ -10,7 +10,7 @@ package com.cosmerearchives.dndroguelike;
  * with the stride calibrated to character speed this holds its world position.
  */
 final class GaitModel {
-    static final float CYCLE_TILES = 1.20f;
+    static final float CYCLE_TILES = 1.44f;
     static final float STANCE = .64f;
     private float cycles;
 
@@ -46,8 +46,8 @@ final class GaitModel {
         // Swing: knee bends, foot lifts and returns ahead for the next contact.
         float t = (p - STANCE) / (1f - STANCE);
         float eased = t * t * (3f - 2f*t);
-        return new Foot(-.5f + eased,
-                (float)Math.sin(Math.PI*t), false);
+        float arc = (float)Math.sin(Math.PI*t);
+        return new Foot(-.5f + eased, arc * arc, false);
     }
 
     static float fractional(float value) {

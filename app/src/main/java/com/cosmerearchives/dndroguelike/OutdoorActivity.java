@@ -479,7 +479,7 @@ public final class OutdoorActivity extends Activity {
                 visuallyWalking=Math.abs(x-oldX)+Math.abs(y-oldY)>0.0001f;
                 if(visuallyWalking){
                     float travelled=(float)Math.hypot(x-oldX,y-oldY);
-                    // One cycle covers 1.2 world tiles, synchronizing footfalls to movement.
+                    // Keep the longer cycle synchronized to distance traveled.
                     if(!wasWalking && gaitBlend<=0f)gait.reset();
                     gait.advance(travelled);
                     walkTime=gait.cycles();

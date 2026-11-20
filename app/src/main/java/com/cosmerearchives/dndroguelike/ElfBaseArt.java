@@ -38,6 +38,7 @@ final class ElfBaseArt {
 
     private final Facing[] facings = new Facing[4];
     private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
+    private final float[] shoulderPoint = new float[2];
     private final RigTorsoPose.Mesh bodyMesh = new RigTorsoPose.Mesh();
     private final RectF bootBounds = new RectF();
     private final RectF bodyBounds = new RectF(
@@ -76,13 +77,21 @@ final class ElfBaseArt {
         offsets[at] *= mirror;
     }
 
-    void drawArm(Canvas canvas, int facing, int index,
+    void drawArm(Canvas canvas, int facing, int index, RigTorsoPose torso,
                  float shoulderX, float shoulderY, float elbowX, float elbowY,
                  float wristX, float wristY) {
-        facings[facing].limbs[index].draw(canvas, paint,
+        Sprite arm = facings[facing].limbs[index];
+        arm.pose(
             shoulderX - RigViewProfile.shoulderX(facing, index), shoulderY + 108f,
             elbowX - RigViewProfile.elbowX(facing, index), elbowY - RigViewProfile.elbowY(facing, index),
             wristX - RigViewProfile.handX(facing, index), wristY - RigViewProfile.handY(facing, index));
+        if (!RigViewProfile.isSide(facing)) {
+            // Skin at the top of the arm follows the same deformation as its armhole.
+            torso.bindShoulder(arm.mesh.vertices, (arm.sourceX - CENTER_X) * UNIT,
+                (arm.sourceY - SOLE_Y) * UNIT, WIDTH * UNIT, HEIGHT * UNIT, COLUMNS, ROWS,
+                arm.rootX, arm.rootY, facing == 2 ? -1f : 1f, shoulderPoint);
+        }
+        arm.draw(canvas, paint);
     }
 
     void drawLeg(Canvas canvas, int facing, int index, RigLegPose.Pose pose,
@@ -99,8 +108,8 @@ final class ElfBaseArt {
             float hipY = pose.hipY - rest.hipY;
             kneeY = hipY + (kneeY - hipY) * .55f;
         }
-        limb.draw(canvas, paint, pelvisX, pelvisY,
-            pose.kneeX - rest.kneeX + kneeSway, kneeY, footX, footY);
+        limb.pose(pelvisX, pelvisY, pose.kneeX - rest.kneeX + kneeSway, kneeY, footX, footY);
+        limb.draw(canvas, paint);
 
         // Keep the boot grounded and rigid while the calf deforms around the ankle.
         float x = (limb.sourceX - CENTER_X) * UNIT + footX;
@@ -136,26 +145,28 @@ final class ElfBaseArt {
     private static final class Sprite {
         final Bitmap bitmap;
         final LimbMesh mesh;
-        final int sourceX;
+        final int sourceX, sourceY;
         private final float rootX, rootY, jointX, jointY, tipX, tipY;
 
         Sprite(Bitmap bitmap, int[] points, boolean attached, float rearHipFit) {
             this.bitmap = bitmap;
             sourceX = points[6];
-            int y = points[7];
+            sourceY = points[7];
             rootX = (sourceX + points[0] - CENTER_X) * UNIT;
-            rootY = (y + points[1] - SOLE_Y) * UNIT;
+            rootY = (sourceY + points[1] - SOLE_Y) * UNIT;
             jointX = (sourceX + points[2] - CENTER_X) * UNIT;
-            jointY = (y + points[3] - SOLE_Y) * UNIT;
+            jointY = (sourceY + points[3] - SOLE_Y) * UNIT;
             tipX = (sourceX + points[4] - CENTER_X) * UNIT;
-            tipY = (y + points[5] - SOLE_Y) * UNIT;
+            tipY = (sourceY + points[5] - SOLE_Y) * UNIT;
             mesh = new LimbMesh(WIDTH, HEIGHT, COLUMNS, ROWS, UNIT,
                 points[0], points[1], points[2], points[3], points[4], points[5], attached, rearHipFit);
         }
 
-        void draw(Canvas canvas, Paint paint, float dx0, float dy0, float dx1, float dy1,
-                  float dx2, float dy2) {
+        void pose(float dx0, float dy0, float dx1, float dy1, float dx2, float dy2) {
             mesh.pose(rootX + dx0, rootY + dy0, jointX + dx1, jointY + dy1, tipX + dx2, tipY + dy2);
+        }
+
+        void draw(Canvas canvas, Paint paint) {
             canvas.drawBitmapMesh(bitmap, COLUMNS, ROWS, mesh.vertices, 0, null, 0, paint);
         }
     }

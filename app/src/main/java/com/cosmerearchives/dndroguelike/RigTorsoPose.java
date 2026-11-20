@@ -7,16 +7,17 @@ final class RigTorsoPose {
     static final float NECK_Y = -128f;
 
     private boolean side;
-    private float chestX, neckX, chestY, neckY, expansion, roll;
+    private float chestX, neckX, chestY, neckY, expansion, roll, shoulderOverlap;
 
     void sample(boolean side, float walk, float stride, float step, float breath, float hipShift) {
         this.side = side;
         chestX = walk * (side ? 2.3f + stride * 1.15f : -1.15f * stride) - hipShift * .8f;
         neckX = chestX * .76f;
-        chestY = -1.25f * breath + .5f * walk * step;
-        neckY = -.45f * breath + .16f * walk * step;
-        expansion = breath * (side ? .19f : .095f);
-        roll = side ? 0f : walk * stride * .068f;
+        chestY = -.75f * breath + .5f * walk * step;
+        neckY = -.27f * breath + .16f * walk * step;
+        expansion = breath * (side ? .115f : .057f);
+        roll = side ? 0f : walk * stride * .052f;
+        shoulderOverlap = .5f * walk;
     }
 
     void offsets(float x, float y, float[] target, int at) {
@@ -26,6 +27,26 @@ final class RigTorsoPose {
         float front = side ? Math.max(0f, x + 1f) : x;
         target[at] = chest * (chestX + front * expansion) + neck * neckX;
         target[at + 1] = chest * (chestY + x * roll) + neck * neckY;
+    }
+
+    void bindShoulder(float[] vertices, float left, float top, float width, float height,
+                      int columns, int rows, float shoulderX, float shoulderY, float mirror,
+                      float[] offset) {
+        float tuck = -Math.signum(shoulderX) * shoulderOverlap;
+        for (int row = 0; row <= rows; row++) {
+            float y = top + height * row / rows;
+            float followTorso = 1f - smooth((y - shoulderY - 1f) / 9f);
+            if (followTorso == 0f) break;
+            for (int col = 0; col <= columns; col++) {
+                int at = (row * (columns + 1) + col) * 2;
+                float x = left + width * col / columns;
+                offsets(x * mirror, y, offset, 0);
+                float attachedX = x + offset[0] * mirror + tuck;
+                float attachedY = y + offset[1];
+                vertices[at] += (attachedX - vertices[at]) * followTorso;
+                vertices[at + 1] += (attachedY - vertices[at + 1]) * followTorso;
+            }
+        }
     }
 
     private static float smooth(float t) {

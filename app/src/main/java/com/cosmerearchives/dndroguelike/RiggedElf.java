@@ -458,7 +458,7 @@ final class RiggedElf {
     private void drawArm(Canvas c,float shoulderX,float shoulderY,float elbowX,float elbowY,
                          float handX,float handY,int hand,int facing,boolean armored) {
         if (!armored && baseArt.ready(facing)) {
-            baseArt.drawArm(c,facing,hand,shoulderX,shoulderY,elbowX,elbowY,handX,handY);
+            baseArt.drawArm(c,facing,hand,torso,shoulderX,shoulderY,elbowX,elbowY,handX,handY);
             return;
         }
         if(layers.ready()){

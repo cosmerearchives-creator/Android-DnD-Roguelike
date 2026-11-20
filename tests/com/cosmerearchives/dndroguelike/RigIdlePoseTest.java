@@ -37,7 +37,7 @@ final class RigIdlePoseTest {
         torso.sample(true, 0f, 0f, 0f, 1f, 0f);
         torso.offsets(12f, RigTorsoPose.CHEST_Y, points, 0);
         torso.offsets(12f, RigTorsoPose.WAIST_Y, points, 2);
-        check(points[0] > 2f && points[1] < -1f, "side chest expands and rises");
+        check(points[0] > 1f && points[0] < 1.6f && points[1] < -.5f, "side chest expands and rises");
         check(points[2] == 0f && points[3] == 0f, "waist stays attached");
         torso.offsets(-8f, -136f, points, 0);
         torso.offsets(8f, -151f, points, 2);
@@ -45,7 +45,13 @@ final class RigIdlePoseTest {
         torso.sample(false, 1f, 1f, 0f, 0f, 0f);
         torso.offsets(-16f, RigTorsoPose.CHEST_Y, points, 0);
         torso.offsets(16f, RigTorsoPose.CHEST_Y, points, 2);
-        check(points[1] < -1f && points[3] > 1f, "shoulders counter-rotate during walking");
+        check(points[1] < -.75f && points[3] > .75f, "shoulders counter-rotate during walking");
+        float[] arm = {0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f};
+        torso.bindShoulder(arm, -18f, -110f, 4f, 20f, 1, 1, -16f, -108f, -1f, points);
+        torso.offsets(18f, -110f, points, 0);
+        check(Math.abs(arm[0] - (-17.5f - points[0])) < .001f
+            && Math.abs(arm[1] - (-110f + points[1])) < .001f, "rear shoulder follows mirrored torso");
+        check(arm[4] == 0f && arm[5] == 0f, "lower arm keeps its independent pose");
         System.out.println("Idle poses passed: weight transfer, looping, transitions, and planted feet.");
     }
 

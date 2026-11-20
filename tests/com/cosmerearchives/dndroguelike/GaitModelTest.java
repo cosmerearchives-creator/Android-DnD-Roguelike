@@ -11,7 +11,7 @@ final class GaitModelTest {
     public static void main(String[] args) {
         GaitModel g=new GaitModel();
         require(g.cycles()==0f,"Initial phase zero");
-        g.advance(.3f);
+        g.advance(.36f);
         close(g.cycles(),.25f,.0001f,"Stride responds to travel distance");
         g.advance(0);
         close(g.cycles(),.25f,.0001f,"No advance while stopped");
@@ -40,6 +40,8 @@ final class GaitModelTest {
                 close(a.lift,b.lift,.001f,"Continuous height at phase boundary");
             }
         }
+        require(GaitModel.sample(GaitModel.STANCE + .001f, 0).lift < .0001f,
+            "foot eases vertically into the swing");
         g.reset();close(g.cycles(),0f,.0001f,"Reset phase");
         System.out.println("Gait model tests passed: speed, foot-plant, alternation, continuity");
     }
