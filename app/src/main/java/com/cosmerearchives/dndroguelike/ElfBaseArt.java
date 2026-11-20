@@ -190,10 +190,6 @@ final class ElfBaseArt {
     private static Bitmap assembleBody(Bitmap atlas, int facing, boolean male) {
         Bitmap body = Bitmap.createBitmap(atlas, 0, 0, BODY_WIDTH, ATLAS_HEIGHT);
         boolean profile = RigViewProfile.isSide(facing);
-        if (!profile && !male) {
-            return body;
-        }
-
         Bitmap assembled = Bitmap.createBitmap(BODY_WIDTH, ATLAS_HEIGHT, Bitmap.Config.ARGB_8888);
         Canvas canvas = new Canvas(assembled);
         Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
@@ -217,10 +213,17 @@ final class ElfBaseArt {
                 0xFF46434C, 0xFF24252E, Shader.TileMode.CLAMP));
             canvas.drawPath(opening, paint);
         } else {
-            // The front and rear male body cells include the outer deltoids.
-            // Keep the vest inside its armholes and let the rig draw the arms.
-            Path vest = new Path();
-            vest.moveTo(0f, 0f);
+            canvas.clipPath(vestOutline(male));
+            canvas.drawBitmap(body, null, bounds, paint);
+        }
+        return assembled;
+    }
+
+    private static Path vestOutline(boolean male) {
+        // The body cells include remnants of the shoulders outside the vest.
+        Path vest = new Path();
+        vest.moveTo(0f, 0f);
+        if (male) {
             vest.lineTo(0f, 142f);
             vest.lineTo(76f, 142f);
             vest.cubicTo(88f, 156f, 92f, 181f, 82f, 203f);
@@ -233,12 +236,22 @@ final class ElfBaseArt {
             vest.lineTo(206f, 203f);
             vest.cubicTo(196f, 181f, 202f, 156f, 213f, 142f);
             vest.lineTo(BODY_WIDTH, 142f);
-            vest.lineTo(BODY_WIDTH, 0f);
-            vest.close();
-            canvas.clipPath(vest);
-            canvas.drawBitmap(body, null, bounds, paint);
+        } else {
+            // Start below the hair and follow the diagonal edge of each strap.
+            vest.lineTo(0f, 164f);
+            vest.lineTo(83f, 164f);
+            vest.cubicTo(90f, 172f, 97f, 185f, 96f, 202f);
+            vest.lineTo(0f, 208f);
+            vest.lineTo(0f, ATLAS_HEIGHT);
+            vest.lineTo(BODY_WIDTH, ATLAS_HEIGHT);
+            vest.lineTo(BODY_WIDTH, 208f);
+            vest.lineTo(192f, 202f);
+            vest.cubicTo(191f, 185f, 199f, 172f, 207f, 164f);
+            vest.lineTo(BODY_WIDTH, 164f);
         }
-        return assembled;
+        vest.lineTo(BODY_WIDTH, 0f);
+        vest.close();
+        return vest;
     }
 
     private static final class Sprite {
