@@ -25,6 +25,8 @@ final class RiggedElf {
     private static final float HEAD_SCALE = .35f;
     private static final float PROFILE_HEAD_LIFT = 5f;
     private static final float BLADE_TIP_Y = 55f;
+    private static final float THIGH_ART_DROP = 3f;
+    private static final float THIGH_PELVIS_OVERLAP = 4.5f;
     private final RigAttackPose attack = new RigAttackPose();
     private final Shader throatTone = new LinearGradient(0,-126f,0,-113f,
         new int[]{0xFFC38D73,0xFFE6B999,0x00E6B999},
@@ -322,13 +324,20 @@ final class RiggedElf {
             // This conceals the boot segment's rectangular source edge.
             layers.limb(c,facing,ElfLayerSprites.SHIN,index,kneeX,kneeY,footX,footY,
                         16f,armored);
+            // Atlas cells include painted material above the hip anchor. Keep
+            // that overlap inside the pelvis even when the thigh stretches
+            // or tilts during a stride.
+            float paintedHipY = hipY + THIGH_ART_DROP;
+            c.save();
+            c.clipRect(hipX-100f,hipY-THIGH_PELVIS_OVERLAP,hipX+100f,kneeY+100f);
             if (back && armored) {
                 // The cropped rear armor cell leaves the leg visible under the skirt.
-                layers.limb(c,facing,ElfLayerSprites.THIGH,index,hipX,hipY,kneeX,kneeY,
+                layers.limb(c,facing,ElfLayerSprites.THIGH,index,hipX,paintedHipY,kneeX,kneeY,
                     15f,false);
             }
-            layers.limb(c,facing,ElfLayerSprites.THIGH,index,hipX,hipY,kneeX,kneeY,
+            layers.limb(c,facing,ElfLayerSprites.THIGH,index,hipX,paintedHipY,kneeX,kneeY,
                         back && armored ? 16f : 17f,armored);
+            c.restore();
             return;
         }
         // Fallback only if illustration assets are unavailable.

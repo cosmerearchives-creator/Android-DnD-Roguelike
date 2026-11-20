@@ -1,5 +1,8 @@
 # Android DnD Roguelike
 
+## v0.3.16 — keep the thigh artwork inside the pelvis
+- Lowers the painted thigh attachment and limits its overlap with the waist so the leg sprites cannot show beside the elbows during a stride.
+
 ## v0.3.15 — refine the model seams and equipment grips
 - Blends the front neck into the vest, rounds the rear hair tips, and refines the shoulder, elbow, and knee joins.
 - Removes stray rear thigh armor beneath the waist-mounted tabard and fits the shield straps and sword grip to the hands.
