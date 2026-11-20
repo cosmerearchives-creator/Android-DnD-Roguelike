@@ -1,5 +1,9 @@
 # Android DnD Roguelike
 
+## v0.3.22 — continuous front-facing base limbs
+- Binds the front Base Only arms and legs to the existing rig as continuous textures derived from the idle reference.
+- Uses a shared two-bone mesh across each elbow and knee so limbs bend without the old sprite overlaps.
+
 ## v0.3.21 — fit the front-facing idle reference
 - Matches the front Base Only silhouette more closely at the shoulders, elbows, wrists, and knees, using the same artwork for idle and walking.
 

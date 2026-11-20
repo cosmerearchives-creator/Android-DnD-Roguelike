@@ -173,6 +173,14 @@ final class ElfLayerSprites {
             canvas.restore();
         }
 
+        drawBoot(canvas,facing,index,footX,footY,armored);
+    }
+
+    void drawBoot(Canvas canvas,int facing,int index,float footX,float footY,boolean armored) {
+        int column = column(facing);
+        boolean hasArmor = armored && armor != null;
+        int[] joint = (hasArmor ? ARMOR_JOINTS : JOINTS)[SHIN - 1][column];
+        int bootTop = hasArmor ? BOOT_TOP_ROW : BASE_BOOT_TOP_ROW;
         // The boot is a rigid piece registered at the sole.
         selectCell(column, SHIN);
         src.top += bootTop;

@@ -34,6 +34,10 @@ jobs:
           python3 -m pip install --quiet Pillow
           python3 - <<'PY'
           from PIL import Image
+          with Image.open('app/src/main/assets/elf_front_bound_limbs.webp') as limbs:
+              assert limbs.size == (384, 320) and limbs.mode == 'RGBA'
+              assert all(limbs.crop((x,0,x+96,320)).getchannel('A').getbbox()
+                         for x in (0,96,192,288)), 'Missing front limb mesh art'
           with Image.open('app/src/main/assets/elf_front_lower_limbs.webp') as limbs:
               assert limbs.size == (576, 192) and limbs.mode == 'RGBA'
               assert all(limbs.crop((x,0,x+192,192)).getchannel('A').getbbox()
@@ -91,14 +95,17 @@ jobs:
             app/src/main/java/com/cosmerearchives/dndroguelike/RigLegPose.java \
             app/src/main/java/com/cosmerearchives/dndroguelike/RigViewProfile.java \
             app/src/main/java/com/cosmerearchives/dndroguelike/RigAttackPose.java \
+            app/src/main/java/com/cosmerearchives/dndroguelike/LimbMesh.java \
             tests/com/cosmerearchives/dndroguelike/GaitModelTest.java \
             tests/com/cosmerearchives/dndroguelike/RigLegPoseTest.java \
             tests/com/cosmerearchives/dndroguelike/RigViewProfileTest.java \
-            tests/com/cosmerearchives/dndroguelike/RigAttackPoseTest.java
+            tests/com/cosmerearchives/dndroguelike/RigAttackPoseTest.java \
+            tests/com/cosmerearchives/dndroguelike/LimbMeshTest.java
           java -cp "$RUNNER_TEMP/gait-tests" com.cosmerearchives.dndroguelike.GaitModelTest
           java -cp "$RUNNER_TEMP/gait-tests" com.cosmerearchives.dndroguelike.RigLegPoseTest
           java -cp "$RUNNER_TEMP/gait-tests" com.cosmerearchives.dndroguelike.RigViewProfileTest
           java -cp "$RUNNER_TEMP/gait-tests" com.cosmerearchives.dndroguelike.RigAttackPoseTest
+          java -cp "$RUNNER_TEMP/gait-tests" com.cosmerearchives.dndroguelike.LimbMeshTest
       - name: Build and lint
         run: gradle :app:assembleDebug :app:lintDebug --no-daemon
       - name: Upload check results

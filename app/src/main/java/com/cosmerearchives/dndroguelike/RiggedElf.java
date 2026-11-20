@@ -33,12 +33,14 @@ final class RiggedElf {
         new float[]{0f,.44f,1f},Shader.TileMode.CLAMP);
     private final Bitmap headAtlas;
     private final ElfLayerSprites layers;
+    private final FrontBaseLimbs frontLimbs;
     private final Rect headSrc = new Rect();
     private final RectF headDst = new RectF();
 
     RiggedElf(Context context) {
         headAtlas = loadHeadAtlas(context);
         layers = new ElfLayerSprites(context);
+        frontLimbs = new FrontBaseLimbs(context);
     }
 
     private static Bitmap loadHeadAtlas(Context context) {
@@ -93,6 +95,12 @@ final class RiggedElf {
             rightHand -= .65f;
             leftHandY -= 1.2f;
             rightHandY -= 1.2f;
+            if (frontLimbs.ready()) {
+                leftElbowY -= 6.5f;
+                rightElbowY -= 6.5f;
+                leftHandY -= 9f;
+                rightHandY -= 9f;
+            }
         }
 
         // Rotate the two bone vectors independently around their joints. This keeps
@@ -330,6 +338,12 @@ final class RiggedElf {
         float kneeX=leg.kneeX,kneeY=leg.kneeY;
         float footX=leg.footX,footY=leg.footY;
         float ankleY=leg.ankleY;
+        if (facing==0 && !armored && frontLimbs.ready() && layers.ready()) {
+            frontLimbs.draw(c,2+index,hipX,hipY+THIGH_ART_DROP-1.4f,
+                kneeX,kneeY-2.5f,footX,footY-16.1f);
+            layers.drawBoot(c,facing,index,footX,footY,false);
+            return;
+        }
         if(layers.ready()){
             // Lower leg goes behind the upper leg at the shared knee.
             // This conceals the boot segment's rectangular source edge.
@@ -389,6 +403,10 @@ final class RiggedElf {
 
     private void drawArm(Canvas c,float shoulderX,float shoulderY,float elbowX,float elbowY,
                          float handX,float handY,int hand,int facing,boolean armored) {
+        if (facing==0 && !armored && frontLimbs.ready()) {
+            frontLimbs.draw(c,hand,shoulderX,shoulderY,elbowX,elbowY,handX,handY);
+            return;
+        }
         if(layers.ready()){
             layers.limb(c,facing,ElfLayerSprites.UPPER_ARM,hand,
                         shoulderX,shoulderY,elbowX,elbowY,14f,armored);
