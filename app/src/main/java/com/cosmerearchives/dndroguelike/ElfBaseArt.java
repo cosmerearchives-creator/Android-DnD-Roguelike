@@ -5,7 +5,6 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Paint;
-import android.graphics.Path;
 import android.graphics.RectF;
 import java.io.IOException;
 import java.io.InputStream;
@@ -39,8 +38,7 @@ final class ElfBaseArt {
 
     private final Facing[] facings = new Facing[4];
     private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
-    private final Paint fistPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private final Path fistShape = new Path();
+    private final ElfFistArt fistArt = new ElfFistArt();
     private final float[] shoulderPoint = new float[2];
     private final RigTorsoPose.Mesh bodyMesh = new RigTorsoPose.Mesh();
     private final RectF bootBounds = new RectF();
@@ -94,7 +92,7 @@ final class ElfBaseArt {
             // Skin at the top of the arm follows the same deformation as its armhole.
             torso.bindShoulder(arm.mesh.vertices, (arm.sourceX - CENTER_X) * UNIT,
                 (arm.sourceY - SOLE_Y) * UNIT, WIDTH * UNIT, HEIGHT * UNIT, COLUMNS, ROWS,
-                arm.rootX, arm.rootY, facing == 2 ? -1f : 1f, shoulderPoint);
+                arm.rootX, arm.rootY, facing == 2 ? -1f : 1f, facing == 2 && index == 1 ? closure : 0f, shoulderPoint);
         }
         if (closure > 0f && arm.sleeve != null) {
             arm.draw(canvas, paint, arm.sleeve);
@@ -103,9 +101,8 @@ final class ElfBaseArt {
                 arm.draw(canvas, paint, arm.openHand);
                 paint.setAlpha(255);
             }
-            float size = 1f + impact * (RigViewProfile.isSide(facing) ? .08f : .26f);
-            drawFist(canvas, arm.jointX + elbowDx, arm.jointY + elbowDy,
-                arm.tipX + wristDx, arm.tipY + wristDy, closure, size);
+            fistArt.draw(canvas, facing, arm.jointX + elbowDx, arm.jointY + elbowDy,
+                arm.tipX + wristDx, arm.tipY + wristDy, closure, impact);
         } else {
             arm.draw(canvas, paint, arm.bitmap);
         }
@@ -115,37 +112,6 @@ final class ElfBaseArt {
         Sprite arm = facings[2].limbs[1];
         // Reuse the exact deformation drawn for the far arm in this frame.
         arm.draw(canvas, paint, arm.shoulderCover);
-    }
-
-    private void drawFist(Canvas canvas, float elbowX, float elbowY, float wristX, float wristY,
-                          float opacity, float size) {
-        int alpha = Math.round(255f * opacity);
-        canvas.save();
-        canvas.translate(wristX, wristY);
-        canvas.rotate((float) Math.toDegrees(Math.atan2(wristY - elbowY, wristX - elbowX)));
-        canvas.scale(size, size);
-        fistShape.reset();
-        fistShape.moveTo(-3.3f, -2.35f);
-        fistShape.quadTo(-.6f, -2.6f, 2f, -2.85f);
-        fistShape.quadTo(5.3f, -3.4f, 5.8f, -.9f);
-        fistShape.quadTo(6.1f, 1.9f, 4.7f, 2.6f);
-        fistShape.lineTo(1.8f, 2.7f);
-        fistShape.quadTo(-.9f, 2.65f, -3.3f, 2.35f);
-        fistShape.close();
-        fistPaint.setColor((alpha << 24) | 0x302E35);
-        canvas.drawPath(fistShape, fistPaint);
-        fistShape.reset();
-        fistShape.moveTo(1.5f, -2.1f);
-        fistShape.quadTo(5.35f, -3f, 5.55f, -.85f);
-        fistShape.quadTo(5.95f, 1.05f, 4.75f, 1.9f);
-        fistShape.lineTo(2.15f, 2.1f);
-        fistShape.quadTo(1.15f, .65f, 1.5f, -2.1f);
-        fistShape.close();
-        fistPaint.setColor((alpha << 24) | 0xC59063);
-        canvas.drawPath(fistShape, fistPaint);
-        fistPaint.setColor((alpha << 24) | 0xE5B286);
-        canvas.drawOval(3.1f, -2.25f, 5.1f, -1.05f, fistPaint);
-        canvas.restore();
     }
 
     void drawLeg(Canvas canvas, int facing, int index, RigLegPose.Pose pose,
@@ -205,7 +171,7 @@ final class ElfBaseArt {
         Sprite(Bitmap bitmap, int[] points, boolean attached, float rearHipFit,
                boolean punchingArm, boolean rearPunchArm) {
             this.bitmap = bitmap;
-            shoulderCover = rearPunchArm ? armSection(bitmap, 0, points[1] + 24) : null;
+            shoulderCover = rearPunchArm ? armSection(bitmap, 0, points[1] + 33) : null;
             if (punchingArm) {
                 int wrist = points[5] + 3;
                 sleeve = armSection(bitmap, 0, wrist);

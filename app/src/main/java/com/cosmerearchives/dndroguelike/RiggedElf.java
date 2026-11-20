@@ -174,7 +174,7 @@ final class RiggedElf {
             float wristX = torsoX + rotateX(rightHand, rightHandY - hipY, lean);
             float elbowX = torsoX + rotateX(rightElbow, rightElbowY - hipY, lean);
             if (punching) {
-                tipX = wristX + Math.copySign(7f, wristX - elbowX) * punch.closure;
+                tipX = wristX + Math.copySign(9f, wristX - elbowX) * punch.closure;
             }
             float left = Math.min(side ? -36f : -53f, Math.min(tipX-3f,
                 Math.min(wristX-14f, elbowX-10f)));

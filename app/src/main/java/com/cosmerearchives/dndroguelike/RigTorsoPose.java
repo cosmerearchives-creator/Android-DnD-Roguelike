@@ -38,11 +38,11 @@ final class RigTorsoPose {
 
     void bindShoulder(float[] vertices, float left, float top, float width, float height,
                       int columns, int rows, float shoulderX, float shoulderY, float mirror,
-                      float[] offset) {
-        float tuck = -Math.signum(shoulderX) * shoulderOverlap;
+                      float rearPunch, float[] offset) {
+        float tuck = -Math.signum(shoulderX) * (shoulderOverlap + 1.1f * rearPunch);
         for (int row = 0; row <= rows; row++) {
             float y = top + height * row / rows;
-            float followTorso = 1f - smooth((y - shoulderY - 1f) / 9f);
+            float followTorso = 1f - smooth((y - shoulderY - 1f - 2.4f * rearPunch) / 9f);
             if (followTorso == 0f) break;
             for (int col = 0; col <= columns; col++) {
                 int at = (row * (columns + 1) + col) * 2;
