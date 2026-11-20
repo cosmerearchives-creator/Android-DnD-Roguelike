@@ -1,5 +1,18 @@
 # Android DnD Roguelike
 
+## v0.3.2 — articulated walking laboratory
+
+This is a **mechanics-first rigging prototype**, not another attempt to disguise the same static sprite as a walk cycle.
+
+- Added `GaitModel.java`: a pure-Java distance-driven, two-foot gait. Each foot has an explicit **grounded stance phase** (64% of its cycle) and an **airborne swing phase** with sinusoidal lift. The opposite leg is half a cycle out of phase. Gait progression uses actual traveled world distance, so blocked movement does not animate footsteps.
+- Added `RiggedElf.java`: distinct hips, **two-bone IK knees**, thighs, shins, independent moving boots, arms, hands, equipment grips, torso bob and subtle counter-sway. This is deliberately a **temporary styled-vector rig** so we can prove the movement before creating detailed separated armor layers.
+- The rig reuses the approved female High Elf Fighter artwork **for her face and hair** from the existing four-facing atlas. The **original full-body art and eight-frame walk atlas remain packaged and untouched**.
+- Added a visible **RIG TEST / ORIGINAL** toggle on the Wildlands HUD (top right), saved between launches. **RIG TEST is the default**. Toggle to ORIGINAL at any time to compare against the previous sprite-based walk without affecting gameplay.
+- Direction switching is instantaneous; no turn animation. Existing camera, character creation, world, controls, solo test scene, attack preview, pause menu, Main Menu, Quit Game, and APK auto-updater remain unchanged.
+- `GaitModelTest.java` executes in GitHub Actions using plain `javac/java` and checks distance/speed, alternating planted feet, lift boundaries and cycle continuity.
+
+**Next art milestone:** Replace the rig's provisional vector breastplate, arm, thigh, shin and boot parts with **separately illustrated transparent layers** matching the approved B/Fantasy Adventurer outfit. This release is an animation *mechanics* test: it should show recognizably bending knees and alternating planted feet, but it intentionally does **not** claim final-quality skeletal character art. We have not seen a device gameplay video of this version.
+
 ## v0.3.1 — stride-synced walking, attack animation and richer Wildlands
 - Ties the eight-frame walk atlas to distance traveled: one complete gait cycle per 1.2 world tiles, with the footfall phase reset when movement starts. This removes the slow-cycle mismatch that made the elf glide across the ground.
 - Adds a short sword-swing animation preview in Wildlands using a directional lunge, layered slash trail and sparks. The preview does not apply damage or change exploration rules; combat remains in Arena.
