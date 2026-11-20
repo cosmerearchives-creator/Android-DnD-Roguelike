@@ -48,9 +48,10 @@ final class RigIdlePoseTest {
         check(points[1] < -.75f && points[3] > .75f, "shoulders counter-rotate during walking");
         float[] arm = {0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f};
         torso.bindShoulder(arm, -18f, -110f, 4f, 20f, 1, 1, -16f, -108f, -1f, 0f, 0f, points);
-        torso.offsets(18f, -110f, points, 0);
-        check(Math.abs(arm[0] - (-17.5f - points[0])) < .001f
-            && Math.abs(arm[1] - (-110f + points[1])) < .001f, "rear shoulder follows mirrored torso");
+        RigTorsoPose.Mesh mesh = new RigTorsoPose.Mesh();
+        mesh.pose(torso, 18f, -110f, 22f, -82f);
+        check(Math.abs(arm[0] - (.5f - mesh.vertices[0])) < .001f
+            && Math.abs(arm[1] - mesh.vertices[1]) < .001f, "rear shoulder follows mirrored torso");
         check(arm[4] == 0f && arm[5] == 0f, "lower arm keeps its independent pose");
         float idleShoulderX = arm[0];
         torso.bindShoulder(arm, -18f, -110f, 4f, 20f, 1, 1, -16f, -108f, -1f, 2f, 1f, points);
