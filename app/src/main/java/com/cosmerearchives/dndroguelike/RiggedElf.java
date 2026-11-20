@@ -59,11 +59,12 @@ final class RiggedElf {
 
         // The original game paints the ground shadow in world coordinates. The rig
         // shadows its individual raised foot rather than moving the entire body.
-        GaitModel.Foot a=GaitModel.sample(cyc,0);
-        GaitModel.Foot b=GaitModel.sample(cyc,1);
-        // Back leg first for natural overlap during stride.
-        drawLeg(c,side,back,0,a,blend,bounce,sway);
-        drawLeg(c,side,back,1,b,blend,bounce,sway);
+        // Solve knees in the forward/depth plane first, then project that plane
+        // into the chosen facing. Front/back knees no longer swing out sideways.
+        RigLegPose.Pose a=RigLegPose.solve(distanceCycles,0,facing,blend,bounce);
+        RigLegPose.Pose b=RigLegPose.solve(distanceCycles,1,facing,blend,bounce);
+        drawLeg(c,side,back,a);
+        drawLeg(c,side,back,b);
 
         c.save();
         c.translate(sway*.38f,bounce+breathe);
@@ -107,56 +108,50 @@ final class RiggedElf {
 
     private static float clamp(float v,float lo,float hi){return Math.max(lo,Math.min(hi,v));}
 
-    private void drawLeg(Canvas c,boolean side,boolean back,int index,GaitModel.Foot f,
-                         float blend,float bounce,float torsoSway) {
-        boolean rear=index==0;
-        float hipX=(side?(rear?-5f:5f):(rear?-11f:11f))+torsoSway*.38f;
-        float hipY=-58f+bounce;
-        float along=f.along*blend;
-        float lift=f.lift*blend*11f;
-        // A walking cycle spans 1.2 world tiles, with two steps per cycle.
-        // The full stance displacement is calibrated to each projected axis.
-        float footX=(side?(rear?-4f:4f):(rear?-11f:11f)) + (side?56f:3f)*along;
-        float footY=-lift+(side?0f:(back?-28f:28f)*along);
-        // Straight neutral legs at idle, articulated knee on every stride.
-        // Slight rear-leg depth shift makes both knees visible in side views.
-        if(side){footY += rear?-3f:1f;hipY+=rear?-2f:0f;}
+    /**
+     * Paints articulated armor from the independently tested 2D projection.
+     * Knee/ankle positions are never solved using the screen-X plane for
+     * frontal/backward facings; that previously produced crab-like knees.
+     */
+    private void drawLeg(Canvas c,boolean side,boolean back,RigLegPose.Pose leg) {
+        float hipX=leg.hipX,hipY=leg.hipY;
+        float kneeX=leg.kneeX,kneeY=leg.kneeY;
+        float footX=leg.footX,footY=leg.footY;
+        float ankleY=leg.ankleY;
+        // Upper leg, knee guard and a true two-segment shin/greave.
+        bone(c,hipX,hipY,kneeX,kneeY,15f,INK);
+        bone(c,hipX,hipY,kneeX,kneeY,11.5f,back?0xFF65717E:0xFF8D9BA5);
+        bone(c,hipX-1f,hipY+1,kneeX-1f,kneeY,4f,0xFFB7C1C1);
+        bone(c,hipX+2.5f,hipY+2,kneeX+2f,kneeY,1.6f,GOLD);
+        joint(c,kneeX,kneeY,8.2f,INK);
+        joint(c,kneeX,kneeY,6.4f,SILVER);
+        joint(c,kneeX,kneeY,2.6f,GOLD);
+        bone(c,kneeX,kneeY,footX,ankleY,14f,INK);
+        bone(c,kneeX,kneeY,footX,ankleY,11f,SHADOW);
+        bone(c,kneeX-2f,kneeY,footX-2f,ankleY-1f,3.4f,LIGHT);
+        bone(c,kneeX+2.5f,kneeY,footX+2.5f,ankleY,1.5f,GOLD);
 
-        float dx=footX-hipX,dy=footY-hipY;
-        float d=(float)Math.sqrt(dx*dx+dy*dy);
-        final float thigh=36f,shin=36f;
-        // Clamp unreachable targets without ever introducing NaNs on a large step.
-        float safeD=clamp(d,1f,thigh+shin-0.001f);
-        float ux=dx/Math.max(.0001f,d),uy=dy/Math.max(.0001f,d);
-        float alongBone=(thigh*thigh-shin*shin+safeD*safeD)/(2f*safeD);
-        float sideways=(float)Math.sqrt(Math.max(0f,thigh*thigh-alongBone*alongBone));
-        float bendSign=side?-1f:(rear?1f:-1f);
-        float kneeX=hipX+ux*alongBone-uy*sideways*bendSign;
-        float kneeY=hipY+uy*alongBone+ux*sideways*bendSign;
-
-        // Thigh's dark underlayer and segmented silver plates.
-        bone(c,hipX,hipY,kneeX,kneeY,16f,INK);
-        bone(c,hipX,hipY,kneeX,kneeY,12f,back?0xFF636E7B:0xFF8797A1);
-        bone(c,hipX-1,hipY+1,kneeX-1,kneeY,5f,0xFFB7C1C1);
-        bone(c,hipX+3,hipY+2,kneeX+2,kneeY,1.8f,GOLD);
-        joint(c,kneeX,kneeY,9.5f,INK);
-        joint(c,kneeX,kneeY,7.4f,SILVER);
-        joint(c,kneeX,kneeY,3.4f,GOLD);
-        // Independent shin bone, greave, and bright edge detail.
-        bone(c,kneeX,kneeY,footX,footY-7f,16f,INK);
-        bone(c,kneeX,kneeY,footX,footY-7f,12f,SHADOW);
-        bone(c,kneeX-2f,kneeY,footX-2f,footY-8f,4f,LIGHT);
-        bone(c,kneeX+4,kneeY,footX+3,footY-7,2f,GOLD);
-        // A swinging boot actually leaves the terrain; planted boot sits at y=0.
-        polygon(c,INK,footX-8,footY-12,footX+9,footY-12,
-                footX+13,footY-1,footX+1,footY+2,footX-10,footY+1);
-        polygon(c,0xFF8F9BA5,footX-7,footY-11,footX+7,footY-11,
-                footX+11,footY-2,footX,footY,footX-8,footY-1);
-        stripe(c,GOLD,2.2f,footX-6,footY-5,footX+9,footY-5);
-        if(!f.planted&&blend>.3f){
-            // No fake foot shadow that slides with the leg; the ground contact
-            // mark remains beneath its last plausible stance location.
-            oval(c,0x55101B16,footX-6,-1,footX+6,1.5f);
+        if(side) {
+            // Side view uses an elongated toe. Its planted stance stays at
+            // terrain height while a swinging foot actually leaves ground.
+            polygon(c,INK,footX-8,footY-12,footX+9,footY-12,
+                    footX+13,footY-1,footX+1,footY+2,footX-10,footY+1);
+            polygon(c,0xFF9BA9B0,footX-7,footY-11,footX+7,footY-11,
+                    footX+11,footY-2,footX,footY,footX-8,footY-1);
+        }else {
+            // Front/back boots must point along screen depth, not flare
+            // horizontally. Their thin silhouettes emphasize alternation.
+            float toe=back?-3f:2f;
+            polygon(c,INK,footX-6,footY-13,footX+6,footY-13,
+                    footX+7,footY+toe,footX,footY+toe+2,footX-7,footY+toe);
+            polygon(c,0xFF9BA9B0,footX-4.5f,footY-11,footX+4.5f,footY-11,
+                    footX+5,footY+toe-1,footX,footY+toe,footX-5,footY+toe-1);
+        }
+        stripe(c,GOLD,1.9f,footX-4.5f,footY-5,footX+5,footY-5);
+        // Projected depth does not equal foot lift; only swing lifts.
+        if(!leg.planted && leg.lift>1f){
+            float groundY=side?0f:footY+leg.lift;
+            oval(c,0x33101B16,footX-5,groundY,footX+5,groundY+1.8f);
         }
     }
 
