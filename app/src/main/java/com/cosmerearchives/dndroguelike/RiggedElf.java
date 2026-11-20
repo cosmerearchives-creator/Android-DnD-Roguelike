@@ -39,71 +39,115 @@ final class RiggedElf {
         approvedAtlas=illustration;
     }
 
-    /** Animation coordinates live in source world pixels, anchored on the ground. */
+    /** The four snap facings use separately projected bodies, not just different heads. */
     void draw(Canvas canvas,float footX,float footY,float scale,int facing,
               float distanceCycles,float movementBlend,float idleElapsed,float attackProgress) {
         Canvas c=canvas;
         float blend=clamp(movementBlend,0f,1f);
-        boolean side=facing==1||facing==3;
+        boolean side=RigViewProfile.isSide(facing);
         boolean back=facing==2;
         float cyc=GaitModel.fractional(distanceCycles);
         float omega=(float)(2.0*Math.PI*cyc);
-        float bounce=-1.8f*blend*(float)Math.abs(Math.sin(omega*2f));
-        float breathe=blend==0f?(float)Math.sin(idleElapsed*1.6f)*.65f:0f;
-        float sway=blend*(float)Math.sin(omega)*2f;
-        float leftArm=blend*(float)Math.sin(omega)*5f;
-        float rightArm=-leftArm;
-
-        c.save();c.translate(footX,footY);c.scale(scale,scale);
-        if(facing==3)c.scale(-1f,1f); // Instant direction swap, never turn animation.
-
-        // The original game paints the ground shadow in world coordinates. The rig
-        // shadows its individual raised foot rather than moving the entire body.
-        // Solve knees in the forward/depth plane first, then project that plane
-        // into the chosen facing. Front/back knees no longer swing out sideways.
-        RigLegPose.Pose a=RigLegPose.solve(distanceCycles,0,facing,blend,bounce);
-        RigLegPose.Pose b=RigLegPose.solve(distanceCycles,1,facing,blend,bounce);
-        drawLeg(c,side,back,a);
-        drawLeg(c,side,back,b);
+        float bounce=-1.6f*blend*(float)Math.abs(Math.sin(omega*2f));
+        float breathe=(1f-blend)*(float)Math.sin(idleElapsed*1.6f)*.65f;
+        float sway=blend*(float)Math.sin(omega)*1.6f;
+        float leftSwing=blend*(float)Math.sin(omega)*4.3f;
+        float rightSwing=-leftSwing;
+        float strike=attackProgress<=0f?0f:
+            (float)Math.sin(Math.PI*clamp(attackProgress,0f,1f))*23f;
 
         c.save();
-        c.translate(sway*.38f,bounce+breathe);
-        // Dark underlayers, shaped silver armor, and blue split tabard echo our
-        // chosen B/Fantasy Adventurer design, while retaining full rigging.
-        polygon(c,INK,-19,-113,19,-113,17,-65,12,-57,-12,-57,-19,-66);
-        polygon(c,DEEP_BLUE,-20,-71,15,-70,23,-37,10,-33,4,-53,-4,-54,-9,-33,-25,-39);
-        polygon(c,BLUE,-10,-66,9,-66,10,-28,1,-22,-11,-31);
-        stripe(c,GOLD,2f,0,-62,0,-27);
-        polygon(c,DEEP_GOLD,-18,-67,17,-67,14,-61,-15,-61);
-        polygon(c,0xFF8898A6,-23,-106,-17,-115,16,-115,24,-106,16,-80,11,-68,-12,-68,-18,-81);
-        polygon(c,SILVER,-19,-106,-12,-112,11,-112,19,-105,12,-90,7,-79,-8,-79,-14,-88);
-        polygon(c,0xFFD8D6CC,-14,-106,-5,-110,-1,-99,-10,-94);
-        polygon(c,0xFFBCC6C4,5,-110,15,-106,11,-94,2,-99);
-        // Stylized sculpted plate and slimmer waist, not heavy utilitarian armor.
-        stripe(c,GOLD,1.7f,-16,-91,0,-82);
-        stripe(c,GOLD,1.7f,0,-82,17,-91);
-        polygon(c,GOLD,-4,-85,4,-85,2,-77,-2,-77);
-        polygon(c,DEEP_BLUE,-11,-78,12,-78,8,-68,-9,-68);
-        stripe(c,GOLD,2,-10,-68,10,-68);
-        polygon(c,SKIN,-7,-121,7,-121,8,-112,-8,-112);
+        c.translate(footX,footY);
+        c.scale(scale,scale);
+        if(facing==3)c.scale(-1f,1f); // Real side profile mirrored instantly.
 
-        // Two separately articulated shoulders / elbow / hands. Weapons attach
-        // to those hands and follow the swing, not the stationary silhouette.
-        float shoulder=side?18f:21f;
-        drawArm(c,-shoulder,-104,-30+leftArm*.28f,-80,-31+leftArm*.6f,-55,0);
-        float swingStrike=attackProgress<=0f?0f:
-            (float)Math.sin(Math.PI*clamp(attackProgress,0f,1f))*24f;
-        drawArm(c,shoulder,-104,30+rightArm*.28f+swingStrike*.25f,-81,
-                32+rightArm*.55f+swingStrike,-55-swingStrike*.65f,1);
-        drawShield(c,-31+leftArm*.6f,-55,side,back);
-        drawSword(c,32+rightArm*.55f+swingStrike,-55-swingStrike*.65f,side);
+        RigLegPose.Pose left=RigLegPose.solve(distanceCycles,0,facing,blend,bounce);
+        RigLegPose.Pose right=RigLegPose.solve(distanceCycles,1,facing,blend,bounce);
 
-        // Keep the approved face, pointed ears and hairstyle rather than
-        // replacing them with a generic procedural face.
+        // Far-side leg always lies beneath the near leg in a profile.
+        drawLeg(c,side,back,right,facing,1);
+        drawLeg(c,side,back,left,facing,0);
+
+        c.save();
+        c.translate(sway*.35f,bounce+breathe);
+        float leftShoulder=RigViewProfile.shoulderX(facing,0);
+        float rightShoulder=RigViewProfile.shoulderX(facing,1);
+        float leftElbow=RigViewProfile.elbowX(facing,0)+leftSwing*.2f;
+        float rightElbow=RigViewProfile.elbowX(facing,1)+rightSwing*.2f;
+        float leftHand=RigViewProfile.handX(facing,0)+leftSwing*.55f;
+        float rightHand=RigViewProfile.handX(facing,1)+rightSwing*.55f+strike;
+        float leftHandY=RigViewProfile.handY(facing,0);
+        float rightHandY=RigViewProfile.handY(facing,1)-strike*.65f;
+
+        if(side) {
+            // Sword hand is the FAR arm. Draw behind breastplate, rather than
+            // putting two equally prominent shoulders on the front plane.
+            drawArm(c,rightShoulder,-103f,rightElbow,-80f,
+                    rightHand,rightHandY,1);
+            drawSword(c,rightHand,rightHandY,true);
+        }
+        drawIllustratedTorso(c,facing,side);
+
+        drawArm(c,leftShoulder,-103f,leftElbow,-81f,leftHand,leftHandY,0);
+        drawShield(c,leftHand,leftHandY,side,back);
+
+        if(!side) {
+            drawArm(c,rightShoulder,-103f,rightElbow,-81f,
+                    rightHand,rightHandY,1);
+            drawSword(c,rightHand,rightHandY,false);
+        }
+
+        // Reuse the authentic approved face/hair from the original sprite.
         if(approvedAtlas!=null)drawOriginalPortrait(c,facing,side);
         else drawHeadFallback(c,back,side);
         c.restore();
         c.restore();
+    }
+
+    /** Actual approved armor pixels, clipped to a directional, articulated silhouette. */
+    private void drawIllustratedTorso(Canvas c,int facing,boolean side) {
+        float half=RigViewProfile.torsoHalfWidth(facing);
+        // Layered fabric follows the profile rather than the old rectangular torso.
+        float capeShift=side?-5f:0f;
+        polygon(c,DEEP_BLUE,capeShift-half+3f,-80f,capeShift+half-4f,-81f,
+            capeShift+half+4f,-36f,capeShift+3f,-29f,capeShift-half-5f,-37f);
+        polygon(c,BLUE,-half*.45f,-73f,half*.46f,-72f,half*.42f,-28f,
+            1f,-22f,-half*.50f,-31f);
+        stripe(c,GOLD,1.5f,0,-67f,0,-28f);
+        polygon(c,INK,-half-2f,-112f,half+2f,-112f,half,-79f,
+            half*.56f,-65f,-half*.65f,-65f,-half,-80f);
+        polygon(c,0xFF8898A6,-half,-109f,half,-109f,
+            half*.85f,-85f,half*.46f,-72f,-half*.58f,-72f,-half*.9f,-86f);
+
+        if(approvedAtlas!=null){
+            int direction=facing==3?1:facing; // Canvas is already mirrored.
+            int fw=approvedAtlas.getWidth()/4,fh=approvedAtlas.getHeight();
+            int cropL=side?30:26,cropR=side?70:74;
+            Rect src=new Rect(direction*fw+fw*cropL/100,fh*29/100,
+                direction*fw+fw*cropR/100,fh*69/100);
+            RectF dst=new RectF(-half-4f,-114f,half+4f,-65f);
+            Path clip=new Path();
+            clip.moveTo(-half,-112f);
+            clip.lineTo(half,-112f);
+            clip.lineTo(half+(side?0f:3f),-96f);
+            clip.lineTo(half*.76f,-82f);
+            clip.lineTo(half*.55f,-69f);
+            clip.lineTo(-half*.65f,-69f);
+            clip.lineTo(-half*.8f,-83f);
+            clip.close();
+            c.save();c.clipPath(clip);
+            c.drawBitmap(approvedAtlas,src,dst,bitmapPaint);
+            c.restore();
+        } else {
+            polygon(c,SILVER,-half+3,-109,half-3,-109,half*.56f,-88,
+                half*.35f,-77,-half*.35f,-77,-half*.6f,-89);
+        }
+        // The gold cinch hides the bottom texture seam and retains her blue tabard.
+        polygon(c,DEEP_GOLD,-half*.75f,-72f,half*.65f,-72f,
+            half*.5f,-65f,-half*.65f,-65f);
+        stripe(c,GOLD,2f,-half*.64f,-69f,half*.55f,-69f);
+        polygon(c,GOLD,-3.5f,-72f,3f,-72f,2f,-65f,-2.5f,-65f);
+        polygon(c,SKIN,-5.5f,-121f,5.5f,-121f,6f,-112f,-6f,-112f);
     }
 
     private static float clamp(float v,float lo,float hi){return Math.max(lo,Math.min(hi,v));}
@@ -113,7 +157,7 @@ final class RiggedElf {
      * Knee/ankle positions are never solved using the screen-X plane for
      * frontal/backward facings; that previously produced crab-like knees.
      */
-    private void drawLeg(Canvas c,boolean side,boolean back,RigLegPose.Pose leg) {
+    private void drawLeg(Canvas c,boolean side,boolean back,RigLegPose.Pose leg,int facing,int index) {
         float hipX=leg.hipX,hipY=leg.hipY;
         float kneeX=leg.kneeX,kneeY=leg.kneeY;
         float footX=leg.footX,footY=leg.footY;
@@ -123,6 +167,7 @@ final class RiggedElf {
         bone(c,hipX,hipY,kneeX,kneeY,11.5f,back?0xFF65717E:0xFF8D9BA5);
         bone(c,hipX-1f,hipY+1,kneeX-1f,kneeY,4f,0xFFB7C1C1);
         bone(c,hipX+2.5f,hipY+2,kneeX+2f,kneeY,1.6f,GOLD);
+        paintIllustratedArmor(c,hipX,hipY,kneeX,kneeY,8.7f,facing,index,false);
         joint(c,kneeX,kneeY,8.2f,INK);
         joint(c,kneeX,kneeY,6.4f,SILVER);
         joint(c,kneeX,kneeY,2.6f,GOLD);
@@ -130,6 +175,7 @@ final class RiggedElf {
         bone(c,kneeX,kneeY,footX,ankleY,11f,SHADOW);
         bone(c,kneeX-2f,kneeY,footX-2f,ankleY-1f,3.4f,LIGHT);
         bone(c,kneeX+2.5f,kneeY,footX+2.5f,ankleY,1.5f,GOLD);
+        paintIllustratedArmor(c,kneeX,kneeY,footX,ankleY,8.5f,facing,index,true);
 
         if(side) {
             // Side view uses an elongated toe. Its planted stance stays at
@@ -153,6 +199,34 @@ final class RiggedElf {
             float groundY=side?0f:footY+leg.lift;
             oval(c,0x33101B16,footX-5,groundY,footX+5,groundY+1.8f);
         }
+    }
+
+    /** Rotated narrow plate texture sampled from the ORIGINAL facing's shin guards.
+     * The gait and joint positions remain procedural; only the finish is borrowed.
+     */
+    private void paintIllustratedArmor(Canvas c,float x1,float y1,float x2,float y2,
+                                       float halfWidth,int facing,int index,boolean shin){
+        if(approvedAtlas==null)return;
+        int direction=facing==3?1:facing;
+        int fw=approvedAtlas.getWidth()/4,fh=approvedAtlas.getHeight();
+        float mid=index==0?.42f:.58f;
+        int left=(int)(fw*(mid-.095f));
+        int right=(int)(fw*(mid+.095f));
+        int top=(int)(fh*(shin?.66f:.53f));
+        int bottom=(int)(fh*(shin?.93f:.75f));
+        Rect src=new Rect(direction*fw+left,top,direction*fw+right,bottom);
+        float dx=x2-x1,dy=y2-y1;
+        float length=(float)Math.hypot(dx,dy);
+        if(length<2f)return;
+        c.save();
+        c.translate(x1,y1);
+        c.rotate((float)Math.toDegrees(Math.atan2(dy,dx))-90f);
+        RectF target=new RectF(-halfWidth,1f,halfWidth,length-1f);
+        c.clipRect(target);
+        bitmapPaint.setAlpha(216);
+        c.drawBitmap(approvedAtlas,src,target,bitmapPaint);
+        bitmapPaint.setAlpha(255);
+        c.restore();
     }
 
     private void drawArm(Canvas c,float shoulderX,float shoulderY,float elbowX,float elbowY,
