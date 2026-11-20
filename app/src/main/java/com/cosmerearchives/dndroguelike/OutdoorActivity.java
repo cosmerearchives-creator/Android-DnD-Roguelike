@@ -72,6 +72,8 @@ public final class OutdoorActivity extends Activity {
         // Base first: armor is explicitly opt-in for comparison and layering QA.
         private boolean armorVisible=false;
         private final RectF armorToggleBounds=new RectF();
+        private final RectF viewToggleBounds=new RectF();
+        private boolean closeUp=true;
         private final String heroName;
         private float x=0.5f,y=0.5f,camX=x,camY=y,targetX=x,targetY=y;
         private float joyX,joyY,knobX,knobY;
@@ -83,7 +85,6 @@ public final class OutdoorActivity extends Activity {
         private float idleTime=0;
         private boolean visuallyWalking=false;
         private float gaitBlend=0f;
-        private static final float ATTACK_DURATION=.48f;
         private float attackRemaining=0f;
         private final RectF attackBounds=new RectF();
         private long lastFrame;
@@ -434,7 +435,7 @@ public final class OutdoorActivity extends Activity {
                 if(dx*dx+dy*dy<.0225f){moving=false;dx=0;dy=0;}
             }
             float distance=(float)Math.sqrt(dx*dx+dy*dy);
-            if(distance>.02f){
+            if(distance>.02f && attackRemaining<=0f){
                 float cameraDX=dx-dy,cameraDY=dx+dy;
                 facing=Math.abs(cameraDX)>Math.abs(cameraDY)?(cameraDX>0?1:3):(cameraDY>0?0:2);
                 float speed=(hero!=null&&hero.completed?hero.loadout().movementFactor():1f)*2.4f;
@@ -466,6 +467,20 @@ public final class OutdoorActivity extends Activity {
                 }
             }
         }
+        private float attackProgress() {
+            return attackRemaining>0f ? 1f-attackRemaining/RigAttackPose.DURATION : 0f;
+        }
+
+        private void drawCloseUp(Canvas c,float h,float d){
+            float top=62*d, bottom=h-158*d;
+            if(bottom<=top)return;
+            rect(c,0xC0101D22,0,top,getWidth(),h-112*d);
+            float scale=Math.min(getWidth()/124f,(bottom-top)/178f);
+            float feetY=bottom-13f*scale;
+            riggedArt.draw(c,getWidth()*.5f,feetY,scale,facing,walkTime,
+                gaitBlend,idleTime,attackProgress(),armorVisible,getWidth());
+        }
+
         @Override protected void onDraw(Canvas c){
             super.onDraw(c);
             long now=SystemClock.uptimeMillis();
@@ -495,14 +510,12 @@ public final class OutdoorActivity extends Activity {
                     // World entities enter the same painter order as terrain and props.
                     // Nearer trees and elevated terrain can now occlude the actor naturally.
                     // Solo visual test: leave the party companion systems untouched elsewhere.
-                    if(tx==(int)Math.floor(x) && ty==(int)Math.floor(y)){
+                    if(!closeUp && tx==(int)Math.floor(x) && ty==(int)Math.floor(y)){
                         float feetX=screenX(x,y);
                         float feetY=screenY(x,y)-height(tx,ty)*LEVEL_H;
                         oval(c,0x880A1614,feetX-21,feetY-6,feetX+21,feetY+6);
-                        float attackProgress=attackRemaining<=0f?0f:
-                            1f-attackRemaining/ATTACK_DURATION;
                         riggedArt.draw(c,feetX,feetY,.86f,facing,walkTime,
-                            gaitBlend,idleTime,attackProgress,armorVisible);
+                            gaitBlend,idleTime,attackProgress(),armorVisible,0f);
                         text(c,heroName,feetX-25,feetY-157,12,0xFFFFF0D1);
                     }
                 }
@@ -514,10 +527,17 @@ public final class OutdoorActivity extends Activity {
             c.restore();
             float h=getHeight()-controlsBottom;
             float d=ui();
+            if(closeUp)drawCloseUp(c,h,d);
             // Dark blue / antique gold HUD matches the illustrated elven equipment.
             rect(c,0xF0192630,0,0,getWidth(),62*d);
             rect(c,0xFFB89A62,0,61*d,getWidth(),62*d);
-            text(c,"THE WILDLANDS",15*d,24*d,16*d,0xFFF4DCAA);
+            float titleSize = Math.max(8*d,Math.min(16*d,(getWidth()-236*d)/8f));
+            text(c,"THE WILDLANDS",15*d,24*d,titleSize,0xFFF4DCAA);
+            viewToggleBounds.set(getWidth()-213*d,5*d,getWidth()-120*d,34*d);
+            rounded(c,closeUp?0xFF3C685B:0xFF324B55,
+                viewToggleBounds.left,viewToggleBounds.top,
+                viewToggleBounds.right,viewToggleBounds.bottom,6*d);
+            text(c,closeUp?"CLOSE-UP":"WORLD VIEW",viewToggleBounds.left+8*d,24*d,10*d,0xFFF3DBA4);
             armorToggleBounds.set(getWidth()-113*d,8*d,getWidth()-9*d,49*d);
             rounded(c,armorVisible?0xFF735F3E:0xFF324B55,
                 armorToggleBounds.left,armorToggleBounds.top,
@@ -592,6 +612,10 @@ public final class OutdoorActivity extends Activity {
                     return true;
                 }
                 if(sy>h)return true;
+                if(viewToggleBounds.contains(sx,sy)){
+                    closeUp=!closeUp;
+                    invalidate();return true;
+                }
                 if(armorToggleBounds.contains(sx,sy)){
                     armorVisible=!armorVisible;
                     getContext().getSharedPreferences("animation_lab",Context.MODE_PRIVATE)
@@ -599,12 +623,13 @@ public final class OutdoorActivity extends Activity {
                     invalidate();return true;
                 }
                 if(attackBounds.contains(sx,sy)){
-                    // Exploration has no combat targets yet; this input previews the
-                    // same attack animation without changing game state or dealing damage.
-                    attackRemaining=ATTACK_DURATION;
-                    moving=false;joystick=false;knobX=0;knobY=0;
+                    if(attackRemaining<=0f){
+                        attackRemaining=RigAttackPose.DURATION;
+                        moving=false;joystick=false;knobX=0;knobY=0;
+                    }
                     invalidate();return true;
                 }
+                if(sy<62*d)return true;
                 if(sy>h-110*d){
                     if(sx>getWidth()-111*d){
                         paused=!paused;lastFrame=SystemClock.uptimeMillis();invalidate();return true;

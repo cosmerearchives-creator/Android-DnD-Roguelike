@@ -22,6 +22,8 @@ final class RiggedElf {
     private static final int HEAD_WIDTH = 192, HEAD_HEIGHT = 152;
     private static final float HEAD_SCALE = .35f;
     private static final float PROFILE_HEAD_LIFT = 5f;
+    private static final float BLADE_TIP_Y = 66f;
+    private final RigAttackPose attack = new RigAttackPose();
     private final Bitmap headAtlas;
     private final ElfLayerSprites layers;
     private final Rect headSrc = new Rect();
@@ -44,7 +46,7 @@ final class RiggedElf {
 
     void draw(Canvas canvas,float footX,float footY,float scale,int facing,
               float distanceCycles,float movementBlend,float idleElapsed,
-              float attackProgress,boolean armored) {
+              float attackProgress,boolean armored,float closeUpWidth) {
         Canvas c=canvas;
         float blend=clamp(movementBlend,0f,1f);
         boolean side=RigViewProfile.isSide(facing);
@@ -60,8 +62,58 @@ final class RiggedElf {
         float armIdle = (1f - blend) * (float)Math.sin(idleElapsed * 1.6f) * .55f;
         float armSwing = armStride * (side ? 5f : .8f) + armIdle;
         float armDepth = side ? 0f : armStride * (back ? -2f : 2f);
-        float strike=attackProgress<=0f?0f:
-            (float)Math.sin(Math.PI*clamp(attackProgress,0f,1f))*23f;
+        attack.sample(attackProgress, side);
+        bounce += attack.brace;
+
+        float leftShoulder=RigViewProfile.shoulderX(facing,0);
+        float rightShoulder=RigViewProfile.shoulderX(facing,1);
+        float shoulderY = -108f;
+        float leftElbow=RigViewProfile.elbowX(facing,0)+armSwing*.48f;
+        float rightElbow=RigViewProfile.elbowX(facing,1)-armSwing*.48f;
+        float leftHand=RigViewProfile.handX(facing,0)+armSwing;
+        float rightHand=RigViewProfile.handX(facing,1)-armSwing;
+        float leftElbowY = -81f + armDepth*.42f;
+        float rightElbowY = (side ? -80f : -81f) - armDepth*.42f;
+        float leftHandY=RigViewProfile.handY(facing,0)+armDepth-attack.guard;
+        float rightHandY=RigViewProfile.handY(facing,1)-armDepth;
+
+        // Rotate the two bone vectors independently around their joints. This keeps
+        // the forearm and hand attached even at the top of the wind-up.
+        if (attackProgress > 0f) {
+            float upperX = rightElbow - rightShoulder, upperY = rightElbowY - shoulderY;
+            float lowerX = rightHand - rightElbow, lowerY = rightHandY - rightElbowY;
+            float upperAngle = (float)Math.toRadians(attack.upper);
+            float lowerAngle = (float)Math.toRadians(attack.forearm);
+            rightElbow = rightShoulder + rotateX(upperX, upperY, upperAngle);
+            rightElbowY = shoulderY + rotateY(upperX, upperY, upperAngle);
+            rightHand = rightElbow + rotateX(lowerX, lowerY, lowerAngle);
+            rightHandY = rightElbowY + rotateY(lowerX, lowerY, lowerAngle);
+        }
+        float torsoX = sway * .35f;
+        if (closeUpWidth > 0f) {
+            // Keep a steady close-up until the pose needs room for the blade.
+            float blade = (float)Math.toRadians(attack.blade);
+            float reach = armored ? BLADE_TIP_Y : 0f;
+            float hipY = RigLegPose.HIP_Y;
+            float lean = (float)Math.toRadians(attack.lean);
+            float tipX = torsoX + rotateX(rightHand + rotateX(0f, reach, blade),
+                rightHandY - hipY + rotateY(0f, reach, blade), lean);
+            float wristX = torsoX + rotateX(rightHand, rightHandY - hipY, lean);
+            float elbowX = torsoX + rotateX(rightElbow, rightElbowY - hipY, lean);
+            float left = Math.min(side ? -36f : -53f, Math.min(tipX-3f,
+                Math.min(wristX-14f, elbowX-10f)));
+            float right = Math.max(side ? 36f : 48f, Math.max(tipX+3f,
+                Math.max(wristX+14f, elbowX+10f)));
+            if (facing == 3) {
+                float originalLeft = left;
+                left = -right;
+                right = -originalLeft;
+            }
+            scale = Math.min(scale, closeUpWidth / (right-left+16f));
+            footX = clamp(footX, (8f-left)*scale, closeUpWidth-(8f+right)*scale);
+            oval(c, 0x99112125, footX-23f*scale, footY-4f*scale,
+                footX+23f*scale, footY+5f*scale);
+        }
 
         c.save();
         c.translate(footX,footY);
@@ -76,25 +128,15 @@ final class RiggedElf {
         drawLeg(c,side,back,left,facing,0,armored);
 
         c.save();
-        c.translate(sway*.35f,bounce+breathe);
-        float leftShoulder=RigViewProfile.shoulderX(facing,0);
-        float rightShoulder=RigViewProfile.shoulderX(facing,1);
-        float shoulderY = -108f;
-        float leftElbow=RigViewProfile.elbowX(facing,0)+armSwing*.48f;
-        float rightElbow=RigViewProfile.elbowX(facing,1)-armSwing*.48f;
-        float leftHand=RigViewProfile.handX(facing,0)+armSwing;
-        float rightHand=RigViewProfile.handX(facing,1)-armSwing+strike;
-        float leftElbowY = -81f + armDepth*.42f;
-        float rightElbowY = (side ? -80f : -81f) - armDepth*.42f;
-        float leftHandY=RigViewProfile.handY(facing,0)+armDepth;
-        float rightHandY=RigViewProfile.handY(facing,1)-armDepth-strike*.65f;
-
-        if(side) {
+        c.translate(torsoX,bounce+breathe);
+        c.rotate(attack.lean,0f,RigLegPose.HIP_Y);
+        boolean swordInBack = side && !attack.swordInFront;
+        if(swordInBack) {
             // Sword hand is the FAR arm. Draw behind breastplate, rather than
             // putting two equally prominent shoulders on the front plane.
+            if(armored)drawSword(c,rightHand,rightHandY,attack.blade);
             drawArm(c,rightShoulder,shoulderY,rightElbow,rightElbowY,
                     rightHand,rightHandY,1,facing,armored);
-            if(armored)drawSword(c,rightHand,rightHandY,true);
         }
         float neckX = side ? -3f : 0f;
         drawNeck(c, neckX, side, back);
@@ -111,10 +153,10 @@ final class RiggedElf {
         drawArm(c,leftShoulder,shoulderY,leftElbow,leftElbowY,leftHand,leftHandY,0,facing,armored);
         if(armored)drawShield(c,leftHand,leftHandY,side,back);
 
-        if(!side) {
+        if(!swordInBack) {
+            if(armored)drawSword(c,rightHand,rightHandY,attack.blade);
             drawArm(c,rightShoulder,shoulderY,rightElbow,rightElbowY,
                     rightHand,rightHandY,1,facing,armored);
-            if(armored)drawSword(c,rightHand,rightHandY,false);
         }
 
         c.restore();
@@ -282,13 +324,24 @@ final class RiggedElf {
         joint(c,-1,1,3f,LIGHT);
         c.restore();
     }
-    private void drawSword(Canvas c,float handX,float handY,boolean side){
-        c.save();c.translate(handX,handY);c.rotate(side?7f:-12f);
-        bone(c,0,0,4,12,5f,LEATHER);
-        stripe(c,GOLD,4f,-9,-3,9,1);
-        polygon(c,SHADOW,0,9,4,9,3,55,1,68,-3,55,-4,9);
-        polygon(c,0xFFDDE6E8,-2,9,2,9,1,61,-2,54);
-        stripe(c,LIGHT,1.3f,0,12,0,53);
+    private static float rotateX(float x,float y,float radians) {
+        return (float)(x*Math.cos(radians)-y*Math.sin(radians));
+    }
+
+    private static float rotateY(float x,float y,float radians) {
+        return (float)(x*Math.sin(radians)+y*Math.cos(radians));
+    }
+
+    private void drawSword(Canvas c,float handX,float handY,float angle){
+        c.save();
+        c.translate(handX,handY);
+        c.rotate(angle);
+        bone(c,0,-5,0,11,5f,LEATHER);
+        joint(c,0,-5f,2.8f,GOLD);
+        stripe(c,GOLD,4f,-9,10,9,10);
+        polygon(c,SHADOW,-4,10,4,10,3,54,0,BLADE_TIP_Y,-3,54);
+        polygon(c,0xFFDDE6E8,-2,11,2,11,1,60,-2,54);
+        stripe(c,LIGHT,1.3f,0,13,0,53);
         c.restore();
     }
     private void drawHeadFallback(Canvas c,boolean back){

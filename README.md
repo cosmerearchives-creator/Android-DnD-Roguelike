@@ -1,5 +1,9 @@
 # Android DnD Roguelike
 
+## v0.3.13 — Wildlands attack and close-up view
+- The Wildlands attack preview now winds up, swings the blade, and recovers into the idle pose. Both arms and the torso follow the attack.
+- Wildlands opens with a large character preview for inspecting walking, armor layers, and attacks. Tap the view button to return to the regular world view.
+
 ## v0.3.12 — refine the Wildlands character pose
 - Gives the side profile a visible neck between the jaw and collar and matches the exposed base skin closer to the portrait.
 - Rests the arms closer to the torso, with a slight idle sway and an alternating swing that follows the walk cycle.
