@@ -4,7 +4,7 @@ package com.cosmerearchives.dndroguelike;
 final class RigIdlePose {
     static final float PERIOD = 9.6f;
 
-    float hipX, hipY, lean, spineScale, armDrift;
+    float hipX, hipY, lean, breath, armDrift;
 
     void sample(float elapsed, float walkBlend, float attackProgress, boolean side) {
         float phase = (float) (2.0 * Math.PI) * GaitModel.fractional(elapsed / PERIOD);
@@ -15,11 +15,10 @@ final class RigIdlePose {
         float strength = activity * activity * (1f - transition * transition * (3f - 2f * transition));
 
         float transfer = (float) Math.sin(phase);
-        float breath = (float) Math.sin(3f * phase);
+        breath = strength * (float) Math.sin(3f * phase);
         hipX = strength * transfer * (side ? .75f : 1.45f);
         hipY = strength * transfer * transfer * .42f;
-        lean = strength * transfer * (side ? -.84f : -1.3f);
-        spineScale = 1f + strength * breath * .046f;
+        lean = strength * transfer * (side ? -.35f : -.5f);
         armDrift = strength * (transfer * .6f + (float) Math.sin(3f * phase - .65f) * .23f);
     }
 }

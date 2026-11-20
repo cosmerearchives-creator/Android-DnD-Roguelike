@@ -60,6 +60,9 @@ final class ElfLayerSprites {
     private final Paint paint=new Paint(Paint.ANTI_ALIAS_FLAG|Paint.FILTER_BITMAP_FLAG);
     private final Rect src=new Rect();
     private final RectF dest=new RectF();
+    private final Bitmap[] baseTorsos = new Bitmap[3];
+    private final Bitmap[] armorTorsos = new Bitmap[3];
+    private final RigTorsoPose.Mesh torsoMesh = new RigTorsoPose.Mesh();
     private final Matrix jointTransform = new Matrix();
     private final float[] matrixValues = {1f,0f,0f, 0f,1f,0f, 0f,0f,1f};
 
@@ -68,6 +71,10 @@ final class ElfLayerSprites {
         armor=decode(context,"elf_armor_layers.webp");
         frontSkin=decode(context,"elf_front_lower_limbs.webp",CELL*3,CELL);
         skinPaint.setShader(skinTone);
+        for (int column = 0; column < 3; column++) {
+            if (base != null) baseTorsos[column] = torsoCell(base, column, false);
+            if (armor != null) armorTorsos[column] = torsoCell(armor, column, true);
+        }
     }
 
     private static Bitmap decode(Context ctx,String name) {
@@ -94,17 +101,25 @@ final class ElfLayerSprites {
         src.set(x, y, x + CELL, y + CELL);
     }
 
-    boolean torso(Canvas canvas,int facing,float halfWidth,boolean armored) {
+    boolean torso(Canvas canvas, int facing, float halfWidth, boolean armored, RigTorsoPose pose) {
         if (base == null) return false;
         int column = column(facing);
-        float width = halfWidth * 2f + 4f;
-        float yScale = 56f / (184f - 8f);
-        float xScale = width / 170f;
-        selectCell(column, TORSO);
         boolean hasArmor = armored && armor != null;
-        canvas.save();
-        canvas.translate(-CELL*xScale*.5f, COLLAR_Y - (hasArmor ? 15f : 8f)*yScale);
-        canvas.scale(xScale,yScale);
+        float xScale = (halfWidth * 2f + 4f) / 170f;
+        float yScale = 56f / (184f - 8f);
+        float half = CELL * xScale * .5f;
+        float top = COLLAR_Y - (hasArmor ? 15f : 8f) * yScale;
+        torsoMesh.pose(pose, -half, top, half, top + CELL * yScale);
+        canvas.drawBitmapMesh((hasArmor ? armorTorsos : baseTorsos)[column],
+            RigTorsoPose.Mesh.COLUMNS, RigTorsoPose.Mesh.ROWS, torsoMesh.vertices, 0, null, 0, paint);
+        return true;
+    }
+
+    private Bitmap torsoCell(Bitmap atlas, int column, boolean hasArmor) {
+        if (!hasArmor || column == 0) return Bitmap.createBitmap(atlas, column * CELL, 0, CELL, CELL);
+        Bitmap bitmap = Bitmap.createBitmap(CELL, CELL, Bitmap.Config.ARGB_8888);
+        Canvas canvas = new Canvas(bitmap);
+        selectCell(column, TORSO);
         dest.set(0, 0, CELL, CELL);
         if (hasArmor && column == 1) {
             // Exclude the painted black arm socket. The moving upper arm and
@@ -129,9 +144,8 @@ final class ElfLayerSprites {
             clip.quadTo(41,178,0,153); clip.close();
             canvas.clipPath(clip);
         }
-        canvas.drawBitmap(hasArmor ? armor : base, src, dest, paint);
-        canvas.restore();
-        return true;
+        canvas.drawBitmap(atlas, src, dest, paint);
+        return bitmap;
     }
 
     void rearTabard(Canvas canvas) {

@@ -103,6 +103,7 @@ jobs:
             app/src/main/java/com/cosmerearchives/dndroguelike/RigLegPose.java \
             app/src/main/java/com/cosmerearchives/dndroguelike/RigViewProfile.java \
             app/src/main/java/com/cosmerearchives/dndroguelike/RigIdlePose.java \
+            app/src/main/java/com/cosmerearchives/dndroguelike/RigTorsoPose.java \
             app/src/main/java/com/cosmerearchives/dndroguelike/RigAttackPose.java \
             app/src/main/java/com/cosmerearchives/dndroguelike/LimbMesh.java \
             tests/com/cosmerearchives/dndroguelike/GaitModelTest.java \

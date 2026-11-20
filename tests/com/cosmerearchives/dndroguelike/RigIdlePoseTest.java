@@ -4,11 +4,11 @@ final class RigIdlePoseTest {
     public static void main(String[] args) {
         RigIdlePose idle = new RigIdlePose();
         idle.sample(RigIdlePose.PERIOD / 4f, 0f, 0f, false);
-        check(idle.hipX > 1f && idle.lean < 0f && idle.spineScale < .96f, "weight and breath");
+        check(idle.hipX > 1f && idle.lean < 0f && idle.breath < -.96f, "weight and breath");
         float shift = idle.hipX;
-        float breath = idle.spineScale;
+        float breath = idle.breath;
         idle.sample(1.25f * RigIdlePose.PERIOD, 0f, 0f, false);
-        check(Math.abs(idle.hipX - shift) < .001f && Math.abs(idle.spineScale - breath) < .001f,
+        check(Math.abs(idle.hipX - shift) < .001f && Math.abs(idle.breath - breath) < .001f,
             "repeatable loop");
         idle.sample(RigIdlePose.PERIOD / 4f, .5f, 0f, false);
         check(Math.abs(idle.hipX - shift * .25f) < .001f, "fade into walking");
@@ -32,12 +32,26 @@ final class RigIdlePoseTest {
                 }
             }
         }
+        RigTorsoPose torso = new RigTorsoPose();
+        float[] points = new float[4];
+        torso.sample(true, 0f, 0f, 0f, 1f, 0f);
+        torso.offsets(12f, RigTorsoPose.CHEST_Y, points, 0);
+        torso.offsets(12f, RigTorsoPose.WAIST_Y, points, 2);
+        check(points[0] > 2f && points[1] < -1f, "side chest expands and rises");
+        check(points[2] == 0f && points[3] == 0f, "waist stays attached");
+        torso.offsets(-8f, -136f, points, 0);
+        torso.offsets(8f, -151f, points, 2);
+        check(points[0] == points[2] && points[1] == points[3], "head moves as a rigid shape");
+        torso.sample(false, 1f, 1f, 0f, 0f, 0f);
+        torso.offsets(-16f, RigTorsoPose.CHEST_Y, points, 0);
+        torso.offsets(16f, RigTorsoPose.CHEST_Y, points, 2);
+        check(points[1] < -1f && points[3] > 1f, "shoulders counter-rotate during walking");
         System.out.println("Idle poses passed: weight transfer, looping, transitions, and planted feet.");
     }
 
     private static void neutral(RigIdlePose idle) {
         check(idle.hipX == 0f && idle.hipY == 0f && idle.lean == 0f
-            && idle.spineScale == 1f && idle.armDrift == 0f, "idle must yield to active movement");
+            && idle.breath == 0f && idle.armDrift == 0f, "idle must yield to active movement");
     }
 
     private static void check(boolean condition, String message) {

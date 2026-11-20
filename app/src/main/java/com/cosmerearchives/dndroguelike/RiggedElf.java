@@ -29,6 +29,8 @@ final class RiggedElf {
     private static final float THIGH_PELVIS_OVERLAP = 4.5f;
     private final RigAttackPose attack = new RigAttackPose();
     private final RigIdlePose idle = new RigIdlePose();
+    private final RigTorsoPose torso = new RigTorsoPose();
+    private final float[] joints = new float[6];
     private final Shader throatTone = new LinearGradient(0,-126f,0,-113f,
         new int[]{0xFFC38D73,0xFFE6B999,0x00E6B999},
         new float[]{0f,.44f,1f},Shader.TileMode.CLAMP);
@@ -65,7 +67,9 @@ final class RiggedElf {
         float omega=(float)(2.0*Math.PI*cyc);
         float bounce=-1.6f*blend*(float)Math.abs(Math.sin(omega*2f));
         idle.sample(idleElapsed, blend, attackProgress, side);
-        float sway=blend*(float)Math.sin(omega)*1.6f;
+        float stride = (float) Math.sin(omega);
+        float sway = blend * stride * 1.6f;
+        torso.sample(side, blend, stride, (float) Math.sin(2f * omega), idle.breath, idle.hipX);
         // When a leg advances, its opposite arm advances. In front and back
         // views most of that motion projects along screen depth.
         float armStride = -blend * (float)Math.cos(omega);
@@ -121,6 +125,29 @@ final class RiggedElf {
             rightHand = rightElbow + rotateX(lowerX, lowerY, lowerAngle);
             rightHandY = rightElbowY + rotateY(lowerX, lowerY, lowerAngle);
         }
+        if (boundBase) {
+            baseArt.shoulderOffset(facing, 0, torso, joints, 0);
+            baseArt.shoulderOffset(facing, 1, torso, joints, 2);
+        } else {
+            float mirror = back ? -1f : 1f;
+            torso.offsets(mirror * leftShoulder, shoulderY, joints, 0);
+            torso.offsets(mirror * rightShoulder, shoulderY, joints, 2);
+            joints[0] *= mirror;
+            joints[2] *= mirror;
+        }
+        leftShoulder += joints[0];
+        leftElbow += joints[0];
+        leftHand += joints[0];
+        float leftShoulderY = shoulderY + joints[1];
+        leftElbowY += joints[1];
+        leftHandY += joints[1];
+        rightShoulder += joints[2];
+        rightElbow += joints[2];
+        rightHand += joints[2];
+        float rightShoulderY = shoulderY + joints[3];
+        rightElbowY += joints[3];
+        rightHandY += joints[3];
+
         float torsoX = sway * .35f + idle.hipX;
         float torsoLean = attack.lean + idle.lean;
         if (closeUpWidth > 0f) {
@@ -130,9 +157,9 @@ final class RiggedElf {
             float hipY = RigLegPose.HIP_Y;
             float lean = (float)Math.toRadians(torsoLean);
             float tipX = torsoX + rotateX(rightHand + rotateX(0f, reach, blade),
-                (rightHandY - hipY + rotateY(0f, reach, blade)) * idle.spineScale, lean);
-            float wristX = torsoX + rotateX(rightHand, (rightHandY - hipY) * idle.spineScale, lean);
-            float elbowX = torsoX + rotateX(rightElbow, (rightElbowY - hipY) * idle.spineScale, lean);
+                rightHandY - hipY + rotateY(0f, reach, blade), lean);
+            float wristX = torsoX + rotateX(rightHand, rightHandY - hipY, lean);
+            float elbowX = torsoX + rotateX(rightElbow, rightElbowY - hipY, lean);
             float left = Math.min(side ? -36f : -53f, Math.min(tipX-3f,
                 Math.min(wristX-14f, elbowX-10f)));
             float right = Math.max(side ? 36f : 48f, Math.max(tipX+3f,
@@ -162,12 +189,12 @@ final class RiggedElf {
             // Far-side hands pass behind the hips and thighs as well as the chest.
             if (swordInBack) {
                 if (armored) drawSword(c,rightHand,rightHandY,attack.blade);
-                drawArm(c,rightShoulder,shoulderY,rightElbow,rightElbowY,
+                drawArm(c,rightShoulder,rightShoulderY,rightElbow,rightElbowY,
                     rightHand,rightHandY,1,facing,armored);
                 if (armored) drawSwordGrip(c,rightHand,rightHandY,attack.blade);
             }
             if (shieldInBack) {
-                drawArm(c,leftShoulder,shoulderY,leftElbow,leftElbowY,
+                drawArm(c,leftShoulder,leftShoulderY,leftElbow,leftElbowY,
                     leftHand,leftHandY,0,facing,armored);
                 if (armored) drawShield(c,leftElbow,leftElbowY,leftHand,leftHandY,true,true);
             }
@@ -192,10 +219,14 @@ final class RiggedElf {
         c.save();
         positionTorso(c, torsoX, bounce, torsoLean);
         if (boundBase) {
-            baseArt.drawBody(c, facing);
+            baseArt.drawBody(c, facing, torso);
         } else {
             float neckX = side ? -3f : 0f;
+            torso.offsets(neckX, RigTorsoPose.NECK_Y, joints, 4);
+            c.save();
+            c.translate(joints[4], joints[5]);
             drawNeck(c, neckX, side, back);
+            c.restore();
             if (side) {
                 // Fill the narrow opening inside the armhole with its lining.
                 oval(c,armored ? 0xFF3B3845 : 0xFF4B4145,-10.6f,-115f,3.2f,-101f);
@@ -208,6 +239,8 @@ final class RiggedElf {
             drawIllustratedTorso(c,facing,side,armored);
             if (facing == 0 && !armored) drawThroatJoin(c);
             if (back && armored) layers.rearTabard(c);
+            c.save();
+            c.translate(joints[4], joints[5]);
             if (headAtlas != null) {
                 drawHead(c, facing, neckX);
             } else {
@@ -216,13 +249,14 @@ final class RiggedElf {
                 drawHeadFallback(c, back);
                 c.restore();
             }
+            c.restore();
         }
 
         // Front and rear views look at opposite sides of the same hands.
         if (back) c.scale(-1f,1f);
         if (!shieldInBack) {
             if (back && armored) drawShield(c,leftElbow,leftElbowY,leftHand,leftHandY,false,true);
-            drawArm(c,leftShoulder,shoulderY,leftElbow,leftElbowY,
+            drawArm(c,leftShoulder,leftShoulderY,leftElbow,leftElbowY,
                 leftHand,leftHandY,0,facing,armored);
             if (armored) {
                 if (back) drawShieldStraps(c,leftElbow,leftElbowY,leftHand,leftHandY);
@@ -231,7 +265,7 @@ final class RiggedElf {
         }
         if (!swordInBack) {
             if (armored) drawSword(c,rightHand,rightHandY,attack.blade);
-            drawArm(c,rightShoulder,shoulderY,rightElbow,rightElbowY,
+            drawArm(c,rightShoulder,rightShoulderY,rightElbow,rightElbowY,
                 rightHand,rightHandY,1,facing,armored);
             if (armored) drawSwordGrip(c,rightHand,rightHandY,attack.blade);
         }
@@ -243,7 +277,6 @@ final class RiggedElf {
     private void positionTorso(Canvas canvas, float x, float y, float lean) {
         canvas.translate(x, y);
         canvas.rotate(lean, 0f, RigLegPose.HIP_Y);
-        canvas.scale(1f, idle.spineScale, 0f, RigLegPose.HIP_Y);
     }
 
     private void drawNeck(Canvas c, float x, boolean side, boolean back) {
@@ -329,7 +362,7 @@ final class RiggedElf {
     /** The painted torso uses a vector fallback if the body atlas fails to load. */
     private void drawIllustratedTorso(Canvas c,int facing,boolean side,boolean armored) {
         float half=RigViewProfile.torsoHalfWidth(facing);
-        if(layers.torso(c,facing,half,armored))return;
+        if(layers.torso(c,facing,half,armored,torso))return;
         // Layered fabric follows the profile rather than the old rectangular torso.
         float capeShift=side?-5f:0f;
         polygon(c,DEEP_BLUE,capeShift-half+3f,-80f,capeShift+half-4f,-81f,

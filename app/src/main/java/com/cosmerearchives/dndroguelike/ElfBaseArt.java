@@ -38,6 +38,7 @@ final class ElfBaseArt {
 
     private final Facing[] facings = new Facing[4];
     private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
+    private final RigTorsoPose.Mesh bodyMesh = new RigTorsoPose.Mesh();
     private final RectF bootBounds = new RectF();
     private final RectF bodyBounds = new RectF(
         (125 - CENTER_X) * UNIT, (510 - SOLE_Y) * UNIT,
@@ -62,8 +63,17 @@ final class ElfBaseArt {
         return facings[facing] != null;
     }
 
-    void drawBody(Canvas canvas, int facing) {
-        canvas.drawBitmap(facings[facing].body, null, bodyBounds, paint);
+    void drawBody(Canvas canvas, int facing, RigTorsoPose pose) {
+        bodyMesh.pose(pose, bodyBounds.left, bodyBounds.top, bodyBounds.right, bodyBounds.bottom);
+        canvas.drawBitmapMesh(facings[facing].body, RigTorsoPose.Mesh.COLUMNS, RigTorsoPose.Mesh.ROWS,
+            bodyMesh.vertices, 0, null, 0, paint);
+    }
+
+    void shoulderOffset(int facing, int index, RigTorsoPose pose, float[] offsets, int at) {
+        Sprite arm = facings[facing].limbs[index];
+        float mirror = facing == 2 ? -1f : 1f;
+        pose.offsets(arm.rootX * mirror, arm.rootY, offsets, at);
+        offsets[at] *= mirror;
     }
 
     void drawArm(Canvas canvas, int facing, int index,
