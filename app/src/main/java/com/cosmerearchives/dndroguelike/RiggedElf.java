@@ -33,14 +33,14 @@ final class RiggedElf {
         new float[]{0f,.44f,1f},Shader.TileMode.CLAMP);
     private final Bitmap headAtlas;
     private final ElfLayerSprites layers;
-    private final FrontBaseLimbs frontLimbs;
+    private final ElfBaseArt baseArt;
     private final Rect headSrc = new Rect();
     private final RectF headDst = new RectF();
 
     RiggedElf(Context context) {
         headAtlas = loadHeadAtlas(context);
         layers = new ElfLayerSprites(context);
-        frontLimbs = new FrontBaseLimbs(context);
+        baseArt = new ElfBaseArt(context);
     }
 
     private static Bitmap loadHeadAtlas(Context context) {
@@ -74,19 +74,20 @@ final class RiggedElf {
         attack.sample(attackProgress, side);
         bounce += attack.brace;
 
-        boolean frontBase = facing == 0 && !armored;
-        float leftShoulder=RigViewProfile.shoulderX(facing,0) - (frontBase ? .6f : 0f);
-        float rightShoulder=RigViewProfile.shoulderX(facing,1) + (frontBase ? .6f : 0f);
-        float shoulderY = frontBase ? -109f : -108f;
+        boolean boundBase = !armored && baseArt.ready(facing);
+        boolean frontFallback = facing == 0 && !armored && !boundBase;
+        float leftShoulder=RigViewProfile.shoulderX(facing,0) - (frontFallback ? .6f : 0f);
+        float rightShoulder=RigViewProfile.shoulderX(facing,1) + (frontFallback ? .6f : 0f);
+        float shoulderY = frontFallback ? -109f : -108f;
         float leftElbow=RigViewProfile.elbowX(facing,0)+armSwing*.48f;
         float rightElbow=RigViewProfile.elbowX(facing,1)-armSwing*.48f;
         float leftHand=RigViewProfile.handX(facing,0)+armSwing;
         float rightHand=RigViewProfile.handX(facing,1)-armSwing;
-        float leftElbowY = -81f + armDepth*.42f;
-        float rightElbowY = (side ? -80f : -81f) - armDepth*.42f;
+        float leftElbowY = RigViewProfile.elbowY(facing, 0) + armDepth*.42f;
+        float rightElbowY = RigViewProfile.elbowY(facing, 1) - armDepth*.42f;
         float leftHandY=RigViewProfile.handY(facing,0)+armDepth-attack.guard;
         float rightHandY=RigViewProfile.handY(facing,1)-armDepth;
-        if (frontBase) {
+        if (frontFallback) {
             // Continue the upper arm's line into the lower arm and finish
             // with a relaxed wrist and fingers at the reference height.
             leftElbow += .4f;
@@ -95,12 +96,6 @@ final class RiggedElf {
             rightHand -= .65f;
             leftHandY -= 1.2f;
             rightHandY -= 1.2f;
-            if (frontLimbs.ready()) {
-                leftElbowY -= 6.5f;
-                rightElbowY -= 6.5f;
-                leftHandY -= 9f;
-                rightHandY -= 9f;
-            }
         }
 
         // Rotate the two bone vectors independently around their joints. This keeps
@@ -148,7 +143,8 @@ final class RiggedElf {
 
         boolean swordInBack = RigViewProfile.drawSwordArmBehindTorso(facing) && !attack.swordInFront;
         boolean shieldInBack = facing == 3;
-        if (swordInBack || shieldInBack) {
+        boolean showFarLimbs = !boundBase || !side || blend > .02f || attackProgress > 0f;
+        if (showFarLimbs && (swordInBack || shieldInBack)) {
             c.save();
             c.translate(torsoX,bounce+breathe);
             c.rotate(attack.lean,0f,RigLegPose.HIP_Y);
@@ -169,33 +165,42 @@ final class RiggedElf {
 
         RigLegPose.Pose left=RigLegPose.solve(distanceCycles,0,facing,blend,bounce);
         RigLegPose.Pose right=RigLegPose.solve(distanceCycles,1,facing,blend,bounce);
-        drawLeg(c,side,back,right,facing,1,armored);
-        drawLeg(c,side,back,left,facing,0,armored);
+        if (boundBase && facing == 3) {
+            if (showFarLimbs) baseArt.drawLeg(c,facing,0,left);
+            baseArt.drawLeg(c,facing,1,right);
+        } else {
+            if (showFarLimbs) drawLeg(c,side,back,right,facing,1,armored);
+            drawLeg(c,side,back,left,facing,0,armored);
+        }
 
         c.save();
         c.translate(torsoX,bounce+breathe);
         c.rotate(attack.lean,0f,RigLegPose.HIP_Y);
-        float neckX = side ? -3f : 0f;
-        drawNeck(c, neckX, side, back);
-        if (side) {
-            // Fill the narrow opening inside the armhole with its lining.
-            oval(c,armored ? 0xFF3B3845 : 0xFF4B4145,-10.6f,-115f,3.2f,-101f);
-        } else if (!armored) {
-            // Extend the vest over the shoulder root so the deltoid has a
-            // continuous edge into the torso in the front and rear projections.
-            oval(c,0xFF2C2E38,-18.4f,-115f,-9f,-103f);
-            oval(c,0xFF2C2E38,9f,-115f,18.4f,-103f);
-        }
-        drawIllustratedTorso(c,facing,side,armored);
-        if (facing == 0 && !armored) drawThroatJoin(c);
-        if (back && armored) layers.rearTabard(c);
-        if (headAtlas != null) {
-            drawHead(c, facing, neckX);
+        if (boundBase) {
+            baseArt.drawBody(c, facing);
         } else {
-            c.save();
-            c.translate(neckX, side ? 2f - PROFILE_HEAD_LIFT : 2f);
-            drawHeadFallback(c, back);
-            c.restore();
+            float neckX = side ? -3f : 0f;
+            drawNeck(c, neckX, side, back);
+            if (side) {
+                // Fill the narrow opening inside the armhole with its lining.
+                oval(c,armored ? 0xFF3B3845 : 0xFF4B4145,-10.6f,-115f,3.2f,-101f);
+            } else if (!armored) {
+                // Extend the vest over the shoulder root so the deltoid has a
+                // continuous edge into the torso in the front and rear projections.
+                oval(c,0xFF2C2E38,-18.4f,-115f,-9f,-103f);
+                oval(c,0xFF2C2E38,9f,-115f,18.4f,-103f);
+            }
+            drawIllustratedTorso(c,facing,side,armored);
+            if (facing == 0 && !armored) drawThroatJoin(c);
+            if (back && armored) layers.rearTabard(c);
+            if (headAtlas != null) {
+                drawHead(c, facing, neckX);
+            } else {
+                c.save();
+                c.translate(neckX, side ? 2f - PROFILE_HEAD_LIFT : 2f);
+                drawHeadFallback(c, back);
+                c.restore();
+            }
         }
 
         // Front and rear views look at opposite sides of the same hands.
@@ -338,10 +343,8 @@ final class RiggedElf {
         float kneeX=leg.kneeX,kneeY=leg.kneeY;
         float footX=leg.footX,footY=leg.footY;
         float ankleY=leg.ankleY;
-        if (facing==0 && !armored && frontLimbs.ready() && layers.ready()) {
-            frontLimbs.draw(c,2+index,hipX,hipY+THIGH_ART_DROP-1.4f,
-                kneeX,kneeY-2.5f,footX,footY-16.1f);
-            layers.drawBoot(c,facing,index,footX,footY,false);
+        if (!armored && baseArt.ready(facing)) {
+            baseArt.drawLeg(c,facing,index,leg);
             return;
         }
         if(layers.ready()){
@@ -403,8 +406,8 @@ final class RiggedElf {
 
     private void drawArm(Canvas c,float shoulderX,float shoulderY,float elbowX,float elbowY,
                          float handX,float handY,int hand,int facing,boolean armored) {
-        if (facing==0 && !armored && frontLimbs.ready()) {
-            frontLimbs.draw(c,hand,shoulderX,shoulderY,elbowX,elbowY,handX,handY);
+        if (!armored && baseArt.ready(facing)) {
+            baseArt.drawArm(c,facing,hand,shoulderX,shoulderY,elbowX,elbowY,handX,handY);
             return;
         }
         if(layers.ready()){

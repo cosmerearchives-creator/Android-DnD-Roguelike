@@ -34,10 +34,18 @@ jobs:
           python3 -m pip install --quiet Pillow
           python3 - <<'PY'
           from PIL import Image
-          with Image.open('app/src/main/assets/elf_front_bound_limbs.webp') as limbs:
-              assert limbs.size == (384, 320) and limbs.mode == 'RGBA'
-              assert all(limbs.crop((x,0,x+96,320)).getchannel('A').getbbox()
-                         for x in (0,96,192,288)), 'Missing front limb mesh art'
+          for facing in range(4):
+              with Image.open(f'app/src/main/assets/elf_base_facing_{facing}.webp') as art:
+                  assert art.size == (800, 400) and art.mode == 'RGBA', f'Invalid facing {facing}'
+                  alpha = art.getchannel('A')
+                  assert alpha.crop((0, 0, 288, 400)).getbbox(), f'Missing body for facing {facing}'
+                  for limb in range(4):
+                      x = 288 + 128 * limb
+                      assert alpha.crop((x, 0, x + 128, 320)).getbbox(), (
+                          f'Missing limb {limb} for facing {facing}')
+                      if limb >= 2:
+                          assert alpha.crop((x, 320, x + 128, 400)).getbbox(), (
+                              f'Missing boot {limb} for facing {facing}')
           with Image.open('app/src/main/assets/elf_front_lower_limbs.webp') as limbs:
               assert limbs.size == (576, 192) and limbs.mode == 'RGBA'
               assert all(limbs.crop((x,0,x+192,192)).getchannel('A').getbbox()

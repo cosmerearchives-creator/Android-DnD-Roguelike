@@ -23,6 +23,10 @@ final class RigViewProfile {
         return arm==0 ? -21f : 21f;
     }
 
+    static float elbowY(int facing, int arm) {
+        return isSide(facing) && arm == 1 ? -80f : -81f;
+    }
+
     static float handX(int facing,int arm) {
         if(isSide(facing)) return arm==0 ? -6f : -6.5f;
         return arm==0 ? -22f : 23f;
