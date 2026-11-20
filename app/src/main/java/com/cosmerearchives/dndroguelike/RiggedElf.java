@@ -28,6 +28,7 @@ final class RiggedElf {
     private final Paint bitmapPaint=new Paint(Paint.ANTI_ALIAS_FLAG|Paint.FILTER_BITMAP_FLAG);
     private final Path shape=new Path();
     private final Bitmap approvedAtlas;
+    private final ElfLayerSprites layers;
     private final Rect portraitSrc=new Rect();
     private final RectF portraitDst=new RectF();
 
@@ -37,11 +38,19 @@ final class RiggedElf {
             illustration=BitmapFactory.decodeStream(input);
         }catch(java.io.IOException ignored){ }
         approvedAtlas=illustration;
+        layers=new ElfLayerSprites(context);
     }
 
     /** The four snap facings use separately projected bodies, not just different heads. */
     void draw(Canvas canvas,float footX,float footY,float scale,int facing,
               float distanceCycles,float movementBlend,float idleElapsed,float attackProgress) {
+        draw(canvas,footX,footY,scale,facing,distanceCycles,movementBlend,idleElapsed,
+             attackProgress,true);
+    }
+
+    void draw(Canvas canvas,float footX,float footY,float scale,int facing,
+              float distanceCycles,float movementBlend,float idleElapsed,
+              float attackProgress,boolean armored) {
         Canvas c=canvas;
         float blend=clamp(movementBlend,0f,1f);
         boolean side=RigViewProfile.isSide(facing);
@@ -65,8 +74,8 @@ final class RiggedElf {
         RigLegPose.Pose right=RigLegPose.solve(distanceCycles,1,facing,blend,bounce);
 
         // Far-side leg always lies beneath the near leg in a profile.
-        drawLeg(c,side,back,right,facing,1);
-        drawLeg(c,side,back,left,facing,0);
+        drawLeg(c,side,back,right,facing,1,armored);
+        drawLeg(c,side,back,left,facing,0,armored);
 
         c.save();
         c.translate(sway*.35f,bounce+breathe);
@@ -83,18 +92,18 @@ final class RiggedElf {
             // Sword hand is the FAR arm. Draw behind breastplate, rather than
             // putting two equally prominent shoulders on the front plane.
             drawArm(c,rightShoulder,-103f,rightElbow,-80f,
-                    rightHand,rightHandY,1,facing);
-            drawSword(c,rightHand,rightHandY,true);
+                    rightHand,rightHandY,1,facing,armored);
+            if(armored)drawSword(c,rightHand,rightHandY,true);
         }
-        drawIllustratedTorso(c,facing,side);
+        drawIllustratedTorso(c,facing,side,armored);
 
-        drawArm(c,leftShoulder,-103f,leftElbow,-81f,leftHand,leftHandY,0,facing);
-        drawShield(c,leftHand,leftHandY,side,back);
+        drawArm(c,leftShoulder,-103f,leftElbow,-81f,leftHand,leftHandY,0,facing,armored);
+        if(armored)drawShield(c,leftHand,leftHandY,side,back);
 
         if(!side) {
             drawArm(c,rightShoulder,-103f,rightElbow,-81f,
                     rightHand,rightHandY,1,facing);
-            drawSword(c,rightHand,rightHandY,false);
+            if(armored)drawSword(c,rightHand,rightHandY,false);
         }
 
         // Reuse the authentic approved face/hair from the original sprite.
@@ -105,8 +114,9 @@ final class RiggedElf {
     }
 
     /** Actual approved armor pixels, clipped to a directional, articulated silhouette. */
-    private void drawIllustratedTorso(Canvas c,int facing,boolean side) {
+    private void drawIllustratedTorso(Canvas c,int facing,boolean side,boolean armored) {
         float half=RigViewProfile.torsoHalfWidth(facing);
+        if(layers.torso(c,facing,half,armored))return;
         // Layered fabric follows the profile rather than the old rectangular torso.
         float capeShift=side?-5f:0f;
         polygon(c,DEEP_BLUE,capeShift-half+3f,-80f,capeShift+half-4f,-81f,
@@ -157,12 +167,19 @@ final class RiggedElf {
      * Knee/ankle positions are never solved using the screen-X plane for
      * frontal/backward facings; that previously produced crab-like knees.
      */
-    private void drawLeg(Canvas c,boolean side,boolean back,RigLegPose.Pose leg,int facing,int index) {
+    private void drawLeg(Canvas c,boolean side,boolean back,RigLegPose.Pose leg,int facing,int index,boolean armored) {
         float hipX=leg.hipX,hipY=leg.hipY;
         float kneeX=leg.kneeX,kneeY=leg.kneeY;
         float footX=leg.footX,footY=leg.footY;
         float ankleY=leg.ankleY;
-        // Upper leg, knee guard and a true two-segment shin/greave.
+        if(layers.ready()){
+            layers.limb(c,facing,ElfLayerSprites.THIGH,index,hipX,hipY,kneeX,kneeY,
+                        17f,armored);
+            layers.limb(c,facing,ElfLayerSprites.SHIN,index,kneeX,kneeY,footX,footY+1f,
+                        16f,armored);
+            return;
+        }
+        // Fallback only if illustration assets are unavailable.
         bone(c,hipX,hipY,kneeX,kneeY,15f,INK);
         bone(c,hipX,hipY,kneeX,kneeY,11.5f,back?0xFF65717E:0xFF8D9BA5);
         bone(c,hipX-1f,hipY+1,kneeX-1f,kneeY,4f,0xFFB7C1C1);
@@ -230,9 +247,15 @@ final class RiggedElf {
     }
 
     private void drawArm(Canvas c,float shoulderX,float shoulderY,float elbowX,float elbowY,
-                         float handX,float handY,int hand,int facing) {
-        // A real over/under arm chain, with a shaped pauldron instead of a
-        // circular diagnostic joint. Skin between plates echoes Fantasy Adventurer B.
+                         float handX,float handY,int hand,int facing,boolean armored) {
+        if(layers.ready()){
+            layers.limb(c,facing,ElfLayerSprites.UPPER_ARM,hand,
+                        shoulderX,shoulderY,elbowX,elbowY,14f,armored);
+            layers.limb(c,facing,ElfLayerSprites.FOREARM,hand,
+                        elbowX,elbowY,handX,handY,13f,armored);
+            return;
+        }
+        // Fallback only: preserve drawing if external layer assets are unavailable.
         bone(c,shoulderX,shoulderY,elbowX,elbowY,12f,INK);
         bone(c,shoulderX,shoulderY,elbowX,elbowY,9f,SKIN);
         bone(c,elbowX,elbowY,handX,handY,12f,INK);
@@ -303,11 +326,11 @@ final class RiggedElf {
         int fh=approvedAtlas.getHeight();
         // Narrow crop avoids baked-in weapons. The crop is intentionally limited
         // to the HEAD and hair; articulated body parts never come from this bitmap.
-        int left=fw*27/100,right=fw*73/100,bot=fh*34/100;
+        int left=fw*27/100,right=fw*73/100,bot=fh*28/100;
         // Left-facing canvas is mirrored, so source the RIGHT portrait before mirroring.
         int artDirection=facing==3?1:facing;
         portraitSrc.set(fw*artDirection+left,0,fw*artDirection+right,bot);
-        portraitDst.set(side?-28f:-32f,-167f,side?28f:32f,-109f);
+        portraitDst.set(side?-28f:-32f,-167f,side?28f:32f,-115f);
         c.drawBitmap(approvedAtlas,portraitSrc,portraitDst,bitmapPaint);
     }
     private void drawHeadFallback(Canvas c,boolean back,boolean side){
