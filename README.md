@@ -1,5 +1,9 @@
 # Android DnD Roguelike
 
+## v0.3.18 — reconnect the legs and compare at world scale
+- Reconnects the hips below the waist, refines elbow and knee seams, and registers rigid boots at the soles.
+- Shows a synchronized 1.0× World View reference beside the Close-up model.
+
 ## v0.3.17 — temporary close-up leg separation
 - Lowers both complete legs in Close-up to show a small gap below the hips for alignment testing. World View uses the normal leg position.
 

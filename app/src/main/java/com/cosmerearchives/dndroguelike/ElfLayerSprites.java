@@ -23,6 +23,10 @@ final class ElfLayerSprites {
     static final int TORSO=0, UPPER_ARM=1, FOREARM=2, THIGH=3, SHIN=4;
     static final float COLLAR_Y = -122f;
     private static final int CELL=192;
+    private static final int BOOT_TOP_ROW = 111;
+    private static final int ANKLE_ROW = 128;
+    private static final float BOOT_Y_SCALE = .255f;
+    private static final float SHIN_WIDTH = 16f;
     // Pixel centers of the proximal and distal joints in each 192px cell.
     // Order: front, right profile, back. Left uses the mirrored right profile.
     // Rows: upper arm, forearm, thigh, shin. The shin ends at the sole.
@@ -131,6 +135,29 @@ final class ElfLayerSprites {
         canvas.restore();
     }
 
+    void shinAndBoot(Canvas canvas,int facing,int index,float kneeX,float kneeY,
+                     float footX,float footY,boolean armored) {
+        int column = column(facing);
+        boolean hasArmor = armored && armor != null;
+        int[] joint = (hasArmor ? ARMOR_JOINTS : JOINTS)[SHIN - 1][column];
+        float ankleY = footY - (joint[3] - ANKLE_ROW)*BOOT_Y_SCALE;
+        limb(canvas,facing,SHIN,index,kneeX,kneeY,footX,ankleY,SHIN_WIDTH,armored);
+
+        // The shin can bend and shorten in projection. The boot is a separate
+        // rigid piece, registered at the sole with its cuff covering the joint.
+        selectCell(column, SHIN);
+        src.top += BOOT_TOP_ROW;
+        float xScale = SHIN_WIDTH / 155f;
+        float left = -joint[2]*xScale;
+        dest.set(left,(BOOT_TOP_ROW-joint[3])*BOOT_Y_SCALE,
+            left+CELL*xScale,(CELL-joint[3])*BOOT_Y_SCALE);
+        canvas.save();
+        canvas.translate(footX,footY);
+        if (index == 1 && !RigViewProfile.isSide(facing)) canvas.scale(-1f,1f);
+        canvas.drawBitmap(hasArmor ? armor : base,src,dest,paint);
+        canvas.restore();
+    }
+
     void limb(Canvas canvas,int facing,int part,int index,
               float x1,float y1,float x2,float y2,float width,boolean armored) {
         limb(canvas,facing,part,index,x1,y1,x2,y2,width,armored,false);
@@ -144,7 +171,7 @@ final class ElfLayerSprites {
         int column = column(facing);
         boolean hasArmor = armored && armor != null;
         int[] joint = (hasArmor ? ARMOR_JOINTS : JOINTS)[part - 1][column];
-        float dyPixels = joint[3] - joint[1];
+        float dyPixels = (part == SHIN ? ANKLE_ROW : joint[3]) - joint[1];
         float xScale = width / 155f;
         float yScale = length / dyPixels;
         // Remove the slant in the source drawing so both art joints land on the bone.
@@ -164,23 +191,24 @@ final class ElfLayerSprites {
         clip.setFillType(Path.FillType.WINDING);
         if (part == UPPER_ARM || part == THIGH && !hasArmor) {
             // Taper the bare end of each upper segment into the cuff below it.
-            float taper = part == UPPER_ARM ? 6.5f : 5f;
-            float radius = part == UPPER_ARM ? 3.5f : column == 1 ? 3f : 4.1f;
+            float taper = part == UPPER_ARM ? 5.5f : 4.2f;
+            float radius = part == UPPER_ARM ? 4.2f : column == 1 ? 3.8f : 4.65f;
             clip.moveTo(-25,-25);
             clip.lineTo(25,-25); clip.lineTo(25,length-taper-2f);
             clip.cubicTo(radius+3f,length-taper,radius+1f,length-2f,radius,length+.7f);
-            clip.quadTo(0,length+3f,-radius,length+.7f);
+            clip.quadTo(0,length+3.8f,-radius,length+.7f);
             clip.cubicTo(-radius-1f,length-2f,-radius-3f,length-taper,-25,length-taper-2f);
             clip.close();
             canvas.clipPath(clip);
         }
         if (part == FOREARM || part == SHIN) {
             // Pull the corners of the cuffs down and round their exposed rims.
-            float rim = part == SHIN ? 2f : .7f;
+            float rim = part == SHIN ? 2.4f : 1.5f;
+            float rimEnds = part == SHIN ? 2.6f : 1.4f;
             clip.reset();
-            clip.moveTo(-25,3f);
-            clip.cubicTo(-6f,3f,-6f,-rim,0,-rim);
-            clip.cubicTo(6f,-rim,6f,3f,25,3f);
+            clip.moveTo(-25,rimEnds);
+            clip.cubicTo(-7f,rimEnds,-4.6f,-rim,0,-rim);
+            clip.cubicTo(4.6f,-rim,7f,rimEnds,25,rimEnds);
             clip.lineTo(25,length+20f); clip.lineTo(-25,length+20f); clip.close();
             canvas.clipPath(clip);
         }
@@ -194,6 +222,7 @@ final class ElfLayerSprites {
             clip.lineTo(45,118); clip.lineTo(0,118); clip.close();
             canvas.clipPath(clip);
         }
+        if (part == SHIN) canvas.clipRect(0,0,CELL,ANKLE_ROW+6);
         if (gripping && hasArmor && part == FOREARM) {
             canvas.clipRect(0,0,CELL,joint[3]+5f);
         }

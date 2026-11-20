@@ -88,6 +88,8 @@ public final class OutdoorActivity extends Activity {
         private float attackRemaining=0f;
         private final RectF attackBounds=new RectF();
         private long lastFrame;
+        private static final float WORLD_RIG_SCALE=.86f;
+        private static final float WORLD_COMPARISON_ZOOM=1f;
         private float zoom=1.8f; // Approved close camera for illustrated character detail.
         private int controlsBottom=0;
         private int lastVisitedX=Integer.MIN_VALUE,lastVisitedY=Integer.MIN_VALUE;
@@ -475,11 +477,23 @@ public final class OutdoorActivity extends Activity {
             float top=62*d, bottom=h-158*d;
             if(bottom<=top)return;
             rect(c,0xC0101D22,0,top,getWidth(),h-112*d);
-            float legDrop=RiggedElf.CLOSE_UP_LEG_TEST_DROP;
-            float scale=Math.min(getWidth()/124f,(bottom-top)/(178f+legDrop));
-            float feetY=bottom-(13f+legDrop)*scale;
-            riggedArt.draw(c,getWidth()*.5f,feetY,scale,facing,walkTime,
-                gaitBlend,idleTime,attackProgress(),armorVisible,getWidth());
+            // 1.0x means the same physical size as the normal World View.
+            float referenceScale=WORLD_RIG_SCALE*zoom*WORLD_COMPARISON_ZOOM;
+            float referenceWidth=Math.min(getWidth()*.34f,
+                Math.max(getWidth()*.23f,124f*referenceScale+8*d));
+            float closeWidth=getWidth()-referenceWidth;
+            float scale=Math.min(closeWidth/124f,(bottom-top)/178f);
+            float feetY=bottom-Math.max(15f*d,13f*scale);
+            float phase=attackProgress();
+            riggedArt.draw(c,closeWidth*.5f,feetY,scale,facing,walkTime,
+                gaitBlend,idleTime,phase,armorVisible,closeWidth);
+
+            float referenceX=closeWidth+referenceWidth*.5f;
+            oval(c,0x99112125,referenceX-23*referenceScale,feetY-4*referenceScale,
+                referenceX+23*referenceScale,feetY+5*referenceScale);
+            riggedArt.draw(c,referenceX,feetY,referenceScale,facing,walkTime,
+                gaitBlend,idleTime,phase,armorVisible,0f);
+            text(c,"1.0× WORLD",referenceX-31*d,feetY+13*d,10*d,0xFFF3DBA4);
         }
 
         @Override protected void onDraw(Canvas c){
@@ -515,7 +529,7 @@ public final class OutdoorActivity extends Activity {
                         float feetX=screenX(x,y);
                         float feetY=screenY(x,y)-height(tx,ty)*LEVEL_H;
                         oval(c,0x880A1614,feetX-21,feetY-6,feetX+21,feetY+6);
-                        riggedArt.draw(c,feetX,feetY,.86f,facing,walkTime,
+                        riggedArt.draw(c,feetX,feetY,WORLD_RIG_SCALE,facing,walkTime,
                             gaitBlend,idleTime,attackProgress(),armorVisible,0f);
                         text(c,heroName,feetX-25,feetY-157,12,0xFFFFF0D1);
                     }
