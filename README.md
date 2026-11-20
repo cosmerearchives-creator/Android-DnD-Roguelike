@@ -1,5 +1,8 @@
 # Android DnD Roguelike
 
+## v0.3.21 — fit the front-facing idle reference
+- Matches the front Base Only silhouette more closely at the shoulders, elbows, wrists, and knees, using the same artwork for idle and walking.
+
 ## v0.3.20 — paint the front forearms and calves
 - Adds matching illustrated skin art to the front-facing Base Only forearms and calves, with short gloves and boots.
 

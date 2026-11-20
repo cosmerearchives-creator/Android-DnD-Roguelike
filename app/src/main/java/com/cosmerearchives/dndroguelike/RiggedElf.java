@@ -72,9 +72,10 @@ final class RiggedElf {
         attack.sample(attackProgress, side);
         bounce += attack.brace;
 
-        float leftShoulder=RigViewProfile.shoulderX(facing,0);
-        float rightShoulder=RigViewProfile.shoulderX(facing,1);
-        float shoulderY = -108f;
+        boolean frontBase = facing == 0 && !armored;
+        float leftShoulder=RigViewProfile.shoulderX(facing,0) - (frontBase ? .6f : 0f);
+        float rightShoulder=RigViewProfile.shoulderX(facing,1) + (frontBase ? .6f : 0f);
+        float shoulderY = frontBase ? -109f : -108f;
         float leftElbow=RigViewProfile.elbowX(facing,0)+armSwing*.48f;
         float rightElbow=RigViewProfile.elbowX(facing,1)-armSwing*.48f;
         float leftHand=RigViewProfile.handX(facing,0)+armSwing;
@@ -83,6 +84,16 @@ final class RiggedElf {
         float rightElbowY = (side ? -80f : -81f) - armDepth*.42f;
         float leftHandY=RigViewProfile.handY(facing,0)+armDepth-attack.guard;
         float rightHandY=RigViewProfile.handY(facing,1)-armDepth;
+        if (frontBase) {
+            // Continue the upper arm's line into the lower arm and finish
+            // with a relaxed wrist and fingers at the reference height.
+            leftElbow += .4f;
+            rightElbow -= .4f;
+            leftHand += .35f;
+            rightHand -= .65f;
+            leftHandY -= 1.2f;
+            rightHandY -= 1.2f;
+        }
 
         // Rotate the two bone vectors independently around their joints. This keeps
         // the forearm and hand attached even at the top of the wind-up.
@@ -381,8 +392,9 @@ final class RiggedElf {
         if(layers.ready()){
             layers.limb(c,facing,ElfLayerSprites.UPPER_ARM,hand,
                         shoulderX,shoulderY,elbowX,elbowY,14f,armored);
+            float gloveWidth = facing == 0 && !armored ? 11.9f : 13f;
             layers.limb(c,facing,ElfLayerSprites.FOREARM,hand,
-                        elbowX,elbowY,handX,handY,13f,armored,hand==1);
+                        elbowX,elbowY,handX,handY,gloveWidth,armored,hand==1);
             return;
         }
         // Fallback only: preserve drawing if external layer assets are unavailable.

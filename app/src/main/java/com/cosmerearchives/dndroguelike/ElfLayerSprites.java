@@ -192,7 +192,7 @@ final class ElfLayerSprites {
             int artX = calf ? CELL : 0;
             float halfWidth = calf ? 5.9f : 4.65f;
             src.set(artX,0,artX+CELL,CELL);
-            dest.set(-halfWidth,-4.2f,halfWidth,length+2f);
+            dest.set(-halfWidth,calf ? -1.7f : -4.2f,halfWidth,length+2f);
             canvas.drawBitmap(frontSkin,src,dest,paint);
             return;
         }
@@ -271,7 +271,8 @@ final class ElfLayerSprites {
         if (part == FOREARM || part == SHIN) {
             // Expose the elbow in the base layer while keeping the existing
             // wrist and finger registration farther down the same art cell.
-            float cuffStart = part == FOREARM && !hasArmor ? length*.49f : 0f;
+            float cuffFraction = column == 0 ? .63f : .49f;
+            float cuffStart = part == FOREARM && !hasArmor ? length*cuffFraction : 0f;
             if (cuffStart > 0f) drawExposedSkin(canvas,cuffStart+6f,false,column);
             float rim = part == SHIN ? 2.4f : 1.5f;
             float rimEnds = part == SHIN ? 2.6f : 1.4f;
