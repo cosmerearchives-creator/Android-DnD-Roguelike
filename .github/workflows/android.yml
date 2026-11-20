@@ -78,10 +78,13 @@ jobs:
           javac -d "$RUNNER_TEMP/gait-tests" \
             app/src/main/java/com/cosmerearchives/dndroguelike/GaitModel.java \
             app/src/main/java/com/cosmerearchives/dndroguelike/RigLegPose.java \
+            app/src/main/java/com/cosmerearchives/dndroguelike/RigViewProfile.java \
             tests/com/cosmerearchives/dndroguelike/GaitModelTest.java \
-            tests/com/cosmerearchives/dndroguelike/RigLegPoseTest.java
+            tests/com/cosmerearchives/dndroguelike/RigLegPoseTest.java \
+            tests/com/cosmerearchives/dndroguelike/RigViewProfileTest.java
           java -cp "$RUNNER_TEMP/gait-tests" com.cosmerearchives.dndroguelike.GaitModelTest
           java -cp "$RUNNER_TEMP/gait-tests" com.cosmerearchives.dndroguelike.RigLegPoseTest
+          java -cp "$RUNNER_TEMP/gait-tests" com.cosmerearchives.dndroguelike.RigViewProfileTest
       - name: Build and lint
         run: gradle :app:assembleDebug :app:lintDebug --no-daemon
       - name: Upload check results
