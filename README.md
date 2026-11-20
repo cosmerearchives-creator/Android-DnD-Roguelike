@@ -1,5 +1,8 @@
 # Android DnD Roguelike
 
+## v0.3.20 — paint the front forearms and calves
+- Adds matching illustrated skin art to the front-facing Base Only forearms and calves, with short gloves and boots.
+
 ## v0.3.19 — shorten the base boots and gloves
 - Exposes the knees, calves, elbows, and more of the forearms in Base Only.
 - Corrects the rear glove view so the backs of the hands face the viewer.

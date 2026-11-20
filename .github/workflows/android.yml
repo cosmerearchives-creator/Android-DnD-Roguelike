@@ -34,6 +34,10 @@ jobs:
           python3 -m pip install --quiet Pillow
           python3 - <<'PY'
           from PIL import Image
+          with Image.open('app/src/main/assets/elf_front_lower_limbs.webp') as limbs:
+              assert limbs.size == (576, 192) and limbs.mode == 'RGBA'
+              assert all(limbs.crop((x,0,x+192,192)).getchannel('A').getbbox()
+                         for x in (0,192,384)), 'Missing front forearm, calf, or knee transition art'
           with Image.open('app/src/main/assets/elf_head_layers.webp') as heads:
               assert heads.size == (576, 152), f'Unexpected head atlas size: {heads.size}'
               assert heads.mode == 'RGBA', f'Head atlas transparency missing: {heads.mode}'

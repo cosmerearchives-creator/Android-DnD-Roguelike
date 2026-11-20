@@ -56,7 +56,7 @@ final class ElfLayerSprites {
     private final Shader skinTone = new LinearGradient(-7f,0,7f,0,
         new int[]{0xFFAB755D,0xFFD6A686,0xFFF0C8AC,0xFFD6A180,0xFF9E694D},
         new float[]{0f,.18f,.42f,.72f,1f},Shader.TileMode.CLAMP);
-    private final Bitmap base,armor;
+    private final Bitmap base,armor,frontSkin;
     private final Paint paint=new Paint(Paint.ANTI_ALIAS_FLAG|Paint.FILTER_BITMAP_FLAG);
     private final Rect src=new Rect();
     private final RectF dest=new RectF();
@@ -66,14 +66,19 @@ final class ElfLayerSprites {
     ElfLayerSprites(Context context) {
         base=decode(context,"elf_base_layers.webp");
         armor=decode(context,"elf_armor_layers.webp");
+        frontSkin=decode(context,"elf_front_lower_limbs.webp",CELL*3,CELL);
         skinPaint.setShader(skinTone);
     }
 
     private static Bitmap decode(Context ctx,String name) {
+        return decode(ctx,name,CELL*4,CELL*5);
+    }
+
+    private static Bitmap decode(Context ctx,String name,int width,int height) {
         try(java.io.InputStream stream=ctx.getAssets().open(name)){
             Bitmap result=BitmapFactory.decodeStream(stream);
-            return result!=null && result.getWidth()==CELL*4
-                && result.getHeight()==CELL*5 ? result : null;
+            return result!=null && result.getWidth()==width
+                && result.getHeight()==height ? result : null;
         }catch(java.io.IOException ignored){return null;}
     }
 
@@ -183,6 +188,14 @@ final class ElfLayerSprites {
     }
 
     private void drawExposedSkin(Canvas canvas,float length,boolean calf,int column) {
+        if (column == 0 && frontSkin != null) {
+            int artX = calf ? CELL : 0;
+            float halfWidth = calf ? 5.9f : 4.65f;
+            src.set(artX,0,artX+CELL,CELL);
+            dest.set(-halfWidth,-4.2f,halfWidth,length+2f);
+            canvas.drawBitmap(frontSkin,src,dest,paint);
+            return;
+        }
         float kneeOrElbow = calf ? 3.8f : 3.6f;
         float belly = calf ? 6.4f : 5f;
         float end = calf ? 3.2f : 3.5f;
@@ -283,9 +296,15 @@ final class ElfLayerSprites {
         if (gripping && hasArmor && part == FOREARM) {
             canvas.clipRect(0,0,CELL,joint[3]+5f);
         }
+        Bitmap atlas = hasArmor ? armor : base;
         selectCell(artColumn, part);
+        if (!hasArmor && part == THIGH && column == 0 && frontSkin != null) {
+            // Soften the end of the painted thigh where it overlaps the new shin.
+            atlas = frontSkin;
+            src.set(CELL*2,0,CELL*3,CELL);
+        }
         dest.set(0, 0, CELL, CELL);
-        canvas.drawBitmap(hasArmor ? armor : base, src, dest, paint);
+        canvas.drawBitmap(atlas, src, dest, paint);
         canvas.restore();
     }
 }
