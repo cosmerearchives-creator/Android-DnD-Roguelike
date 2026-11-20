@@ -8,6 +8,7 @@ final class LimbMesh {
     private static final float PELVIS_OVERLAP = 5f;
     private final float pixelsToRig, rootX, rootY, restKneeOffsetX, restKneeOffsetY;
     private final boolean attached;
+    private final float rearHipFit;
     final float[] vertices;
 
     LimbMesh(int width, int height, int columns, int rows, float pixelsToRig,
@@ -18,7 +19,15 @@ final class LimbMesh {
     LimbMesh(int width, int height, int columns, int rows, float pixelsToRig,
              float rootX, float rootY, float jointX, float jointY, float tipX, float tipY,
              boolean attached) {
+        this(width, height, columns, rows, pixelsToRig, rootX, rootY, jointX, jointY,
+            tipX, tipY, attached, 0f);
+    }
+
+    LimbMesh(int width, int height, int columns, int rows, float pixelsToRig,
+             float rootX, float rootY, float jointX, float jointY, float tipX, float tipY,
+             boolean attached, float rearHipFit) {
         this.width = width;
+        this.rearHipFit = rearHipFit;
         this.rootX = rootX;
         this.rootY = rootY;
         this.pixelsToRig = pixelsToRig;
@@ -48,9 +57,14 @@ final class LimbMesh {
             // the available thigh length so a lifted knee cannot fold the seam.
             float fromRoot = (y - this.rootY) * pixelsToRig;
             float thigh = Math.max(0f, (fromRoot - PELVIS_OVERLAP) / (restKneeOffsetY - PELVIS_OVERLAP));
+            // Fit the rear edge of the upper thigh to the side-view shorts.
+            // The fit fades down the leg and leaves the hip and knee anchors alone.
+            float hipFit = rearHipFit * (1f - smoothStep((fromRoot - 1f) / 9f));
             for (int column=0; column<=columns; column++) {
                 float x=width*(float)column/columns;
-                float ux = attached ? rootX + (x - this.rootX) * pixelsToRig + thigh * kneeShiftX
+                float fromCenter = (x - this.rootX) * pixelsToRig;
+                float ux = attached
+                    ? rootX + fromCenter + thigh * kneeShiftX - hipFit * smoothStep(-fromCenter / 9f)
                     : upper.x(x,y);
                 float uy = attached ? rootY + fromRoot + thigh * kneeShiftY : upper.y(x,y);
                 vertices[index++] = ux + (lower.x(x,y) - ux) * weight;

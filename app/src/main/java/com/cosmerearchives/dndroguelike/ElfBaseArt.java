@@ -107,10 +107,12 @@ final class ElfBaseArt {
 
         Facing(Bitmap atlas, int[][] registration, int facing) {
             body = Bitmap.createBitmap(atlas, 0, 0, BODY_WIDTH, ATLAS_HEIGHT);
+            // The two independently painted profiles have different overlap at the hem.
+            float rearHipFit = facing == 1 ? 1.65f : facing == 3 ? .85f : 0f;
             for (int i = 0; i < limbs.length; i++) {
                 int x = BODY_WIDTH + i * WIDTH;
                 limbs[i] = new Sprite(Bitmap.createBitmap(atlas, x, 0, WIDTH, HEIGHT),
-                    registration[i], i >= 2);
+                    registration[i], i >= 2, i >= 2 ? rearHipFit : 0f);
             }
             for (int i = 0; i < boots.length; i++) {
                 int x = BODY_WIDTH + (i + 2) * WIDTH;
@@ -127,7 +129,7 @@ final class ElfBaseArt {
         final int sourceX;
         private final float rootX, rootY, jointX, jointY, tipX, tipY;
 
-        Sprite(Bitmap bitmap, int[] points, boolean attached) {
+        Sprite(Bitmap bitmap, int[] points, boolean attached, float rearHipFit) {
             this.bitmap = bitmap;
             sourceX = points[6];
             int y = points[7];
@@ -138,7 +140,7 @@ final class ElfBaseArt {
             tipX = (sourceX + points[4] - CENTER_X) * UNIT;
             tipY = (y + points[5] - SOLE_Y) * UNIT;
             mesh = new LimbMesh(WIDTH, HEIGHT, COLUMNS, ROWS, UNIT,
-                points[0], points[1], points[2], points[3], points[4], points[5], attached);
+                points[0], points[1], points[2], points[3], points[4], points[5], attached, rearHipFit);
         }
 
         void draw(Canvas canvas, Paint paint, float dx0, float dy0, float dx1, float dy1,
