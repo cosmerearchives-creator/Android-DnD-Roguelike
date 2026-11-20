@@ -475,8 +475,9 @@ public final class OutdoorActivity extends Activity {
             float top=62*d, bottom=h-158*d;
             if(bottom<=top)return;
             rect(c,0xC0101D22,0,top,getWidth(),h-112*d);
-            float scale=Math.min(getWidth()/124f,(bottom-top)/178f);
-            float feetY=bottom-13f*scale;
+            float legDrop=RiggedElf.CLOSE_UP_LEG_TEST_DROP;
+            float scale=Math.min(getWidth()/124f,(bottom-top)/(178f+legDrop));
+            float feetY=bottom-(13f+legDrop)*scale;
             riggedArt.draw(c,getWidth()*.5f,feetY,scale,facing,walkTime,
                 gaitBlend,idleTime,attackProgress(),armorVisible,getWidth());
         }

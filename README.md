@@ -1,5 +1,8 @@
 # Android DnD Roguelike
 
+## v0.3.17 — temporary close-up leg separation
+- Lowers both complete legs in Close-up to show a small gap below the hips for alignment testing. World View uses the normal leg position.
+
 ## v0.3.16 — keep the thigh artwork inside the pelvis
 - Lowers the painted thigh attachment and limits its overlap with the waist so the leg sprites cannot show beside the elbows during a stride.
 

@@ -25,6 +25,8 @@ final class RiggedElf {
     private static final float HEAD_SCALE = .35f;
     private static final float PROFILE_HEAD_LIFT = 5f;
     private static final float BLADE_TIP_Y = 55f;
+    // Temporary separation for the close-up alignment check.
+    static final float CLOSE_UP_LEG_TEST_DROP = 15f;
     private static final float THIGH_ART_DROP = 3f;
     private static final float THIGH_PELVIS_OVERLAP = 4.5f;
     private final RigAttackPose attack = new RigAttackPose();
@@ -118,8 +120,9 @@ final class RiggedElf {
             }
             scale = Math.min(scale, closeUpWidth / (right-left+16f));
             footX = clamp(footX, (8f-left)*scale, closeUpWidth-(8f+right)*scale);
-            oval(c, 0x99112125, footX-23f*scale, footY-4f*scale,
-                footX+23f*scale, footY+5f*scale);
+            float shadowY = footY + CLOSE_UP_LEG_TEST_DROP * scale;
+            oval(c, 0x99112125, footX-23f*scale, shadowY-4f*scale,
+                footX+23f*scale, shadowY+5f*scale);
         }
 
         c.save();
@@ -150,8 +153,11 @@ final class RiggedElf {
 
         RigLegPose.Pose left=RigLegPose.solve(distanceCycles,0,facing,blend,bounce);
         RigLegPose.Pose right=RigLegPose.solve(distanceCycles,1,facing,blend,bounce);
+        c.save();
+        if (closeUpWidth > 0f) c.translate(0f,CLOSE_UP_LEG_TEST_DROP);
         drawLeg(c,side,back,right,facing,1,armored);
         drawLeg(c,side,back,left,facing,0,armored);
+        c.restore();
 
         c.save();
         c.translate(torsoX,bounce+breathe);
