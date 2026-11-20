@@ -1,5 +1,9 @@
 # Android DnD Roguelike
 
+## v0.3.15 — refine the model seams and equipment grips
+- Blends the front neck into the vest, rounds the rear hair tips, and refines the shoulder, elbow, and knee joins.
+- Removes stray rear thigh armor beneath the waist-mounted tabard and fits the shield straps and sword grip to the hands.
+
 ## v0.3.14 — Wildlands model and equipment alignment
 - Aligns base and armored shoulder, elbow, and knee seams. Tapers the rear hair and fits the neck to the collar.
 - Layers far limbs behind the body in profile, centers the rear tabard on the waist, and keeps the sword and shield on the same hands across facings.

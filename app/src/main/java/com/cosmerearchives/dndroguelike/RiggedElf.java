@@ -4,10 +4,12 @@ import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
+import android.graphics.LinearGradient;
 import android.graphics.Paint;
 import android.graphics.Path;
 import android.graphics.Rect;
 import android.graphics.RectF;
+import android.graphics.Shader;
 
 /** Articulated High Elf with independent head, body, and equipment layers. */
 final class RiggedElf {
@@ -24,6 +26,9 @@ final class RiggedElf {
     private static final float PROFILE_HEAD_LIFT = 5f;
     private static final float BLADE_TIP_Y = 55f;
     private final RigAttackPose attack = new RigAttackPose();
+    private final Shader throatTone = new LinearGradient(0,-126f,0,-113f,
+        new int[]{0xFFC38D73,0xFFE6B999,0x00E6B999},
+        new float[]{0f,.44f,1f},Shader.TileMode.CLAMP);
     private final Bitmap headAtlas;
     private final ElfLayerSprites layers;
     private final Rect headSrc = new Rect();
@@ -131,6 +136,7 @@ final class RiggedElf {
                 if (armored) drawSword(c,rightHand,rightHandY,attack.blade);
                 drawArm(c,rightShoulder,shoulderY,rightElbow,rightElbowY,
                     rightHand,rightHandY,1,facing,armored);
+                if (armored) drawSwordGrip(c,rightHand,rightHandY,attack.blade);
             }
             if (shieldInBack) {
                 drawArm(c,leftShoulder,shoulderY,leftElbow,leftElbowY,
@@ -150,11 +156,17 @@ final class RiggedElf {
         c.rotate(attack.lean,0f,RigLegPose.HIP_Y);
         float neckX = side ? -3f : 0f;
         drawNeck(c, neckX, side, back);
-        if (side && armored) {
-            // A fabric-covered shoulder fills the torso socket as the arm swings.
-            oval(c,0xFF3B3845,-9.8f,-115f,4.8f,-99f);
+        if (side) {
+            // Fill the narrow opening inside the armhole with its lining.
+            oval(c,armored ? 0xFF3B3845 : 0xFF4B4145,-10.6f,-115f,3.2f,-101f);
+        } else if (!armored) {
+            // Extend the vest over the shoulder root so the deltoid has a
+            // continuous edge into the torso in the front and rear projections.
+            oval(c,0xFF2C2E38,-18.4f,-115f,-9f,-103f);
+            oval(c,0xFF2C2E38,9f,-115f,18.4f,-103f);
         }
         drawIllustratedTorso(c,facing,side,armored);
+        if (facing == 0 && !armored) drawThroatJoin(c);
         if (back && armored) layers.rearTabard(c);
         if (headAtlas != null) {
             drawHead(c, facing, neckX);
@@ -168,14 +180,19 @@ final class RiggedElf {
         // Front and rear views look at opposite sides of the same hands.
         if (back) c.scale(-1f,1f);
         if (!shieldInBack) {
+            if (back && armored) drawShield(c,leftElbow,leftElbowY,leftHand,leftHandY,false,true);
             drawArm(c,leftShoulder,shoulderY,leftElbow,leftElbowY,
                 leftHand,leftHandY,0,facing,armored);
-            if (armored) drawShield(c,leftElbow,leftElbowY,leftHand,leftHandY,side,back);
+            if (armored) {
+                if (back) drawShieldStraps(c,leftElbow,leftElbowY,leftHand,leftHandY);
+                else drawShield(c,leftElbow,leftElbowY,leftHand,leftHandY,side,false);
+            }
         }
         if (!swordInBack) {
             if (armored) drawSword(c,rightHand,rightHandY,attack.blade);
             drawArm(c,rightShoulder,shoulderY,rightElbow,rightElbowY,
                 rightHand,rightHandY,1,facing,armored);
+            if (armored) drawSwordGrip(c,rightHand,rightHandY,attack.blade);
         }
 
         c.restore();
@@ -212,6 +229,21 @@ final class RiggedElf {
         c.drawPath(shape,p);
     }
 
+    private void drawThroatJoin(Canvas c) {
+        // Cover the square top edge of the painted vest neck. The lower color
+        // fades into its existing shading and the head covers the upper edge.
+        shape.reset();
+        shape.moveTo(-4.5f,-126f);
+        shape.quadTo(-4.1f,-120f,-5.3f,-118f);
+        shape.quadTo(-3.5f,-114f,0,-113f);
+        shape.quadTo(3.5f,-114f,5.3f,-118f);
+        shape.quadTo(4.1f,-120f,4.5f,-126f);
+        shape.close();
+        p.setShader(throatTone);
+        c.drawPath(shape,p);
+        p.setShader(null);
+    }
+
     private void drawHead(Canvas c, int facing, float neckX) {
         int column = facing == 3 ? 1 : facing; // The caller mirrors the side profile.
         int left = column * HEAD_WIDTH;
@@ -226,16 +258,20 @@ final class RiggedElf {
             shape.reset();
             shape.moveTo(x,y);
             shape.lineTo(x+HEAD_WIDTH*HEAD_SCALE,y);
-            shape.lineTo(x+HEAD_WIDTH*HEAD_SCALE,y+123f*HEAD_SCALE);
-            shape.lineTo(x+139f*HEAD_SCALE,y+122f*HEAD_SCALE);
-            shape.quadTo(x+129f*HEAD_SCALE,y+133f*HEAD_SCALE,x+118f*HEAD_SCALE,y+135f*HEAD_SCALE);
-            shape.quadTo(x+119f*HEAD_SCALE,y+132f*HEAD_SCALE,x+115f*HEAD_SCALE,y+130f*HEAD_SCALE);
-            shape.quadTo(x+112f*HEAD_SCALE,y+136f*HEAD_SCALE,x+101f*HEAD_SCALE,y+139f*HEAD_SCALE);
-            shape.lineTo(x+102f*HEAD_SCALE,y+132f*HEAD_SCALE);
-            shape.quadTo(x+94f*HEAD_SCALE,y+138f*HEAD_SCALE,x+86f*HEAD_SCALE,y+135f*HEAD_SCALE);
-            shape.lineTo(x+85f*HEAD_SCALE,y+129f*HEAD_SCALE);
-            shape.quadTo(x+77f*HEAD_SCALE,y+130f*HEAD_SCALE,x+66f*HEAD_SCALE,y+122f*HEAD_SCALE);
-            shape.lineTo(x,y+119f*HEAD_SCALE);
+            shape.lineTo(x+HEAD_WIDTH*HEAD_SCALE,y+119f*HEAD_SCALE);
+            shape.lineTo(x+141f*HEAD_SCALE,y+119f*HEAD_SCALE);
+            shape.cubicTo(x+137f*HEAD_SCALE,y+124f*HEAD_SCALE,
+                x+125f*HEAD_SCALE,y+133f*HEAD_SCALE,x+119f*HEAD_SCALE,y+132f*HEAD_SCALE);
+            shape.cubicTo(x+115f*HEAD_SCALE,y+132f*HEAD_SCALE,
+                x+119f*HEAD_SCALE,y+127f*HEAD_SCALE,x+114f*HEAD_SCALE,y+128f*HEAD_SCALE);
+            shape.cubicTo(x+109f*HEAD_SCALE,y+128f*HEAD_SCALE,
+                x+103f*HEAD_SCALE,y+136f*HEAD_SCALE,x+98f*HEAD_SCALE,y+134f*HEAD_SCALE);
+            shape.cubicTo(x+95f*HEAD_SCALE,y+133f*HEAD_SCALE,
+                x+98f*HEAD_SCALE,y+129f*HEAD_SCALE,x+94f*HEAD_SCALE,y+130f*HEAD_SCALE);
+            shape.cubicTo(x+89f*HEAD_SCALE,y+130f*HEAD_SCALE,
+                x+84f*HEAD_SCALE,y+132f*HEAD_SCALE,x+79f*HEAD_SCALE,y+127f*HEAD_SCALE);
+            shape.quadTo(x+71f*HEAD_SCALE,y+126f*HEAD_SCALE,x+64f*HEAD_SCALE,y+119f*HEAD_SCALE);
+            shape.lineTo(x,y+117f*HEAD_SCALE);
             shape.close();
             c.clipPath(shape);
         }
@@ -292,7 +328,7 @@ final class RiggedElf {
                     15f,false);
             }
             layers.limb(c,facing,ElfLayerSprites.THIGH,index,hipX,hipY,kneeX,kneeY,
-                        17f,armored);
+                        back && armored ? 16f : 17f,armored);
             return;
         }
         // Fallback only if illustration assets are unavailable.
@@ -338,7 +374,7 @@ final class RiggedElf {
             layers.limb(c,facing,ElfLayerSprites.UPPER_ARM,hand,
                         shoulderX,shoulderY,elbowX,elbowY,14f,armored);
             layers.limb(c,facing,ElfLayerSprites.FOREARM,hand,
-                        elbowX,elbowY,handX,handY,13f,armored);
+                        elbowX,elbowY,handX,handY,13f,armored,hand==1);
             return;
         }
         // Fallback only: preserve drawing if external layer assets are unavailable.
@@ -381,6 +417,24 @@ final class RiggedElf {
         }
         c.restore();
     }
+    private void drawShieldStraps(Canvas c,float elbowX,float elbowY,float handX,float handY) {
+        c.save();
+        c.translate(handX,handY);
+        c.rotate((float)Math.toDegrees(Math.atan2(elbowX-handX,handY-elbowY)));
+        for (int y = -17; y <= -7; y += 10) {
+            shape.reset();
+            shape.moveTo(-6f,y-1.2f);
+            shape.quadTo(0,y+2.4f,6f,y-1.3f);
+            shape.lineTo(6f,y+1.3f);
+            shape.quadTo(0,y+5f,-6f,y+1.7f);
+            shape.close();
+            p.setColor(0xFF633F29);
+            c.drawPath(shape,p);
+            stripe(c,0xFFBD9161,1f,-1.9f,y+2.1f,1.2f,y+2.2f);
+        }
+        c.restore();
+    }
+
     private static float rotateX(float x,float y,float radians) {
         return (float)(x*Math.cos(radians)-y*Math.sin(radians));
     }
@@ -395,12 +449,35 @@ final class RiggedElf {
         c.rotate(angle);
         bone(c,0,-7,0,8,4.5f,LEATHER);
         joint(c,0,-7f,2.5f,GOLD);
-        stripe(c,GOLD,3f,-7,8,7,8);
-        polygon(c,SHADOW,-3.5f,8,3.5f,8,2.5f,45,0,BLADE_TIP_Y,-2.5f,45);
+        stripe(c,GOLD,3f,-7,6.7f,7,6.7f);
+        polygon(c,SHADOW,-3.5f,7,3.5f,7,2.5f,45,0,BLADE_TIP_Y,-2.5f,45);
         polygon(c,0xFFDDE6E8,-1.7f,9,1.7f,9,.8f,49,-1.7f,44);
         stripe(c,LIGHT,1f,0,11,0,44);
         c.restore();
     }
+    private void drawSwordGrip(Canvas c,float x,float y,float angle) {
+        c.save();
+        c.translate(x,y);
+        c.rotate(angle);
+        // A bent thumb and knuckles wrap over the grip just above the guard.
+        shape.reset();
+        shape.moveTo(-3.2f,-4.5f);
+        shape.quadTo(-1.1f,-5.7f,1.3f,-4.6f);
+        shape.quadTo(3.7f,-3.8f,3.8f,-1.8f);
+        shape.quadTo(4.1f,.4f,3.1f,2f);
+        shape.quadTo(3.3f,4f,1.1f,4.9f);
+        shape.quadTo(-1.7f,5.4f,-3.3f,3.7f);
+        shape.quadTo(-4.9f,.2f,-3.2f,-4.5f);
+        shape.close();
+        p.setColor(0xFF352C27);
+        c.drawPath(shape,p);
+        oval(c,0xFF635047,-3.3f,-3.7f,-.4f,2.8f);
+        stripe(c,0xFF836B58,.48f,-.6f,-2.9f,2.4f,-2.1f);
+        stripe(c,0xFF786355,.48f,-.1f,-.8f,2.8f,-.2f);
+        stripe(c,0xFF6E594B,.45f,.1f,1.3f,2.4f,1.8f);
+        c.restore();
+    }
+
     private void drawHeadFallback(Canvas c,boolean back){
         joint(c,0,-143f,19f,0xFFCDA969);
         joint(c,0,-142f,15f,SKIN);

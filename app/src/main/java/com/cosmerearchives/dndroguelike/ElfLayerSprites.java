@@ -133,6 +133,11 @@ final class ElfLayerSprites {
 
     void limb(Canvas canvas,int facing,int part,int index,
               float x1,float y1,float x2,float y2,float width,boolean armored) {
+        limb(canvas,facing,part,index,x1,y1,x2,y2,width,armored,false);
+    }
+
+    void limb(Canvas canvas,int facing,int part,int index,
+              float x1,float y1,float x2,float y2,float width,boolean armored,boolean gripping) {
         float dx=x2-x1,dy=y2-y1;
         float length=(float)Math.hypot(dx,dy);
         if (length < 2f) return;
@@ -155,36 +160,42 @@ final class ElfLayerSprites {
         canvas.translate(x1,y1);
         canvas.rotate((float)Math.toDegrees(Math.atan2(dy,dx))-90f);
         if (index == 1 && !RigViewProfile.isSide(facing)) canvas.scale(-1f, 1f);
-        if (part == UPPER_ARM) {
-            // Round off the skin and remove the extra cuff embedded in the
-            // upper-arm art. The bracer is drawn over this rounded endpoint.
+        clip.reset();
+        clip.setFillType(Path.FillType.WINDING);
+        if (part == UPPER_ARM || part == THIGH && !hasArmor) {
+            // Taper the bare end of each upper segment into the cuff below it.
+            float taper = part == UPPER_ARM ? 6.5f : 5f;
+            float radius = part == UPPER_ARM ? 3.5f : column == 1 ? 3f : 4.1f;
+            clip.moveTo(-25,-25);
+            clip.lineTo(25,-25); clip.lineTo(25,length-taper-2f);
+            clip.cubicTo(radius+3f,length-taper,radius+1f,length-2f,radius,length+.7f);
+            clip.quadTo(0,length+3f,-radius,length+.7f);
+            clip.cubicTo(-radius-1f,length-2f,-radius-3f,length-taper,-25,length-taper-2f);
+            clip.close();
+            canvas.clipPath(clip);
+        }
+        if (part == FOREARM || part == SHIN) {
+            // Pull the corners of the cuffs down and round their exposed rims.
+            float rim = part == SHIN ? 2f : .7f;
             clip.reset();
-            clip.setFillType(Path.FillType.WINDING);
-            clip.moveTo(-24,-20);
-            clip.lineTo(24,-20); clip.lineTo(24,length-9f);
-            clip.quadTo(4.5f,length-5f,3.5f,length+1f);
-            clip.quadTo(0,length+3f,-3.5f,length+1f);
-            clip.quadTo(-4.5f,length-5f,-24,length-9f); clip.close();
+            clip.moveTo(-25,3f);
+            clip.cubicTo(-6f,3f,-6f,-rim,0,-rim);
+            clip.cubicTo(6f,-rim,6f,3f,25,3f);
+            clip.lineTo(25,length+20f); clip.lineTo(-25,length+20f); clip.close();
             canvas.clipPath(clip);
         }
         canvas.concat(jointTransform);
         if (hasArmor && part == THIGH && column == 2) {
+            // Only the plate and its strap are worn by this leg. The cloth is
+            // attached separately at the waist and the base thigh supplies skin.
             clip.reset();
-            clip.setFillType(Path.FillType.WINDING);
-            clip.moveTo(0,18); clip.lineTo(119,18); clip.lineTo(116,83);
-            clip.lineTo(108,137); clip.lineTo(128,163);
-            clip.lineTo(0,181); clip.close();
+            clip.moveTo(0,18); clip.lineTo(117,18); clip.lineTo(115,69);
+            clip.lineTo(104,107); clip.quadTo(96,123,82,124);
+            clip.lineTo(45,118); clip.lineTo(0,118); clip.close();
             canvas.clipPath(clip);
         }
-        if (!hasArmor && part == SHIN) {
-            // Knock the stray corners off the skin/boot seam without trimming
-            // the cuff into a horizontal strip.
-            clip.reset();
-            clip.setFillType(Path.FillType.WINDING);
-            clip.moveTo(0,joint[1]+8f);
-            clip.quadTo(joint[0],joint[1]-19f,CELL,joint[1]+8f);
-            clip.lineTo(CELL,CELL); clip.lineTo(0,CELL); clip.close();
-            canvas.clipPath(clip);
+        if (gripping && hasArmor && part == FOREARM) {
+            canvas.clipRect(0,0,CELL,joint[3]+5f);
         }
         selectCell(column, part);
         dest.set(0, 0, CELL, CELL);
