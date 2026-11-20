@@ -1,5 +1,9 @@
 # Android DnD Roguelike
 
+## v0.3.12 — refine the Wildlands character pose
+- Gives the side profile a visible neck between the jaw and collar and matches the exposed base skin closer to the portrait.
+- Rests the arms closer to the torso, with a slight idle sway and an alternating swing that follows the walk cycle.
+
 ## v0.3.11 — align the Wildlands rig seams
 - Registers limb artwork at the joints in each facing. The base and armor use the same transforms.
 - Trims duplicate shoulder, cuff, and knee artwork from the base layers and places both boots at the rig's ground contacts.

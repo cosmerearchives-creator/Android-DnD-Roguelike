@@ -19,13 +19,13 @@ final class RigViewProfile {
     }
 
     static float elbowX(int facing,int arm) {
-        if(isSide(facing)) return arm==0 ? -14f : 13f;
-        return arm==0 ? -29f : 29f;
+        if(isSide(facing)) return arm==0 ? -7f : 4f;
+        return arm==0 ? -21f : 21f;
     }
 
     static float handX(int facing,int arm) {
-        if(isSide(facing)) return arm==0 ? -16f : 17f;
-        return arm==0 ? -31f : 32f;
+        if(isSide(facing)) return arm==0 ? -6f : 5f;
+        return arm==0 ? -22f : 23f;
     }
 
     static float handY(int facing,int arm) {

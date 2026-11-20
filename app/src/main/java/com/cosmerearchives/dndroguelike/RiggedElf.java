@@ -15,12 +15,13 @@ final class RiggedElf {
     private static final int SHADOW=0xFF526375, LIGHT=0xFFE4E3D5;
     private static final int GOLD=0xFFE1B46B, DEEP_GOLD=0xFF94703F;
     private static final int BLUE=0xFF304D70, DEEP_BLUE=0xFF1D334E;
-    private static final int LEATHER=0xFF50392D, SKIN=0xFFE9C5A8;
+    private static final int LEATHER=0xFF50392D, SKIN=0xFFEBC09F;
     private final Paint p=new Paint(Paint.ANTI_ALIAS_FLAG|Paint.FILTER_BITMAP_FLAG);
     private final Paint bitmapPaint=new Paint(Paint.ANTI_ALIAS_FLAG|Paint.FILTER_BITMAP_FLAG);
     private final Path shape=new Path();
     private static final int HEAD_WIDTH = 192, HEAD_HEIGHT = 152;
     private static final float HEAD_SCALE = .35f;
+    private static final float PROFILE_HEAD_LIFT = 5f;
     private final Bitmap headAtlas;
     private final ElfLayerSprites layers;
     private final Rect headSrc = new Rect();
@@ -53,8 +54,12 @@ final class RiggedElf {
         float bounce=-1.6f*blend*(float)Math.abs(Math.sin(omega*2f));
         float breathe=(1f-blend)*(float)Math.sin(idleElapsed*1.6f)*.65f;
         float sway=blend*(float)Math.sin(omega)*1.6f;
-        float leftSwing=blend*(float)Math.sin(omega)*4.3f;
-        float rightSwing=-leftSwing;
+        // When a leg advances, its opposite arm advances. In front and back
+        // views most of that motion projects along screen depth.
+        float armStride = -blend * (float)Math.cos(omega);
+        float armIdle = (1f - blend) * (float)Math.sin(idleElapsed * 1.6f) * .55f;
+        float armSwing = armStride * (side ? 5f : .8f) + armIdle;
+        float armDepth = side ? 0f : armStride * (back ? -2f : 2f);
         float strike=attackProgress<=0f?0f:
             (float)Math.sin(Math.PI*clamp(attackProgress,0f,1f))*23f;
 
@@ -75,17 +80,19 @@ final class RiggedElf {
         float leftShoulder=RigViewProfile.shoulderX(facing,0);
         float rightShoulder=RigViewProfile.shoulderX(facing,1);
         float shoulderY = -108f;
-        float leftElbow=RigViewProfile.elbowX(facing,0)+leftSwing*.2f;
-        float rightElbow=RigViewProfile.elbowX(facing,1)+rightSwing*.2f;
-        float leftHand=RigViewProfile.handX(facing,0)+leftSwing*.55f;
-        float rightHand=RigViewProfile.handX(facing,1)+rightSwing*.55f+strike;
-        float leftHandY=RigViewProfile.handY(facing,0);
-        float rightHandY=RigViewProfile.handY(facing,1)-strike*.65f;
+        float leftElbow=RigViewProfile.elbowX(facing,0)+armSwing*.48f;
+        float rightElbow=RigViewProfile.elbowX(facing,1)-armSwing*.48f;
+        float leftHand=RigViewProfile.handX(facing,0)+armSwing;
+        float rightHand=RigViewProfile.handX(facing,1)-armSwing+strike;
+        float leftElbowY = -81f + armDepth*.42f;
+        float rightElbowY = (side ? -80f : -81f) - armDepth*.42f;
+        float leftHandY=RigViewProfile.handY(facing,0)+armDepth;
+        float rightHandY=RigViewProfile.handY(facing,1)-armDepth-strike*.65f;
 
         if(side) {
             // Sword hand is the FAR arm. Draw behind breastplate, rather than
             // putting two equally prominent shoulders on the front plane.
-            drawArm(c,rightShoulder,shoulderY,rightElbow,-80f,
+            drawArm(c,rightShoulder,shoulderY,rightElbow,rightElbowY,
                     rightHand,rightHandY,1,facing,armored);
             if(armored)drawSword(c,rightHand,rightHandY,true);
         }
@@ -96,16 +103,16 @@ final class RiggedElf {
             drawHead(c, facing, neckX);
         } else {
             c.save();
-            c.translate(neckX, 2f);
+            c.translate(neckX, side ? 2f - PROFILE_HEAD_LIFT : 2f);
             drawHeadFallback(c, back);
             c.restore();
         }
 
-        drawArm(c,leftShoulder,shoulderY,leftElbow,-81f,leftHand,leftHandY,0,facing,armored);
+        drawArm(c,leftShoulder,shoulderY,leftElbow,leftElbowY,leftHand,leftHandY,0,facing,armored);
         if(armored)drawShield(c,leftHand,leftHandY,side,back);
 
         if(!side) {
-            drawArm(c,rightShoulder,shoulderY,rightElbow,-81f,
+            drawArm(c,rightShoulder,shoulderY,rightElbow,rightElbowY,
                     rightHand,rightHandY,1,facing,armored);
             if(armored)drawSword(c,rightHand,rightHandY,false);
         }
@@ -115,19 +122,36 @@ final class RiggedElf {
     }
 
     private void drawNeck(Canvas c, float x, boolean side, boolean back) {
-        float half = side ? 3.8f : 4.6f;
+        float collar = ElfLayerSprites.COLLAR_Y;
+        if (side) {
+            // The jaw sits forward of the nape. Draw the throat before the
+            // collar and hair so both can cover the ends of the neck.
+            shape.reset();
+            shape.moveTo(x-4f,collar-12f);
+            shape.lineTo(x+5f,collar-12f);
+            shape.quadTo(x+2.9f,collar-5f,x+4.2f,collar+3f);
+            shape.lineTo(x-5f,collar+3f);
+            shape.quadTo(x-2f,collar-4f,x-4f,collar-12f);
+            shape.close();
+            p.setStyle(Paint.Style.FILL);
+            p.setColor(0xFFCA9678);
+            c.drawPath(shape,p);
+            polygon(c,0xFFE9B695,x+1.5f,collar-10f,x+4.5f,collar-11f,
+                x+3.3f,collar-5f,x+4f,collar+2f,x+2f,collar+2f,x+.5f,collar-5f);
+            return;
+        }
         polygon(c, back ? 0xFFC49D80 : 0xFFE5BA99,
-            x-half, ElfLayerSprites.COLLAR_Y-4f, x+half, ElfLayerSprites.COLLAR_Y-4f,
-            x+half+1f, ElfLayerSprites.COLLAR_Y+6f, x-half-1f, ElfLayerSprites.COLLAR_Y+6f);
+            x-4.6f,collar-4f,x+4.6f,collar-4f,x+5.6f,collar+6f,x-5.6f,collar+6f);
     }
 
     private void drawHead(Canvas c, int facing, float neckX) {
         int column = facing == 3 ? 1 : facing; // The caller mirrors the side profile.
         int left = column * HEAD_WIDTH;
         headSrc.set(left, 0, left + HEAD_WIDTH, HEAD_HEIGHT);
-        // Every cell is registered at (96, 88), where the head meets the collar.
+        // The atlas anchor is at the jaw/collar join. The profile uses extra neck clearance.
         float x = neckX - 96 * HEAD_SCALE;
-        float y = ElfLayerSprites.COLLAR_Y - 88 * HEAD_SCALE;
+        float collarOffset = RigViewProfile.isSide(facing) ? PROFILE_HEAD_LIFT : 0f;
+        float y = ElfLayerSprites.COLLAR_Y - collarOffset - 88 * HEAD_SCALE;
         headDst.set(x, y, x + HEAD_WIDTH * HEAD_SCALE, y + HEAD_HEIGHT * HEAD_SCALE);
         c.drawBitmap(headAtlas, headSrc, headDst, bitmapPaint);
     }
