@@ -1,6 +1,6 @@
 package com.cosmerearchives.dndroguelike;
 
-/** Playable High Elf appearances, in the Wildlands model button's order. */
+/** Playable High Elf appearances, in character creation order. */
 enum ElfAppearance {
     CLASSIC("classic", "CLASSIC ELF", 72, 0),
     BRONZE("bronze", "TALL BRONZE", 78, 0xFF9B6549),
@@ -15,18 +15,20 @@ enum ElfAppearance {
     private static final ElfAppearance[] ROSTER = values();
     final String id;
     final String label;
+    final int heightInches;
     final float heightScale;
     final int fistSkin;
 
     ElfAppearance(String id, String label, int heightInches, int fistSkin) {
         this.id = id;
         this.label = label;
+        this.heightInches = heightInches;
         this.heightScale = heightInches / 72f;
         this.fistSkin = fistSkin;
     }
 
-    ElfAppearance next() {
-        return ROSTER[(ordinal() + 1) % ROSTER.length];
+    ElfAppearance cycle(int direction) {
+        return ROSTER[Math.floorMod(ordinal() + direction, ROSTER.length)];
     }
 
     static ElfAppearance fromId(String id) {

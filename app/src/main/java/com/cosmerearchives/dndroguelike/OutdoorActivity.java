@@ -3,7 +3,6 @@ package com.cosmerearchives.dndroguelike;
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
-import android.content.SharedPreferences;
 import android.graphics.Canvas;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
@@ -24,14 +23,19 @@ import java.util.Locale;
 /**
  * First isometric outdoor vertical slice.
  * Pure world-coordinate generation: tile (x,y) always produces the same terrain.
- * Does not claim to replace the dungeon combat simulation or implement save streaming yet.
  */
 public final class OutdoorActivity extends Activity {
     private Landscape landscape;
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
         getWindow().setStatusBarColor(Color.BLACK);
-        landscape=new Landscape(this);
+        PlayerCharacter hero=PlayerCharacter.loadCompleted(this);
+        if(hero==null){
+            startActivity(new Intent(this,CharacterCreatorActivity.class));
+            finish();
+            return;
+        }
+        landscape=new Landscape(this,hero);
         setContentView(landscape);
         hideBars();
     }
@@ -79,14 +83,12 @@ public final class OutdoorActivity extends Activity {
             boolean road, river;
             long terrainSeed, propSeed;
         }
-        private final PlayerCharacter hero;
+        private final float movementFactor;
         private final RiggedElf riggedArt;
         private final GaitModel gait=new GaitModel();
-        private final SharedPreferences animationPreferences;
-        private ElfAppearance appearance;
-        private final RectF modelToggleBounds = new RectF();
+        private final ElfAppearance appearance;
         private final RectF viewToggleBounds=new RectF();
-        private boolean closeUp=true;
+        private boolean closeUp;
         private final String heroName;
         private float x=0.5f,y=0.5f,camX=x,camY=y,targetX=x,targetY=y;
         private float joyX,joyY,knobX,knobY;
@@ -110,8 +112,9 @@ public final class OutdoorActivity extends Activity {
         private final java.util.HashSet<Long> seen=new java.util.HashSet<>();
         private int[] colorRange={0xFF526D47,0xFF425E41,0xFF345044,0xFF807B55,0xFF66766C,0xFF33697A};
         private final float density;
-        Landscape(Context context){
-            super(context);appContext=context;hero=PlayerCharacter.load(context);
+        Landscape(Context context,PlayerCharacter hero){
+            super(context);appContext=context;
+            movementFactor=hero.loadout().movementFactor();
             Bitmap atlas=null;
             try(java.io.InputStream input=context.getAssets().open("wildlands_terrain_v031.png")){
                 atlas=BitmapFactory.decodeStream(input);
@@ -138,10 +141,9 @@ public final class OutdoorActivity extends Activity {
                     cachedGround[id]=tile;
                 }
             }
-            animationPreferences=context.getSharedPreferences("animation_lab",Context.MODE_PRIVATE);
-            appearance=ElfAppearance.fromId(animationPreferences.getString("elf_appearance", null));
+            appearance=hero.appearance;
             riggedArt=new RiggedElf(context,appearance);
-            heroName=hero!=null&&hero.completed?hero.name:"Explorer";
+            heroName=hero.name;
             density=getResources().getDisplayMetrics().density;
             setFocusable(true);
             if (Build.VERSION.SDK_INT < 28) setLayerType(View.LAYER_TYPE_SOFTWARE, null);
@@ -472,7 +474,7 @@ public final class OutdoorActivity extends Activity {
             if(distance>.02f && attackRemaining<=0f){
                 float cameraDX=dx-dy,cameraDY=dx+dy;
                 facing=Math.abs(cameraDX)>Math.abs(cameraDY)?(cameraDX>0?1:3):(cameraDY>0?0:2);
-                float speed=(hero!=null&&hero.completed?hero.loadout().movementFactor():1f)*2.4f;
+                float speed=movementFactor*2.4f;
                 float step=Math.min(distance,speed*dt),sx=dx/distance*step,sy=dy/distance*step;
                 float oldX=x,oldY=y;
                 if(walkable(x+sx,y))x+=sx;
@@ -603,9 +605,6 @@ public final class OutdoorActivity extends Activity {
             oval(c,0xFFD0BD90,cx+knobX*23*d-18*d,cy+knobY*23*d-18*d,
                 cx+knobX*23*d+18*d,cy+knobY*23*d+18*d);
             float right=getWidth();
-            modelToggleBounds.set(right-214*d,h-93*d,right-118*d,h-33*d);
-            rounded(c,0xFF31454A,modelToggleBounds.left,modelToggleBounds.top,
-                modelToggleBounds.right,modelToggleBounds.bottom,7*d);
             rounded(c,0xFF6B543D,right-110*d,h-93*d,right-10*d,h-33*d,7*d);
             text(c,appearance.label,right-207*d,h-56*d,10*d,0xFFF2DBA8);
             text(c,paused?"RESUME":"PAUSE",right-103*d,h-56*d,13*d,0xFFF2DBA8);
@@ -684,14 +683,6 @@ public final class OutdoorActivity extends Activity {
                 if(sy>h-110*d){
                     if(sx>getWidth()-111*d){
                         setPaused(!paused);return true;
-                    }
-                    if(modelToggleBounds.contains(sx,sy)){
-                        appearance=appearance.next();
-                        riggedArt.setAppearance(appearance);
-                        attackRemaining=0f;
-                        animationPreferences.edit().putString("elf_appearance",appearance.id).apply();
-                        invalidate();
-                        return true;
                     }
                     if(sx<124*d&&!paused){
                         joystick=true;moving=false;

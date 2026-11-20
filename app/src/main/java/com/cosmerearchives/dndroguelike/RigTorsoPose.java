@@ -36,6 +36,12 @@ final class RigTorsoPose {
         target[at + 1] = chest * (chestY + x * roll) + neck * neckY;
     }
 
+    // Fade into the neck and waist so only the upper torso widens.
+    float shoulderSpread(float x, float y) {
+        if (side) return 0f;
+        return .08f * x * smooth((WAIST_Y - y) / 30f) * smooth((y + 144f) / 14f);
+    }
+
     void bindShoulder(float[] vertices, float left, float top, float width, float height,
                       int columns, int rows, float shoulderX, float shoulderY, float mirror,
                       float armholeFit, float rearPunch, float[] offset) {
@@ -48,7 +54,7 @@ final class RigTorsoPose {
                 int at = (row * (columns + 1) + col) * 2;
                 float x = left + width * col / columns;
                 offsets(x * mirror, y, offset, 0);
-                float attachedX = x + offset[0] * mirror + tuck;
+                float attachedX = x + offset[0] * mirror + tuck + shoulderSpread(x, y);
                 float attachedY = y + offset[1];
                 vertices[at] += (attachedX - vertices[at]) * followTorso;
                 vertices[at + 1] += (attachedY - vertices[at + 1]) * followTorso;
@@ -72,7 +78,7 @@ final class RigTorsoPose {
                 for (int col = 0; col <= COLUMNS; col++) {
                     float x = left + (right - left) * col / COLUMNS;
                     pose.offsets(x, y, vertices, at);
-                    vertices[at++] += x;
+                    vertices[at++] += x + pose.shoulderSpread(x, y);
                     vertices[at++] += y;
                 }
             }

@@ -38,6 +38,8 @@ public class MainActivity extends Activity {
     private boolean awaitingPermission;
     private File readyApk;
 
+    private Button create, continueGame;
+
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
         ScrollView scroll = new ScrollView(this);
@@ -55,19 +57,12 @@ public class MainActivity extends Activity {
         TextView intro = text("Your adventure starts here.", 20);
         intro.setPadding(0,pad,0,pad);
         root.addView(intro);
-        PlayerCharacter existing=PlayerCharacter.load(this);
-        Button create = new Button(this);
-        create.setText(existing!=null&&!existing.completed?"Resume character creation":"Create High Elf Fighter");
+        continueGame = new Button(this);
+        continueGame.setOnClickListener(v -> startActivity(new Intent(this, OutdoorActivity.class)));
+        root.addView(continueGame);
+        create = new Button(this);
         create.setOnClickListener(v -> startActivity(new Intent(this, CharacterCreatorActivity.class)));
         root.addView(create);
-        Button explore = new Button(this);
-        explore.setText("Explore Wildlands (isometric test)");
-        explore.setOnClickListener(v -> startActivity(new Intent(this, OutdoorActivity.class)));
-        root.addView(explore);
-        Button play = new Button(this);
-        play.setText("Classic combat arena");
-        play.setOnClickListener(v -> startActivity(new Intent(this, GameActivity.class)));
-        root.addView(play);
         check = new Button(this);
         check.setText("Check for updates");
         check.setOnClickListener(v -> checkUpdates());
@@ -256,6 +251,10 @@ public class MainActivity extends Activity {
 
     @Override protected void onResume() {
         super.onResume();
+        PlayerCharacter saved = PlayerCharacter.loadCompleted(this);
+        continueGame.setVisibility(saved == null ? View.GONE : View.VISIBLE);
+        if (saved != null) continueGame.setText("Continue as " + saved.name);
+        create.setText(PlayerCharacter.loadDraft(this) == null ? "New game" : "Resume character creation");
         if(awaitingPermission) {
             awaitingPermission=false;
             if(getPackageManager().canRequestPackageInstalls()) install();

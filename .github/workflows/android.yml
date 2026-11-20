@@ -135,12 +135,14 @@ jobs:
             tests/com/cosmerearchives/dndroguelike/RigLegPoseTest.java \
             tests/com/cosmerearchives/dndroguelike/RigViewProfileTest.java \
             tests/com/cosmerearchives/dndroguelike/RigIdlePoseTest.java \
+            tests/com/cosmerearchives/dndroguelike/RigTorsoPoseTest.java \
             tests/com/cosmerearchives/dndroguelike/RigAttackPoseTest.java \
             tests/com/cosmerearchives/dndroguelike/LimbMeshTest.java
           java -cp "$RUNNER_TEMP/gait-tests" com.cosmerearchives.dndroguelike.GaitModelTest
           java -cp "$RUNNER_TEMP/gait-tests" com.cosmerearchives.dndroguelike.RigLegPoseTest
           java -cp "$RUNNER_TEMP/gait-tests" com.cosmerearchives.dndroguelike.RigViewProfileTest
           java -cp "$RUNNER_TEMP/gait-tests" com.cosmerearchives.dndroguelike.RigIdlePoseTest
+          java -cp "$RUNNER_TEMP/gait-tests" com.cosmerearchives.dndroguelike.RigTorsoPoseTest
           java -cp "$RUNNER_TEMP/gait-tests" com.cosmerearchives.dndroguelike.RigAttackPoseTest
           java -cp "$RUNNER_TEMP/gait-tests" com.cosmerearchives.dndroguelike.LimbMeshTest
       - name: Build and lint

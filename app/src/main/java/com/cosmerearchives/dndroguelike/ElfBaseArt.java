@@ -102,11 +102,12 @@ final class ElfBaseArt {
                  float shoulderX, float shoulderY, float elbowX, float elbowY,
                  float wristX, float wristY, float closure, float impact) {
         Sprite arm = facings[facing].limbs[index];
-        float elbowDx = elbowX - RigViewProfile.elbowX(facing, index);
+        float spread = torso.shoulderSpread(arm.rootX, arm.rootY);
+        float elbowDx = elbowX - RigViewProfile.elbowX(facing, index) + .40f * spread;
         float elbowDy = elbowY - RigViewProfile.elbowY(facing, index);
-        float wristDx = wristX - RigViewProfile.handX(facing, index);
+        float wristDx = wristX - RigViewProfile.handX(facing, index) + .10f * spread;
         float wristDy = wristY - RigViewProfile.handY(facing, index);
-        arm.pose(shoulderX - RigViewProfile.shoulderX(facing, index), shoulderY + 108f,
+        arm.pose(shoulderX - RigViewProfile.shoulderX(facing, index) + spread, shoulderY + 108f,
             elbowDx, elbowDy, wristDx, wristDy);
         if (!RigViewProfile.isSide(facing)) {
             // Skin at the top of the arm follows the same deformation as its armhole.

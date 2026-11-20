@@ -1,27 +1,35 @@
 package com.cosmerearchives.dndroguelike;
 
 import android.content.Context;
+import android.util.AtomicFile;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 
-/** Saved creation choices, independently of the temporary arena units. */
+/** Saved creation choices for a Wildlands character. */
 final class PlayerCharacter {
-    static final String FILE="high_elf_fighter.json";
+    private static final String FILE="high_elf_fighter.json";
+    private static final String DRAFT_FILE="high_elf_draft.json";
+    static final String[] STARTING_CLASSES={"Fighter"};
     static final String[] ABILITIES={"Strength","Dexterity","Constitution","Intelligence","Wisdom","Charisma"};
     static final String[] BACKGROUNDS={"Acolyte","Wilderness Pathfinder","Caravan Guard","Relic Seeker","Guild Apprentice"};
     static final String[] STYLES={"Archery","Defense","Dueling","Great Weapon Fighting","Protection","Two-Weapon Fighting"};
     static final String[] CANTRIPS={"Fire Bolt","Ray of Frost","Shocking Grasp"};
     static final String[] FIGHTER_SKILLS={"Acrobatics","Animal Handling","Athletics","History","Insight","Intimidation","Perception","Survival"};
     static final String[] LANGUAGES={"Dwarvish","Giant","Gnomish","Goblin","Halfling","Orc","Abyssal","Celestial","Draconic","Deep Speech","Infernal","Primordial","Sylvan","Undercommon"};
-    String name="";String gender="Female",background=BACKGROUNDS[0],style=STYLES[0],cantrip=CANTRIPS[0];
+    ElfAppearance appearance=ElfAppearance.CLASSIC;
+    String startingClass=STARTING_CLASSES[0];
+    String name="";String background=BACKGROUNDS[0],style=STYLES[0],cantrip=CANTRIPS[0];
     String skillOne="Athletics",skillTwo="Survival",languageOne="Dwarvish",languageTwo="Sylvan",languageThree="Draconic";
     String toolChoice="cartographer_tools",gamingChoice="dice_set",artisanChoice="smith_tools";
     String armorChoice="chain_mail",martialOne="longsword",martialTwo="shield",rangedChoice="light_crossbow",packChoice="explorer";
-    String skin="Fair",hair="Silver",clothingColor="Blue";
-    int age=120,heightInches=65;
+    int age=120;
     String alignment="Neutral Good";
     int[] base={15,14,13,12,10,8};
     final List<int[]> rolls=new ArrayList<>();
@@ -93,14 +101,14 @@ final class PlayerCharacter {
     JSONObject json(){
         JSONObject o=new JSONObject();
         try{
-            o.put("name",name);o.put("gender",gender);o.put("background",background);
+            o.put("name",name);o.put("appearance",appearance.id);
+            o.put("class",startingClass);o.put("background",background);
             o.put("style",style);o.put("cantrip",cantrip);o.put("skillOne",skillOne);o.put("skillTwo",skillTwo);
             o.put("languageOne",languageOne);o.put("languageTwo",languageTwo);o.put("languageThree",languageThree);
             o.put("toolChoice",toolChoice);o.put("gamingChoice",gamingChoice);o.put("artisanChoice",artisanChoice);
             o.put("armorChoice",armorChoice);o.put("martialOne",martialOne);o.put("martialTwo",martialTwo);
             o.put("rangedChoice",rangedChoice);o.put("packChoice",packChoice);
-            o.put("skin",skin);o.put("hair",hair);o.put("clothingColor",clothingColor);
-            o.put("age",age);o.put("heightInches",heightInches);o.put("alignment",alignment);
+            o.put("age",age);o.put("alignment",alignment);
             o.put("completed",completed);o.put("experience",experience);o.put("level",level);
             JSONArray scores=new JSONArray();for(int x:base)scores.put(x);o.put("base",scores);
             JSONArray history=new JSONArray();for(int[] set:rolls){JSONArray a=new JSONArray();for(int n:set)a.put(n);history.put(a);}o.put("rolls",history);
@@ -109,7 +117,12 @@ final class PlayerCharacter {
     }
     static PlayerCharacter fromJson(JSONObject o){
         PlayerCharacter p=new PlayerCharacter();
-        p.name=o.optString("name",p.name);p.gender=o.optString("gender",p.gender);
+        p.name=o.optString("name",p.name);
+        p.appearance=ElfAppearance.fromId(o.optString("appearance"));
+        String savedClass=o.optString("class");
+        for(String option:STARTING_CLASSES){
+            if(option.equals(savedClass))p.startingClass=option;
+        }
         p.background=o.optString("background",p.background);p.style=o.optString("style",p.style);
         p.cantrip=o.optString("cantrip",p.cantrip);p.skillOne=o.optString("skillOne",p.skillOne);
         p.skillTwo=o.optString("skillTwo",p.skillTwo);p.languageOne=o.optString("languageOne",p.languageOne);
@@ -119,9 +132,7 @@ final class PlayerCharacter {
         p.armorChoice=o.optString("armorChoice",p.armorChoice);
         p.martialOne=o.optString("martialOne",p.martialOne);p.martialTwo=o.optString("martialTwo",p.martialTwo);
         p.rangedChoice=o.optString("rangedChoice",p.rangedChoice);p.packChoice=o.optString("packChoice",p.packChoice);
-        p.skin=o.optString("skin",p.skin);p.hair=o.optString("hair",p.hair);
-        p.clothingColor=o.optString("clothingColor",p.clothingColor);
-        p.age=o.optInt("age",p.age);p.heightInches=o.optInt("heightInches",p.heightInches);
+        p.age=o.optInt("age",p.age);
         p.alignment=o.optString("alignment",p.alignment);
         p.completed=o.optBoolean("completed",false);p.experience=o.optInt("experience",0);p.level=o.optInt("level",1);
         JSONArray a=o.optJSONArray("base");
@@ -134,16 +145,39 @@ final class PlayerCharacter {
         return p;
     }
     void save(Context context){
-        try(java.io.FileOutputStream out=context.openFileOutput(FILE,Context.MODE_PRIVATE)){
-            out.write(json().toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
-        }catch(Exception e){throw new IllegalStateException("Character save failed",e);}
+        byte[] data=json().toString().getBytes(StandardCharsets.UTF_8);
+        AtomicFile target=file(context,completed?FILE:DRAFT_FILE);
+        FileOutputStream out=null;
+        try{
+            out=target.startWrite();
+            out.write(data);
+            target.finishWrite(out);
+        }catch(IOException e){
+            target.failWrite(out);
+            throw new IllegalStateException("Character save failed",e);
+        }
+        if(completed)file(context,DRAFT_FILE).delete();
     }
-    static PlayerCharacter load(Context context){
-        try(java.io.FileInputStream input=context.openFileInput(FILE)){
-            java.io.ByteArrayOutputStream out=new java.io.ByteArrayOutputStream();
-            byte[] b=new byte[4096];int n;
-            while((n=input.read(b))!=-1)out.write(b,0,n);
-            return fromJson(new JSONObject(out.toString("UTF-8")));
-        }catch(Exception ignored){return null;}
+
+    static PlayerCharacter loadCompleted(Context context){
+        PlayerCharacter saved=read(file(context,FILE));
+        return saved!=null&&saved.completed?saved:null;
+    }
+
+    static PlayerCharacter loadDraft(Context context){
+        PlayerCharacter draft=read(file(context,DRAFT_FILE));
+        if(draft!=null)return draft;
+        PlayerCharacter legacy=read(file(context,FILE));
+        return legacy!=null&&!legacy.completed?legacy:null;
+    }
+
+    private static AtomicFile file(Context context,String filename){
+        return new AtomicFile(new File(context.getFilesDir(),filename));
+    }
+
+    private static PlayerCharacter read(AtomicFile file){
+        try{
+            return fromJson(new JSONObject(new String(file.readFully(),StandardCharsets.UTF_8)));
+        }catch(IOException|org.json.JSONException ignored){return null;}
     }
 }

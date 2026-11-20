@@ -1,5 +1,10 @@
 # Android DnD Roguelike
 
+## v0.3.45 — High Elf character creation and Wildlands start
+- New Game opens the High Elf creator. Cycle through all nine appearances and preview the actual model from four directions in idle, walk, and attack poses.
+- Create a level-one Fighter with the established ability rolls, background, fighting style, proficiencies, cantrip, languages, and starting gear. Start Adventure enters the Wildlands with your selected model. Continue restores the completed character, and unfinished drafts are stored separately.
+- Widens the front and back shoulder spacing across the roster and blends the arm attachments into the upper torso. Removes the old arena.
+
 ## v0.3.22 — continuous front-facing base limbs
 - Binds the front Base Only arms and legs to the existing rig as continuous textures derived from the idle reference.
 - Uses a shared two-bone mesh across each elbow and knee so limbs bend without the old sprite overlaps.

@@ -13,6 +13,7 @@ import android.text.Editable;
 import android.text.TextWatcher;
 import android.view.Gravity;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
@@ -27,26 +28,40 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
 
-/** First playable, autosaving tab-like sections for a High Elf Fighter. */
+/** Autosaving character creation for a new Wildlands adventure. */
 public final class CharacterCreatorActivity extends Activity {
     private PlayerCharacter hero;
     private LinearLayout root, contents;
-    private TextView summary;
+    private TextView summary, appearanceLabel;
     private CharacterPreviewView preview;
     private boolean previewGame=false;
     private int previewDirection=0,previewAnimation=0;
     private int tab=0;
     private boolean building=false;
     private final Random random=new Random();
-    private final String[] tabs={"Identity","Abilities","Background","Fighter","Equipment","Review"};
+    private final String[] tabs={"Identity","Abilities","Background","Class","Equipment","Review"};
     private final int bg=0xFF171F2B,fg=0xFFF0E6D1,accent=0xFFBDA06B;
     @Override public void onCreate(Bundle saved){
         super.onCreate(saved);
-        hero=PlayerCharacter.load(this);
-        if(hero==null||hero.completed){hero=new PlayerCharacter();hero.rolls.add(PlayerCharacter.rollScores(random));hero.base=hero.rolls.get(0).clone();}
+        hero=PlayerCharacter.loadDraft(this);
+        if(saved!=null){
+            tab=saved.getInt("step");
+            previewDirection=saved.getInt("facing");
+            previewAnimation=saved.getInt("motion");
+            previewGame=saved.getBoolean("smallPreview");
+        }
+        if(hero==null){hero=new PlayerCharacter();hero.rolls.add(PlayerCharacter.rollScores(random));hero.base=hero.rolls.get(0).clone();}
         if(hero.rolls.isEmpty())hero.rolls.add(hero.base.clone());
         show();
     }
+    @Override protected void onSaveInstanceState(Bundle state){
+        super.onSaveInstanceState(state);
+        state.putInt("step",tab);
+        state.putInt("facing",previewDirection);
+        state.putInt("motion",previewAnimation);
+        state.putBoolean("smallPreview",previewGame);
+    }
+
     private TextView text(String value,int size){
         TextView t=new TextView(this);t.setText(value);t.setTextColor(fg);t.setTextSize(size);
         t.setPadding(8,9,8,9);return t;
@@ -55,7 +70,23 @@ public final class CharacterCreatorActivity extends Activity {
         TextView h=text(s,21);h.setTypeface(null,Typeface.BOLD);h.setTextColor(0xFFF3DCAD);contents.addView(h);
     }
     private void note(String s){TextView t=text(s,13);t.setTextColor(0xFFBFC8D2);contents.addView(t);}
-    private void persist(){if(!building){hero.save(this);if(summary!=null)summary.setText(stats());if(preview!=null)preview.character(hero);}}
+    private void persist(){
+        if(building)return;
+        hero.save(this);
+        summary.setText(stats());
+    }
+
+    private void cycleAppearance(int direction){
+        hero.appearance=hero.appearance.cycle(direction);
+        preview.appearance(hero.appearance);
+        appearanceLabel.setText(appearanceText());
+        persist();
+    }
+
+    private String appearanceText(){
+        int inches=hero.appearance.heightInches;
+        return hero.appearance.label+"  ·  "+inches/12+"′"+inches%12+"″";
+    }
     private int dp(float n){return Math.round(TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP,n,getResources().getDisplayMetrics()));}
     private GradientDrawable panel(int color,float radius){
         GradientDrawable d=new GradientDrawable();d.setColor(color);d.setCornerRadius(dp(radius));
@@ -71,9 +102,7 @@ public final class CharacterCreatorActivity extends Activity {
         building=true;
         boolean landscape=getResources().getConfiguration().orientation==Configuration.ORIENTATION_LANDSCAPE;
         root=vertical();root.setBackgroundColor(bg);root.setPadding(dp(12),dp(12),dp(12),dp(8));
-        TextView kicker=text("THE ARCHIVES  /  CHARACTER FORGE",12);
-        kicker.setTextColor(accent);kicker.setLetterSpacing(.16f);root.addView(kicker);
-        TextView headline=text("Forge your legend",25);headline.setTypeface(null,Typeface.BOLD);
+        TextView headline=text("Create your High Elf",25);headline.setTypeface(null,Typeface.BOLD);
         root.addView(headline);
         // Compact progress with all six sections, navigable by tapping step chips.
         LinearLayout nav=horizontal();
@@ -100,26 +129,45 @@ public final class CharacterCreatorActivity extends Activity {
         }else{
             LinearLayout column=vertical();
             work.addView(column,new LinearLayout.LayoutParams(-1,-1));
-            LinearLayout.LayoutParams pp=new LinearLayout.LayoutParams(-1,dp(225));
+            LinearLayout.LayoutParams pp=new LinearLayout.LayoutParams(-1,dp(244));
             pp.setMargins(0,0,0,dp(8));column.addView(stage,pp);
         }
-        LinearLayout stageLabel=horizontal();
-        TextView label=text("LIVE CHARACTER PREVIEW",12);label.setLetterSpacing(.1f);label.setTextColor(accent);
-        stageLabel.addView(label,new LinearLayout.LayoutParams(0,-2,1));
-        TextView hint=text("High Elf · Fighter",12);hint.setTextColor(0xFFABBDC6);stageLabel.addView(hint);
-        stage.addView(stageLabel);
-        preview=new CharacterPreviewView(this,hero);
+        LinearLayout appearanceControls=horizontal();
+        Button previousAppearance=button("‹",()->cycleAppearance(-1));
+        previousAppearance.setContentDescription("Previous appearance");
+        appearanceControls.addView(previousAppearance,new LinearLayout.LayoutParams(dp(44),dp(40)));
+        appearanceLabel=text(appearanceText(),14);
+        appearanceLabel.setGravity(Gravity.CENTER);
+        appearanceLabel.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);
+        appearanceControls.addView(appearanceLabel,new LinearLayout.LayoutParams(0,-2,1));
+        Button nextAppearance=button("›",()->cycleAppearance(1));
+        nextAppearance.setContentDescription("Next appearance");
+        appearanceControls.addView(nextAppearance,new LinearLayout.LayoutParams(dp(44),dp(40)));
+        stage.addView(appearanceControls);
+        if(preview==null)preview=new CharacterPreviewView(this,hero.appearance);
+        else ((ViewGroup)preview.getParent()).removeView(preview);
         preview.mode(previewGame);preview.direction(previewDirection);preview.animation(previewAnimation);
         stage.addView(preview,new LinearLayout.LayoutParams(-1,0,1));
         LinearLayout previewControls=horizontal();
-        Button mode=button(previewGame?"GAMEPLAY":"FULL BODY",()->{previewGame=!previewGame;preview.mode(previewGame);show();});
+        Button mode=button(previewGame?"SMALL":"FULL BODY",null);
+        mode.setOnClickListener(view->{
+            previewGame=!previewGame;
+            preview.mode(previewGame);
+            mode.setText(previewGame?"SMALL":"FULL BODY");
+        });
         previewControls.addView(mode,new LinearLayout.LayoutParams(0,dp(39),1.4f));
         Button left=button("◀",()->{previewDirection=(previewDirection+3)%4;preview.direction(previewDirection);});
         Button right=button("▶",()->{previewDirection=(previewDirection+1)%4;preview.direction(previewDirection);});
+        left.setContentDescription("Rotate left");
+        right.setContentDescription("Rotate right");
         previewControls.addView(left,new LinearLayout.LayoutParams(0,dp(39),.65f));
         previewControls.addView(right,new LinearLayout.LayoutParams(0,dp(39),.65f));
-        Button motion=button(new String[]{"IDLE","WALK","ATTACK"}[previewAnimation],()->{
-            previewAnimation=(previewAnimation+1)%3;preview.animation(previewAnimation);show();
+        String[] motions={"IDLE","WALK","ATTACK"};
+        Button motion=button(motions[previewAnimation],null);
+        motion.setOnClickListener(view->{
+            previewAnimation=(previewAnimation+1)%motions.length;
+            preview.animation(previewAnimation);
+            motion.setText(motions[previewAnimation]);
         });
         previewControls.addView(motion,new LinearLayout.LayoutParams(0,dp(39),1f));
         stage.addView(previewControls);
@@ -162,7 +210,9 @@ public final class CharacterCreatorActivity extends Activity {
     private Button button(String caption,Runnable onClick){
         Button b=new Button(this);b.setText(caption);b.setAllCaps(false);b.setTextColor(Color.WHITE);
         b.setTextSize(13);b.setPadding(dp(5),0,dp(5),0);
-        b.setBackground(panel(0xFF304657,9));b.setOnClickListener(v->onClick.run());return b;
+        b.setBackground(panel(0xFF304657,9));
+        if(onClick!=null)b.setOnClickListener(v->onClick.run());
+        return b;
     }
     private void select(String label,String[] options,String current,java.util.function.Consumer<String> changed){
         LinearLayout field=vertical();field.setPadding(dp(12),dp(7),dp(12),dp(9));
@@ -179,17 +229,19 @@ public final class CharacterCreatorActivity extends Activity {
         };
         spinner.setAdapter(a);int index=Arrays.asList(options).indexOf(current);spinner.setSelection(Math.max(0,index));
         spinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener(){
+            private int selected=index;
             public void onNothingSelected(AdapterView<?> parent){}
             public void onItemSelected(AdapterView<?> parent,View view,int position,long id){
-                String chosen=options[position];if(chosen.equals(current))return;
-                changed.accept(chosen);persist();
+                if(position==selected)return;
+                selected=position;
+                changed.accept(options[position]);persist();
             }
         });
         field.addView(spinner);contents.addView(field,fieldParams);
     }
     private void identity(){
-        heading("Identity and appearance");
-        note("Species: High Elf  •  Class: Fighter  •  Level 1");
+        note("High Elf  ·  Level 1");
+        note("Use the arrows above the model to choose your appearance.");
         contents.addView(text("Character name",15));
         EditText name=new EditText(this);name.setSingleLine(true);name.setText(hero.name);
         name.setHint("Enter your character's name");name.setTextColor(fg);name.setHintTextColor(0xFF87919D);
@@ -198,18 +250,15 @@ public final class CharacterCreatorActivity extends Activity {
             public void onTextChanged(CharSequence s,int start,int before,int count){hero.name=s.toString();persist();}
             public void afterTextChanged(Editable e){}
         });contents.addView(name);
-        select("Appearance",new String[]{"Female","Male"},hero.gender,v->hero.gender=v);
-        select("Skin",new String[]{"Fair","Light","Warm","Olive","Brown","Deep"},hero.skin,v->hero.skin=v);
-        select("Hair",new String[]{"Silver","White","Blonde","Brown","Black","Red"},hero.hair,v->hero.hair=v);
-        select("Clothing color",new String[]{"Blue","Green","Red","Purple","Black","White"},hero.clothingColor,v->hero.clothingColor=v);
         select("Alignment",new String[]{"Lawful Good","Neutral Good","Chaotic Good","Lawful Neutral","True Neutral","Chaotic Neutral","Lawful Evil","Neutral Evil","Chaotic Evil"},hero.alignment,v->hero.alignment=v);
-        contents.addView(text("Age: "+hero.age+" years",15));
+        TextView ageLabel=text("Age: "+hero.age+" years",15);
+        contents.addView(ageLabel);
         SeekBar age=new SeekBar(this);age.setMax(650);age.setProgress(hero.age-100);
-        age.setOnSeekBarChangeListener(seek(v->{hero.age=100+v;persist();}));contents.addView(age);
-        contents.addView(text("Height: "+hero.heightInches+" inches",15));
-        SeekBar height=new SeekBar(this);height.setMax(18);height.setProgress(hero.heightInches-56);
-        height.setOnSeekBarChangeListener(seek(v->{hero.heightInches=56+v;persist();}));contents.addView(height);
-        note("Your appearance and starting equipment update the live preview above. More detailed facial customization and markings are planned for later.");
+        age.setOnSeekBarChangeListener(seek(v->{
+            hero.age=100+v;
+            ageLabel.setText("Age: "+hero.age+" years");
+            persist();
+        }));contents.addView(age);
     }
     private SeekBar.OnSeekBarChangeListener seek(java.util.function.IntConsumer changed){
         return new SeekBar.OnSeekBarChangeListener(){
@@ -268,6 +317,7 @@ public final class CharacterCreatorActivity extends Activity {
             select("Artisan's tools",new String[]{"smith_tools","carpenter_tools","brewer_supplies","cook_utensils","weaver_tools","tinker_tools","jeweler_tools","mason_tools","painter_supplies","potter_tools","leatherworker_tools","woodcarver_tools","cobbler_tools","glassblower_tools","alchemist_supplies","calligrapher_supplies_artisan","cartographer_tools_artisan"},hero.artisanChoice,v->hero.artisanChoice=v);
     }
     private void fighter(){
+        select("Starting class",PlayerCharacter.STARTING_CLASSES,hero.startingClass,v->hero.startingClass=v);
         heading("Fighter choices");
         select("Fighting Style",PlayerCharacter.STYLES,hero.style,v->hero.style=v);
         select("First skill proficiency",PlayerCharacter.FIGHTER_SKILLS,hero.skillOne,v->hero.skillOne=v);
@@ -305,12 +355,13 @@ public final class CharacterCreatorActivity extends Activity {
     }
     private void review(){
         heading("Final review");
-        note("Name: "+hero.name+"  •  "+hero.gender+" High Elf  •  Fighter 1");
+        note("Name: "+hero.name+"  •  High Elf  •  "+hero.startingClass+" 1");
         note("Background: "+hero.background+"  •  Style: "+hero.style);
+        note("High Elf language: "+hero.languageOne);
         note("Skills: "+hero.skillOne+", "+hero.skillTwo+"  •  Cantrip: "+hero.cantrip);
         note("Fey Ancestry, Darkvision 60 ft, Trance, Keen Senses, Elven Weapon Training");
         note(stats()+"\n"+hero.loadout().summary());
-        contents.addView(button("Finish character and enter game",()->finishCharacter()));
+
     }
     private void finishCharacter(){
         if(!hero.valid()){
@@ -318,6 +369,17 @@ public final class CharacterCreatorActivity extends Activity {
                 .setMessage("Choose a name and two different Fighter skills before starting.")
                 .setPositiveButton("OK",null).show();return;
         }
+        if(PlayerCharacter.loadCompleted(this)!=null){
+            new AlertDialog.Builder(this).setTitle("Start a new adventure?")
+                .setMessage("Starting will replace the active character with "+hero.name+".")
+                .setNegativeButton("Cancel",null)
+                .setPositiveButton("Start adventure",(dialog,which)->startAdventure()).show();
+            return;
+        }
+        startAdventure();
+    }
+
+    private void startAdventure(){
         hero.completed=true;hero.save(this);
         startActivity(new Intent(this,OutdoorActivity.class));
         finish();
