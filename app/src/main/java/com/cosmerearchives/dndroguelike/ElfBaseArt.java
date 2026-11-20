@@ -76,7 +76,7 @@ final class ElfBaseArt {
     }
 
     void drawLeg(Canvas canvas, int facing, int index, RigLegPose.Pose pose,
-                 float pelvisX, float pelvisY) {
+                 float pelvisX, float pelvisY, float kneeSway) {
         Facing view = facings[facing];
         RigLegPose.Pose rest = view.rest[index];
         Sprite limb = view.limbs[index + 2];
@@ -90,7 +90,7 @@ final class ElfBaseArt {
             kneeY = hipY + (kneeY - hipY) * .55f;
         }
         limb.draw(canvas, paint, pelvisX, pelvisY,
-            pose.kneeX - rest.kneeX, kneeY, footX, footY);
+            pose.kneeX - rest.kneeX + kneeSway, kneeY, footX, footY);
 
         // Keep the boot grounded and rigid while the calf deforms around the ankle.
         float x = (limb.sourceX - CENTER_X) * UNIT + footX;

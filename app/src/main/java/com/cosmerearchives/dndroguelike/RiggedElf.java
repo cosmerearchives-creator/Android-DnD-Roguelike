@@ -28,6 +28,7 @@ final class RiggedElf {
     private static final float THIGH_ART_DROP = 6f;
     private static final float THIGH_PELVIS_OVERLAP = 4.5f;
     private final RigAttackPose attack = new RigAttackPose();
+    private final RigIdlePose idle = new RigIdlePose();
     private final Shader throatTone = new LinearGradient(0,-126f,0,-113f,
         new int[]{0xFFC38D73,0xFFE6B999,0x00E6B999},
         new float[]{0f,.44f,1f},Shader.TileMode.CLAMP);
@@ -63,16 +64,16 @@ final class RiggedElf {
         float cyc=GaitModel.fractional(distanceCycles);
         float omega=(float)(2.0*Math.PI*cyc);
         float bounce=-1.6f*blend*(float)Math.abs(Math.sin(omega*2f));
-        float breathe=(1f-blend)*(float)Math.sin(idleElapsed*1.6f)*.65f;
+        idle.sample(idleElapsed, blend, attackProgress, side);
         float sway=blend*(float)Math.sin(omega)*1.6f;
         // When a leg advances, its opposite arm advances. In front and back
         // views most of that motion projects along screen depth.
         float armStride = -blend * (float)Math.cos(omega);
-        float armIdle = (1f - blend) * (float)Math.sin(idleElapsed * 1.6f) * .55f;
+        float armIdle = idle.armDrift;
         float armSwing = armStride * (side ? 5f : .8f) + armIdle;
         float armDepth = side ? 0f : armStride * (back ? -2f : 2f);
         attack.sample(attackProgress, side);
-        bounce += attack.brace;
+        bounce += attack.brace + idle.hipY;
 
         boolean boundBase = !armored && baseArt.ready(facing);
         boolean frontFallback = facing == 0 && !armored && !boundBase;
@@ -120,17 +121,18 @@ final class RiggedElf {
             rightHand = rightElbow + rotateX(lowerX, lowerY, lowerAngle);
             rightHandY = rightElbowY + rotateY(lowerX, lowerY, lowerAngle);
         }
-        float torsoX = sway * .35f;
+        float torsoX = sway * .35f + idle.hipX;
+        float torsoLean = attack.lean + idle.lean;
         if (closeUpWidth > 0f) {
             // Keep a steady close-up until the pose needs room for the blade.
             float blade = (float)Math.toRadians(attack.blade);
             float reach = armored ? BLADE_TIP_Y : 0f;
             float hipY = RigLegPose.HIP_Y;
-            float lean = (float)Math.toRadians(attack.lean);
+            float lean = (float)Math.toRadians(torsoLean);
             float tipX = torsoX + rotateX(rightHand + rotateX(0f, reach, blade),
-                rightHandY - hipY + rotateY(0f, reach, blade), lean);
-            float wristX = torsoX + rotateX(rightHand, rightHandY - hipY, lean);
-            float elbowX = torsoX + rotateX(rightElbow, rightElbowY - hipY, lean);
+                (rightHandY - hipY + rotateY(0f, reach, blade)) * idle.spineScale, lean);
+            float wristX = torsoX + rotateX(rightHand, (rightHandY - hipY) * idle.spineScale, lean);
+            float elbowX = torsoX + rotateX(rightElbow, (rightElbowY - hipY) * idle.spineScale, lean);
             float left = Math.min(side ? -36f : -53f, Math.min(tipX-3f,
                 Math.min(wristX-14f, elbowX-10f)));
             float right = Math.max(side ? 36f : 48f, Math.max(tipX+3f,
@@ -156,8 +158,7 @@ final class RiggedElf {
         boolean showFarLimbs = !boundBase || !side || blend > .02f || attackProgress > 0f;
         if (showFarLimbs && (swordInBack || shieldInBack)) {
             c.save();
-            c.translate(torsoX,bounce+breathe);
-            c.rotate(attack.lean,0f,RigLegPose.HIP_Y);
+            positionTorso(c, torsoX, bounce, torsoLean);
             // Far-side hands pass behind the hips and thighs as well as the chest.
             if (swordInBack) {
                 if (armored) drawSword(c,rightHand,rightHandY,attack.blade);
@@ -180,17 +181,16 @@ final class RiggedElf {
         if (boundBase) {
             int near = facing == 3 ? 1 : 0;
             if (showFarLimbs) {
-                baseArt.drawLeg(c, facing, 1 - near, near == 0 ? right : left, torsoX, bounce + breathe);
+                baseArt.drawLeg(c, facing, 1 - near, near == 0 ? right : left, torsoX, bounce, idle.hipX * .5f);
             }
-            baseArt.drawLeg(c, facing, near, near == 0 ? left : right, torsoX, bounce + breathe);
+            baseArt.drawLeg(c, facing, near, near == 0 ? left : right, torsoX, bounce, idle.hipX * .5f);
         } else {
-            drawLeg(c,side,back,right,facing,1,armored);
-            drawLeg(c,side,back,left,facing,0,armored);
+            drawLeg(c,side,back,right,facing,1,armored,idle.hipX);
+            drawLeg(c,side,back,left,facing,0,armored,idle.hipX);
         }
 
         c.save();
-        c.translate(torsoX,bounce+breathe);
-        c.rotate(attack.lean,0f,RigLegPose.HIP_Y);
+        positionTorso(c, torsoX, bounce, torsoLean);
         if (boundBase) {
             baseArt.drawBody(c, facing);
         } else {
@@ -238,6 +238,12 @@ final class RiggedElf {
 
         c.restore();
         c.restore();
+    }
+
+    private void positionTorso(Canvas canvas, float x, float y, float lean) {
+        canvas.translate(x, y);
+        canvas.rotate(lean, 0f, RigLegPose.HIP_Y);
+        canvas.scale(1f, idle.spineScale, 0f, RigLegPose.HIP_Y);
     }
 
     private void drawNeck(Canvas c, float x, boolean side, boolean back) {
@@ -353,9 +359,10 @@ final class RiggedElf {
      * Knee/ankle positions are never solved using the screen-X plane for
      * frontal/backward facings; that previously produced crab-like knees.
      */
-    private void drawLeg(Canvas c,boolean side,boolean back,RigLegPose.Pose leg,int facing,int index,boolean armored) {
-        float hipX=leg.hipX,hipY=leg.hipY;
-        float kneeX=leg.kneeX,kneeY=leg.kneeY;
+    private void drawLeg(Canvas c,boolean side,boolean back,RigLegPose.Pose leg,int facing,int index,
+                         boolean armored,float idleHipX) {
+        float hipX=leg.hipX+idleHipX,hipY=leg.hipY;
+        float kneeX=leg.kneeX+idleHipX*.5f,kneeY=leg.kneeY;
         float footX=leg.footX,footY=leg.footY;
         float ankleY=leg.ankleY;
         if(layers.ready()){

@@ -424,7 +424,8 @@ public final class OutdoorActivity extends Activity {
         }
         private void update(float dt){
             if(paused)return;
-            idleTime+=dt;
+            idleTime += dt;
+            if (idleTime >= RigIdlePose.PERIOD) idleTime -= RigIdlePose.PERIOD;
             boolean wasWalking=visuallyWalking;
             visuallyWalking=false;
             float dx=0,dy=0;
