@@ -71,7 +71,10 @@ public final class OutdoorActivity extends Activity {
         private final RiggedElf riggedArt;
         private final GaitModel gait=new GaitModel();
         private boolean rigTest=true;
+        // Base first: armor is explicitly opt-in for comparison and layering QA.
+        private boolean armorVisible=false;
         private final RectF rigToggleBounds=new RectF();
+        private final RectF armorToggleBounds=new RectF();
         private final String heroName;
         private float x=0.5f,y=0.5f,camX=x,camY=y,targetX=x,targetY=y;
         private float joyX,joyY,knobX,knobY;
@@ -126,6 +129,8 @@ public final class OutdoorActivity extends Activity {
             riggedArt=new RiggedElf(context);
             rigTest=context.getSharedPreferences("animation_lab",Context.MODE_PRIVATE)
                 .getBoolean("rig_test",true);
+            armorVisible=context.getSharedPreferences("animation_lab",Context.MODE_PRIVATE)
+                .getBoolean("armor_visible",false);
             heroName=hero!=null&&hero.completed?hero.name:"Explorer";
             density=getResources().getDisplayMetrics().density;
             setFocusable(true);
@@ -514,7 +519,7 @@ public final class OutdoorActivity extends Activity {
                             // A real two-bone rig with independent planted feet; current
                             // portrait is preserved, temporary armor limb art is diagnostic.
                             riggedArt.draw(c,feetX,feetY,.86f,facing,walkTime,
-                                gaitBlend,idleTime,attackProgress);
+                                gaitBlend,idleTime,attackProgress,armorVisible);
                         }else{
                             // Original approved full-body illustration remains untouched.
                             fighterArt.draw(c,feetX,feetY,.86f,facing,
@@ -536,7 +541,13 @@ public final class OutdoorActivity extends Activity {
             rect(c,0xF0192630,0,0,getWidth(),62*d);
             rect(c,0xFFB89A62,0,61*d,getWidth(),62*d);
             text(c,"THE WILDLANDS",15*d,24*d,16*d,0xFFF4DCAA);
-            rigToggleBounds.set(getWidth()-112*d,8*d,getWidth()-9*d,49*d);
+            armorToggleBounds.set(getWidth()-233*d,8*d,getWidth()-119*d,49*d);
+            rigToggleBounds.set(getWidth()-113*d,8*d,getWidth()-9*d,49*d);
+            rounded(c,armorVisible?0xFF735F3E:0xFF324B55,
+                armorToggleBounds.left,armorToggleBounds.top,
+                armorToggleBounds.right,armorToggleBounds.bottom,6*d);
+            text(c,armorVisible?"ARMOR ON":"BASE ONLY",
+                armorToggleBounds.left+9*d,36*d,11*d,0xFFF3DBA4);
             rounded(c,rigTest?0xFF3C685B:0xFF4A5667,rigToggleBounds.left,
                 rigToggleBounds.top,rigToggleBounds.right,rigToggleBounds.bottom,6*d);
             text(c,rigTest?"RIG TEST":"ORIGINAL",rigToggleBounds.left+10*d,36*d,
@@ -582,7 +593,9 @@ public final class OutdoorActivity extends Activity {
                 text(c,"RETURN TO MAIN MENU",x1+20*ps,top+156*ps,14*ps,0xFFF9E5BB);
                 text(c,"QUIT GAME",x1+20*ps,top+217*ps,15*ps,0xFFF9E5BB);
             }
-            postInvalidateDelayed(32);
+            // Display-synchronized invalidation replaces the old 32 ms (~31 fps)
+            // timer. The rig interpolates continuously; actual FPS depends on device load.
+            postInvalidateOnAnimation();
         }
         private float ui(){return Math.min(density,Math.max(1f,getWidth()/390f));}
         @Override public boolean onTouchEvent(MotionEvent e){
@@ -611,6 +624,12 @@ public final class OutdoorActivity extends Activity {
                     rigTest=!rigTest;
                     getContext().getSharedPreferences("animation_lab",Context.MODE_PRIVATE)
                         .edit().putBoolean("rig_test",rigTest).apply();
+                    invalidate();return true;
+                }
+                if(armorToggleBounds.contains(sx,sy)){
+                    armorVisible=!armorVisible;
+                    getContext().getSharedPreferences("animation_lab",Context.MODE_PRIVATE)
+                        .edit().putBoolean("armor_visible",armorVisible).apply();
                     invalidate();return true;
                 }
                 if(attackBounds.contains(sx,sy)){
