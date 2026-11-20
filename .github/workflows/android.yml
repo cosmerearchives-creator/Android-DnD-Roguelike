@@ -72,6 +72,13 @@ jobs:
 
 
           PY
+      - name: Verify articulated gait math
+        run: |
+          mkdir -p "$RUNNER_TEMP/gait-tests"
+          javac -d "$RUNNER_TEMP/gait-tests" \
+            app/src/main/java/com/cosmerearchives/dndroguelike/GaitModel.java \
+            tests/com/cosmerearchives/dndroguelike/GaitModelTest.java
+          java -cp "$RUNNER_TEMP/gait-tests" com.cosmerearchives.dndroguelike.GaitModelTest
       - name: Build and lint
         run: gradle :app:assembleDebug :app:lintDebug --no-daemon
       - name: Upload check results
