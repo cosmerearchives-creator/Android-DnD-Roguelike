@@ -74,6 +74,7 @@ final class RiggedElf {
         c.translate(sway*.35f,bounce+breathe);
         float leftShoulder=RigViewProfile.shoulderX(facing,0);
         float rightShoulder=RigViewProfile.shoulderX(facing,1);
+        float shoulderY = -108f;
         float leftElbow=RigViewProfile.elbowX(facing,0)+leftSwing*.2f;
         float rightElbow=RigViewProfile.elbowX(facing,1)+rightSwing*.2f;
         float leftHand=RigViewProfile.handX(facing,0)+leftSwing*.55f;
@@ -84,7 +85,7 @@ final class RiggedElf {
         if(side) {
             // Sword hand is the FAR arm. Draw behind breastplate, rather than
             // putting two equally prominent shoulders on the front plane.
-            drawArm(c,rightShoulder,-103f,rightElbow,-80f,
+            drawArm(c,rightShoulder,shoulderY,rightElbow,-80f,
                     rightHand,rightHandY,1,facing,armored);
             if(armored)drawSword(c,rightHand,rightHandY,true);
         }
@@ -100,11 +101,11 @@ final class RiggedElf {
             c.restore();
         }
 
-        drawArm(c,leftShoulder,-103f,leftElbow,-81f,leftHand,leftHandY,0,facing,armored);
+        drawArm(c,leftShoulder,shoulderY,leftElbow,-81f,leftHand,leftHandY,0,facing,armored);
         if(armored)drawShield(c,leftHand,leftHandY,side,back);
 
         if(!side) {
-            drawArm(c,rightShoulder,-103f,rightElbow,-81f,
+            drawArm(c,rightShoulder,shoulderY,rightElbow,-81f,
                     rightHand,rightHandY,1,facing,armored);
             if(armored)drawSword(c,rightHand,rightHandY,false);
         }
@@ -170,13 +171,9 @@ final class RiggedElf {
         float footX=leg.footX,footY=leg.footY;
         float ankleY=leg.ankleY;
         if(layers.ready()){
-            // Skin bridge under both painted leg parts keeps knee anatomy
-            // continuous even in extreme flexion.
-            p.setColor(SKIN);p.setStyle(Paint.Style.FILL);
-            c.drawOval(kneeX-3.4f,kneeY-3.9f,kneeX+3.4f,kneeY+3.9f,p);
             // Lower leg goes behind the upper leg at the shared knee.
             // This conceals the boot segment's rectangular source edge.
-            layers.limb(c,facing,ElfLayerSprites.SHIN,index,kneeX,kneeY,footX,footY+1f,
+            layers.limb(c,facing,ElfLayerSprites.SHIN,index,kneeX,kneeY,footX,footY,
                         16f,armored);
             layers.limb(c,facing,ElfLayerSprites.THIGH,index,hipX,hipY,kneeX,kneeY,
                         17f,armored);
@@ -222,8 +219,6 @@ final class RiggedElf {
     private void drawArm(Canvas c,float shoulderX,float shoulderY,float elbowX,float elbowY,
                          float handX,float handY,int hand,int facing,boolean armored) {
         if(layers.ready()){
-            p.setColor(SKIN);p.setStyle(Paint.Style.FILL);
-            c.drawOval(elbowX-3.8f,elbowY-4.3f,elbowX+3.8f,elbowY+4.3f,p);
             layers.limb(c,facing,ElfLayerSprites.UPPER_ARM,hand,
                         shoulderX,shoulderY,elbowX,elbowY,14f,armored);
             layers.limb(c,facing,ElfLayerSprites.FOREARM,hand,

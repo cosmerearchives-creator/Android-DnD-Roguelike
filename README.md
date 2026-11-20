@@ -1,5 +1,9 @@
 # Android DnD Roguelike
 
+## v0.3.11 — align the Wildlands rig seams
+- Registers limb artwork at the joints in each facing. The base and armor use the same transforms.
+- Trims duplicate shoulder, cuff, and knee artwork from the base layers and places both boots at the rig's ground contacts.
+
 ## v0.3.10 — single Wildlands character rig
 - Removes the Original comparison mode and its full-body and walking atlases from the app. The Base Only / Armor On button sits on the right side of the HUD.
 - Uses a dedicated face and hair atlas. Front, side, and back artwork attaches at the rig's collar, and the left-facing view mirrors the side profile.

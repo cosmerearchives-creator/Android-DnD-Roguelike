@@ -14,8 +14,8 @@ final class RigViewProfile {
     }
 
     static float shoulderX(int facing,int arm) {
-        if(isSide(facing)) return arm==0 ? -8f : 7f;
-        return arm==0 ? -22f : 22f;
+        if(isSide(facing)) return arm==0 ? -6f : 2f;
+        return arm==0 ? -18f : 18f;
     }
 
     static float elbowX(int facing,int arm) {
