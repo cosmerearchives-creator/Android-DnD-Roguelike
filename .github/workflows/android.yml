@@ -69,6 +69,22 @@ jobs:
                   crop = props.crop((index*256,0,(index+1)*256,256))
                   assert crop.getchannel('A').getbbox(), f'Empty illustrated vegetation {index}'
               print('4 painted vegetation and rock props validated.')
+          # Articulated character uses two truly separate 20-part transparent
+          # illustrated atlases (base beneath detachable armor).
+          for filename in ('elf_base_layers.webp','elf_armor_layers.webp'):
+              with Image.open('app/src/main/assets/'+filename) as atlas:
+                  atlas.load()
+                  assert atlas.size == (768,960), f'{filename} wrong grid: {atlas.size}'
+                  assert atlas.mode == 'RGBA', f'{filename} missing real alpha: {atlas.mode}'
+                  assert atlas.getpixel((0,0))[3]==0, f'{filename} must be transparent'
+                  for part in range(5):
+                      for direction in range(4):
+                          cell=atlas.crop((direction*192,part*192,
+                                           (direction+1)*192,(part+1)*192))
+                          assert cell.getchannel('A').getbbox(), (
+                              f'{filename} missing body part {part} direction {direction}')
+                  print(filename+': verified all 20 articulated illustration cells')
+
 
 
           PY
