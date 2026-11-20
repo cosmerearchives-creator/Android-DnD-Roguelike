@@ -68,6 +68,10 @@ public final class OutdoorActivity extends Activity {
         private final Path path=new Path();
         private final PlayerCharacter hero;
         private final IllustratedFighter fighterArt;
+        private final RiggedElf riggedArt;
+        private final GaitModel gait=new GaitModel();
+        private boolean rigTest=true;
+        private final RectF rigToggleBounds=new RectF();
         private final String heroName;
         private float x=0.5f,y=0.5f,camX=x,camY=y,targetX=x,targetY=y;
         private float joyX,joyY,knobX,knobY;
@@ -119,6 +123,9 @@ public final class OutdoorActivity extends Activity {
                 }
             }
             fighterArt=new IllustratedFighter(context,hero);
+            riggedArt=new RiggedElf(context);
+            rigTest=context.getSharedPreferences("animation_lab",Context.MODE_PRIVATE)
+                .getBoolean("rig_test",true);
             heroName=hero!=null&&hero.completed?hero.name:"Explorer";
             density=getResources().getDisplayMetrics().density;
             setFocusable(true);
@@ -440,8 +447,9 @@ public final class OutdoorActivity extends Activity {
                 if(visuallyWalking){
                     float travelled=(float)Math.hypot(x-oldX,y-oldY);
                     // One cycle covers 1.2 world tiles, synchronizing footfalls to movement.
-                    if(!wasWalking)walkTime=0f;
-                    walkTime+=travelled/1.2f;
+                    if(!wasWalking && gaitBlend<=0f)gait.reset();
+                    gait.advance(travelled);
+                    walkTime=gait.cycles();
                 }
             }
             if(attackRemaining>0f)attackRemaining=Math.max(0f,attackRemaining-dt);
@@ -494,16 +502,25 @@ public final class OutdoorActivity extends Activity {
                         // Grounded contact shadow and alternating soft footfall.
                         float stride=(float)Math.sin(walkTime*(float)(Math.PI*2));
                         oval(c,0x880A1614,feetX-21,feetY-6,feetX+21,feetY+6);
-                        if(visuallyWalking){
+                        if(visuallyWalking && !rigTest){
+                            // Legacy animated sprite retains its original footfall preview.
                             float offset=13f*stride;
                             oval(c,0x5530251A,feetX-13+offset,feetY-3,feetX-5+offset,feetY+3);
                             oval(c,0x5530251A,feetX+5-offset,feetY-3,feetX+13-offset,feetY+3);
                         }
                         float attackProgress=attackRemaining<=0f?0f:
                             1f-attackRemaining/ATTACK_DURATION;
-                        fighterArt.draw(c,feetX,feetY,.86f,facing,
-                            walkTime,attackRemaining>0f?2:(visuallyWalking?1:0),
-                            gaitBlend,idleTime,attackProgress);
+                        if(rigTest){
+                            // A real two-bone rig with independent planted feet; current
+                            // portrait is preserved, temporary armor limb art is diagnostic.
+                            riggedArt.draw(c,feetX,feetY,.86f,facing,walkTime,
+                                gaitBlend,idleTime,attackProgress);
+                        }else{
+                            // Original approved full-body illustration remains untouched.
+                            fighterArt.draw(c,feetX,feetY,.86f,facing,
+                                walkTime,attackRemaining>0f?2:(visuallyWalking?1:0),
+                                gaitBlend,idleTime,attackProgress);
+                        }
                         text(c,heroName,feetX-25,feetY-157,12,0xFFFFF0D1);
                     }
                 }
@@ -519,6 +536,11 @@ public final class OutdoorActivity extends Activity {
             rect(c,0xF0192630,0,0,getWidth(),62*d);
             rect(c,0xFFB89A62,0,61*d,getWidth(),62*d);
             text(c,"THE WILDLANDS",15*d,24*d,16*d,0xFFF4DCAA);
+            rigToggleBounds.set(getWidth()-112*d,8*d,getWidth()-9*d,49*d);
+            rounded(c,rigTest?0xFF3C685B:0xFF4A5667,rigToggleBounds.left,
+                rigToggleBounds.top,rigToggleBounds.right,rigToggleBounds.bottom,6*d);
+            text(c,rigTest?"RIG TEST":"ORIGINAL",rigToggleBounds.left+10*d,36*d,
+                12*d,0xFFF3DBA4);
             text(c,String.format(Locale.US,"REGION 01  ·  ELEV %d  ·  EXPLORED %d  ·  %.0f, %.0f",
                 height((int)x,(int)y),discovered,x,y),15*d,45*d,10*d,0xFFBFC5B6);
             rounded(c,0xEF192632,0,h-112*d,getWidth(),h,10*d);
@@ -585,6 +607,12 @@ public final class OutdoorActivity extends Activity {
                     return true;
                 }
                 if(sy>h)return true;
+                if(rigToggleBounds.contains(sx,sy)){
+                    rigTest=!rigTest;
+                    getContext().getSharedPreferences("animation_lab",Context.MODE_PRIVATE)
+                        .edit().putBoolean("rig_test",rigTest).apply();
+                    invalidate();return true;
+                }
                 if(attackBounds.contains(sx,sy)){
                     // Exploration has no combat targets yet; this input previews the
                     // same attack animation without changing game state or dealing damage.
