@@ -99,6 +99,11 @@ final class RiggedElf {
                     rightHand,rightHandY,1,facing,armored);
             if(armored)drawSword(c,rightHand,rightHandY,true);
         }
+        // The previous portrait mask removed the original illustrated
+        // collar/neck together with the duplicate armor, leaving a visible
+        // background gap between the cropped head and independent torso.
+        // This new rig-space neck sits behind head/hair and body clothing.
+        if(layers.ready())drawNeckBridge(c,facing);
         // Put the old portrait behind the separate body; its source also
         // contains shoulder and chest pixels that otherwise double-render.
         if(approvedAtlas!=null)drawOriginalPortrait(c,facing,side);
@@ -116,6 +121,34 @@ final class RiggedElf {
 
         c.restore();
         c.restore();
+    }
+
+    /**
+     * A narrow skin-colored bridge connects jaw, neck and collar in all four
+     * facings without restoring the baked-in armored shoulders in portrait art.
+     * Its upper end is concealed by the facial illustration; the lower end is
+     * covered by the illustrated torso. Thus no green terrain can show between
+     * them, and BASE ONLY / ARMOR ON share identical geometry.
+     */
+    private void drawNeckBridge(Canvas c,int facing) {
+        boolean side=RigViewProfile.isSide(facing);
+        boolean back=facing==2;
+        float center=side?-1.5f:0f;
+        float width=side?5.0f:6.6f;
+        // Connected region deliberately extends beyond the painted chin and
+        // the base garment's neckline: overlap rather than merely touch.
+        polygon(c,0xFFAB7964,
+            center-width-1f,-149f,center+width*.82f,-149f,
+            center+width+1f,-110f,center-width*.9f,-110f);
+        polygon(c,back?0xFFC49D80:0xFFE5BA99,
+            center-width*.74f,-150f,center+width*.60f,-150f,
+            center+width*.76f,-111f,center-width*.66f,-111f);
+        if(!back)polygon(c,0x55FFE7C6,
+            center-width*.36f,-148f,center+width*.02f,-148f,
+            center+width*.08f,-116f,center-width*.29f,-116f);
+        // Slight jaw shadow, which remains behind the face bitmap.
+        if(!back)oval(c,0x44764A36,center-width*.73f,-144f,
+                      center+width*.58f,-139f);
     }
 
     /** Actual approved armor pixels, clipped to a directional, articulated silhouette. */

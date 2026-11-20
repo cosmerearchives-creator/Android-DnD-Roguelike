@@ -1,5 +1,11 @@
 # Android DnD Roguelike
 
+## v0.3.8 — restore anatomically connected neck in base and armored rig
+- Four on-device BASE ONLY screenshots from v0.3.7 confirmed the masked portrait no longer contains the old shoulders, but now the High Elf's head looks detached from her torso in front and side facings because the crop also removed the painted collar/neck.
+- Adds a **slender, direction-aware skin neck bridge** beneath the existing head/hair and independently illustrated torso. It overlaps the portrait's chin and the base garment neckline to eliminate terrain-colored gaps without reviving the original armored chest/shoulders.
+- Keeps both rig body layers unchanged and retains the exact four-facing portrait, torso, gait IK, foot planting, animations, HUD, and world rendering. The rear view uses a subtly shaded neck beneath the hair.
+- This is a local art correction; verify the visual result on the phone before subsequent proportion or animation changes.
+
 ## v0.3.7 — isolate the painted portrait from the rigged base body
 - Phone screenshots of v0.3.6 revealed a remaining *second upper body* behind the real base torso. The approved original bitmap's supposed head crop included its original metal shoulders, chest and arm; changing painter order did not remove those pixels.
 - The rig now clips that inherited illustration to separate head/hair silhouettes for front, rear and true side facings. The torso, shoulders and arms come only from the detachable illustrated rig layers, with no full-body fragments double-rendering.
