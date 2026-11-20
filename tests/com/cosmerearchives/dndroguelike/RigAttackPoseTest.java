@@ -7,20 +7,23 @@ final class RigAttackPoseTest {
         RigPunchPose punch = new RigPunchPose();
         for (int facing = 0; facing < 4; facing++) {
             punch.sample(.28f, facing);
-            if (!punch.fist || punch.guard <= 0f || punch.reaching) {
+            if (punch.closure != 1f || punch.guard <= 0f || punch.reaching) {
                 throw new AssertionError("punch wind-up and guard for facing " + facing);
             }
             float windupWristY = punch.wristY;
+            punch.sample(.12f, facing);
+            require(punch.closure > 0f && punch.closure < 1f, "hand closes gradually");
             punch.sample(.46f, facing);
-            if (!punch.reaching || punch.wristY >= windupWristY) {
+            if (!punch.reaching || punch.wristY >= windupWristY || punch.impact < .95f) {
                 throw new AssertionError("punch release for facing " + facing);
             }
             if (RigViewProfile.isSide(facing) && punch.wristX <= punch.elbowX + 15f) {
                 throw new AssertionError("profile punch should extend forward");
             }
             punch.sample(1f, facing);
-            if (punch.fist || punch.reaching || punch.elbowX != 0f || punch.wristY != 0f
-                || punch.lean != 0f || punch.guard != 0f || punch.brace != 0f) {
+            if (punch.closure != 0f || punch.reaching || punch.elbowX != 0f || punch.wristY != 0f
+                || punch.lean != 0f || punch.guard != 0f || punch.brace != 0f
+                || punch.impact != 0f || punch.shoulderDrive != 0f) {
                 throw new AssertionError("punch returns to neutral");
             }
         }

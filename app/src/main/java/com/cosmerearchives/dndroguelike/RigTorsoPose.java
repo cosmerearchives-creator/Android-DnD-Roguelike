@@ -21,6 +21,12 @@ final class RigTorsoPose {
         shoulderOverlap = .5f * walk;
     }
 
+    void applyPunch(float shoulderDrive) {
+        chestX += shoulderDrive;
+        neckX += shoulderDrive * .3f;
+        if (!side) roll += shoulderDrive * .022f;
+    }
+
     void offsets(float x, float y, float[] target, int at) {
         float waist = smooth((WAIST_Y - y) / (WAIST_Y - CHEST_Y));
         float neck = smooth((CHEST_Y - y) / (CHEST_Y - NECK_Y));

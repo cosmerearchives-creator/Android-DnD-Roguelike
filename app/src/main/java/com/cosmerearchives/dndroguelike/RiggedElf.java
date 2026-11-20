@@ -80,6 +80,7 @@ final class RiggedElf {
         boolean punching = !armored && attackProgress > 0f;
         attack.sample(armored ? attackProgress : 0f, side);
         punch.sample(punching ? attackProgress : 0f, facing);
+        torso.applyPunch(punch.shoulderDrive);
         bounce += attack.brace + punch.brace + idle.hipY;
 
         boolean boundBase = !armored && baseArt.ready(facing);
@@ -126,7 +127,7 @@ final class RiggedElf {
             leftElbow += punch.guard * (side ? 4f : 2f);
             leftElbowY -= punch.guard * 6f;
             leftHand += punch.guard * (side ? 10f : 7f);
-            leftHandY -= punch.guard * 22f;
+            leftHandY -= punch.guard * (side ? 20f : 16f);
         } else if (attackProgress > 0f) {
             float upperX = rightElbow - rightShoulder, upperY = rightElbowY - shoulderY;
             float lowerX = rightHand - rightElbow, lowerY = rightHandY - rightElbowY;
@@ -165,13 +166,16 @@ final class RiggedElf {
         if (closeUpWidth > 0f) {
             // Keep a steady close-up until the pose needs room for the blade.
             float blade = (float)Math.toRadians(attack.blade);
-            float reach = armored ? BLADE_TIP_Y : punching ? 6f : 0f;
+            float reach = armored ? BLADE_TIP_Y : 0f;
             float hipY = RigLegPose.HIP_Y;
             float lean = (float)Math.toRadians(torsoLean);
             float tipX = torsoX + rotateX(rightHand + rotateX(0f, reach, blade),
                 rightHandY - hipY + rotateY(0f, reach, blade), lean);
             float wristX = torsoX + rotateX(rightHand, rightHandY - hipY, lean);
             float elbowX = torsoX + rotateX(rightElbow, rightElbowY - hipY, lean);
+            if (punching) {
+                tipX = wristX + Math.copySign(7f, wristX - elbowX) * punch.closure;
+            }
             float left = Math.min(side ? -36f : -53f, Math.min(tipX-3f,
                 Math.min(wristX-14f, elbowX-10f)));
             float right = Math.max(side ? 36f : 48f, Math.max(tipX+3f,
@@ -478,7 +482,7 @@ final class RiggedElf {
                          float handX,float handY,int hand,int facing,boolean armored) {
         if (!armored && baseArt.ready(facing)) {
             baseArt.drawArm(c,facing,hand,torso,shoulderX,shoulderY,elbowX,elbowY,handX,handY,
-                hand == 1 && punch.fist);
+                hand == 1 ? punch.closure : 0f, punch.impact);
             return;
         }
         if(layers.ready()){

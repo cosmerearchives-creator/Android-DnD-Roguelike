@@ -82,7 +82,7 @@ final class ElfBaseArt {
 
     void drawArm(Canvas canvas, int facing, int index, RigTorsoPose torso,
                  float shoulderX, float shoulderY, float elbowX, float elbowY,
-                 float wristX, float wristY, boolean fist) {
+                 float wristX, float wristY, float closure, float impact) {
         Sprite arm = facings[facing].limbs[index];
         float elbowDx = elbowX - RigViewProfile.elbowX(facing, index);
         float elbowDy = elbowY - RigViewProfile.elbowY(facing, index);
@@ -96,19 +96,28 @@ final class ElfBaseArt {
                 (arm.sourceY - SOLE_Y) * UNIT, WIDTH * UNIT, HEIGHT * UNIT, COLUMNS, ROWS,
                 arm.rootX, arm.rootY, facing == 2 ? -1f : 1f, shoulderPoint);
         }
-        if (fist && arm.closedHandArm != null) {
-            arm.draw(canvas, paint, arm.closedHandArm);
+        if (closure > 0f && arm.sleeve != null) {
+            arm.draw(canvas, paint, arm.sleeve);
+            if (closure < 1f) {
+                paint.setAlpha(Math.round(255f * (1f - closure)));
+                arm.draw(canvas, paint, arm.openHand);
+                paint.setAlpha(255);
+            }
+            float size = 1f + impact * (RigViewProfile.isSide(facing) ? .08f : .26f);
             drawFist(canvas, arm.jointX + elbowDx, arm.jointY + elbowDy,
-                arm.tipX + wristDx, arm.tipY + wristDy);
+                arm.tipX + wristDx, arm.tipY + wristDy, closure, size);
         } else {
             arm.draw(canvas, paint, arm.bitmap);
         }
     }
 
-    private void drawFist(Canvas canvas, float elbowX, float elbowY, float wristX, float wristY) {
+    private void drawFist(Canvas canvas, float elbowX, float elbowY, float wristX, float wristY,
+                          float opacity, float size) {
+        int alpha = Math.round(255f * opacity);
         canvas.save();
         canvas.translate(wristX, wristY);
         canvas.rotate((float) Math.toDegrees(Math.atan2(wristY - elbowY, wristX - elbowX)));
+        canvas.scale(size, size);
         fistShape.reset();
         fistShape.moveTo(-1.4f, -2.15f);
         fistShape.lineTo(2f, -2.85f);
@@ -117,7 +126,7 @@ final class ElfBaseArt {
         fistShape.lineTo(1.8f, 2.7f);
         fistShape.lineTo(-1.4f, 1.8f);
         fistShape.close();
-        fistPaint.setColor(0xFF302E35);
+        fistPaint.setColor((alpha << 24) | 0x302E35);
         canvas.drawPath(fistShape, fistPaint);
         fistShape.reset();
         fistShape.moveTo(2.8f, -2.2f);
@@ -126,9 +135,9 @@ final class ElfBaseArt {
         fistShape.lineTo(3.5f, 2.05f);
         fistShape.quadTo(2.45f, .45f, 2.8f, -2.2f);
         fistShape.close();
-        fistPaint.setColor(0xFFC59063);
+        fistPaint.setColor((alpha << 24) | 0xC59063);
         canvas.drawPath(fistShape, fistPaint);
-        fistPaint.setColor(0xFFE5B286);
+        fistPaint.setColor((alpha << 24) | 0xE5B286);
         canvas.drawOval(3.1f, -2.25f, 5.1f, -1.05f, fistPaint);
         canvas.restore();
     }
@@ -182,7 +191,7 @@ final class ElfBaseArt {
     }
 
     private static final class Sprite {
-        final Bitmap bitmap, closedHandArm;
+        final Bitmap bitmap, sleeve, openHand;
         final LimbMesh mesh;
         final int sourceX, sourceY;
         private final float rootX, rootY, jointX, jointY, tipX, tipY;
@@ -190,13 +199,12 @@ final class ElfBaseArt {
         Sprite(Bitmap bitmap, int[] points, boolean attached, float rearHipFit, boolean punchingArm) {
             this.bitmap = bitmap;
             if (punchingArm) {
-                // Keep the sleeve and wrist. The closed fist is drawn at the posed wrist.
-                closedHandArm = Bitmap.createBitmap(WIDTH, HEIGHT, Bitmap.Config.ARGB_8888);
-                Canvas cutout = new Canvas(closedHandArm);
-                cutout.clipRect(0, 0, WIDTH, points[5] + 3);
-                cutout.drawBitmap(bitmap, null, new RectF(0, 0, WIDTH, HEIGHT), null);
+                int wrist = points[5] + 3;
+                sleeve = armSection(bitmap, 0, wrist);
+                openHand = armSection(bitmap, wrist, HEIGHT);
             } else {
-                closedHandArm = null;
+                sleeve = null;
+                openHand = null;
             }
             sourceX = points[6];
             sourceY = points[7];
@@ -208,6 +216,14 @@ final class ElfBaseArt {
             tipY = (sourceY + points[5] - SOLE_Y) * UNIT;
             mesh = new LimbMesh(WIDTH, HEIGHT, COLUMNS, ROWS, UNIT,
                 points[0], points[1], points[2], points[3], points[4], points[5], attached, rearHipFit);
+        }
+
+        private static Bitmap armSection(Bitmap bitmap, int top, int bottom) {
+            Bitmap section = Bitmap.createBitmap(WIDTH, HEIGHT, Bitmap.Config.ARGB_8888);
+            Canvas cutout = new Canvas(section);
+            cutout.clipRect(0, top, WIDTH, bottom);
+            cutout.drawBitmap(bitmap, null, new RectF(0, 0, WIDTH, HEIGHT), null);
+            return section;
         }
 
         void pose(float dx0, float dy0, float dx1, float dy1, float dx2, float dy2) {
