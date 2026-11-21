@@ -3,9 +3,10 @@ package com.cosmerearchives.dndroguelike;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Intent;
-import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
+import android.graphics.drawable.RippleDrawable;
+import android.content.res.ColorStateList;
 import android.content.res.Configuration;
 import android.util.TypedValue;
 import android.os.Bundle;
@@ -18,11 +19,16 @@ import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
+import android.widget.HorizontalScrollView;
 import android.widget.ScrollView;
 import android.widget.SeekBar;
 import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.AdapterView;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowCompat;
+import androidx.core.view.WindowInsetsCompat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -40,9 +46,13 @@ public final class CharacterCreatorActivity extends Activity {
     private boolean building=false;
     private final Random random=new Random();
     private final String[] tabs={"Identity","Abilities","Background","Class","Equipment","Review"};
-    private final int bg=0xFF171F2B,fg=0xFFF0E6D1,accent=0xFFBDA06B;
+    private static final int BG=0xFF13212A, INK=0xFFF3E0B7, BRASS=0xFFC7A96D;
+    private static final int PANEL=0xFF1A2D35, SLATE=0xFF30494E, FOREST=0xFF365D50;
+    private static final Typeface SERIF=Typeface.create("serif",Typeface.BOLD);
     @Override public void onCreate(Bundle saved){
         super.onCreate(saved);
+        WindowCompat.setDecorFitsSystemWindows(getWindow(),false);
+        getWindow().setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
         hero=PlayerCharacter.loadDraft(this);
         if(saved!=null){
             tab=saved.getInt("step");
@@ -63,13 +73,13 @@ public final class CharacterCreatorActivity extends Activity {
     }
 
     private TextView text(String value,int size){
-        TextView t=new TextView(this);t.setText(value);t.setTextColor(fg);t.setTextSize(size);
-        t.setPadding(8,9,8,9);return t;
+        TextView t=new TextView(this);t.setText(value);t.setTextColor(INK);t.setTextSize(size);
+        t.setPadding(dp(4),dp(5),dp(4),dp(5));return t;
     }
     private void heading(String s){
-        TextView h=text(s,21);h.setTypeface(null,Typeface.BOLD);h.setTextColor(0xFFF3DCAD);contents.addView(h);
+        TextView h=text(s,21);h.setTypeface(SERIF);h.setTextColor(INK);contents.addView(h);
     }
-    private void note(String s){TextView t=text(s,13);t.setTextColor(0xFFBFC8D2);contents.addView(t);}
+    private void note(String s){TextView t=text(s,13);t.setTextColor(0xFFC1CEC4);contents.addView(t);}
     private void persist(){
         if(building)return;
         hero.save(this);
@@ -90,7 +100,10 @@ public final class CharacterCreatorActivity extends Activity {
     private int dp(float n){return Math.round(TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP,n,getResources().getDisplayMetrics()));}
     private GradientDrawable panel(int color,float radius){
         GradientDrawable d=new GradientDrawable();d.setColor(color);d.setCornerRadius(dp(radius));
-        d.setStroke(dp(1),0xFF3E5261);return d;
+        d.setStroke(dp(1),0xFF796849);return d;
+    }
+    private RippleDrawable buttonBackground(int color){
+        return new RippleDrawable(ColorStateList.valueOf(0x36F4E2B7),panel(color,6),null);
     }
     private LinearLayout vertical(){
         LinearLayout l=new LinearLayout(this);l.setOrientation(LinearLayout.VERTICAL);return l;
@@ -101,35 +114,54 @@ public final class CharacterCreatorActivity extends Activity {
     private void show(){
         building=true;
         boolean landscape=getResources().getConfiguration().orientation==Configuration.ORIENTATION_LANDSCAPE;
-        root=vertical();root.setBackgroundColor(bg);root.setPadding(dp(12),dp(12),dp(12),dp(8));
-        TextView headline=text("Create your High Elf",25);headline.setTypeface(null,Typeface.BOLD);
+        root=vertical();
+        root.setBackground(new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
+            new int[]{0xFF20333A,BG,0xFF16282C}));
+        root.setFocusableInTouchMode(true);
+        ViewCompat.setOnApplyWindowInsetsListener(root,(view,insets)->{
+            Insets safe=insets.getInsets(WindowInsetsCompat.Type.systemBars()
+                |WindowInsetsCompat.Type.displayCutout()|WindowInsetsCompat.Type.ime());
+            view.setPadding(safe.left+dp(12),safe.top+dp(6),safe.right+dp(12),safe.bottom+dp(8));
+            return WindowInsetsCompat.CONSUMED;
+        });
+        TextView headline=text("Create your High Elf",26);
+        headline.setTypeface(SERIF);
         root.addView(headline);
-        // Compact progress with all six sections, navigable by tapping step chips.
+        View rule=new View(this);
+        rule.setBackgroundColor(BRASS);
+        root.addView(rule,new LinearLayout.LayoutParams(-1,dp(1)));
+        HorizontalScrollView steps=new HorizontalScrollView(this);
+        steps.setHorizontalScrollBarEnabled(false);
+        steps.setFillViewport(true);
         LinearLayout nav=horizontal();
+        Button activeStep=null;
         for(int i=0;i<tabs.length;i++){
             final int step=i;
-            Button chip=button((i+1)+(tab==i?"  "+tabs[i]:""),()->{tab=step;show();});
-            chip.setTextSize(landscape?11:12);
-            chip.setPadding(dp(3),0,dp(3),0);
-            chip.setBackground(panel(tab==i?0xFF846F4C:0xFF263643,9));
-            chip.setTextColor(0xFFFFF4D9);
-            LinearLayout.LayoutParams cp=new LinearLayout.LayoutParams(0,dp(42),tab==i?1.8f:1);
-            cp.setMargins(dp(2),dp(3),dp(2),dp(7));nav.addView(chip,cp);
+            Button chip=button(tabs[i],()->{tab=step;show();});
+            chip.setBackground(buttonBackground(tab==i?FOREST:PANEL));
+            chip.setSelected(tab==i);
+            if(tab==i)activeStep=chip;
+            LinearLayout.LayoutParams cp=new LinearLayout.LayoutParams(-2,dp(44),1f);
+            cp.setMargins(dp(2),dp(7),dp(2),dp(7));nav.addView(chip,cp);
         }
-        root.addView(nav);
+        steps.addView(nav);
+        root.addView(steps);
+        Button selected=activeStep;
+        steps.post(()->steps.scrollTo(selected.getLeft()-dp(8),0));
         LinearLayout work=horizontal();
         work.setGravity(Gravity.TOP);
         root.addView(work,new LinearLayout.LayoutParams(-1,0,1));
+        ScrollView scroll=new ScrollView(this);
+        LinearLayout column=vertical();
+        scroll.addView(column);
         LinearLayout stage=vertical();
-        stage.setBackground(panel(0xFF172734,16));
+        stage.setBackground(panel(PANEL,8));
         stage.setPadding(dp(6),dp(6),dp(6),dp(6));
         if(landscape) {
             LinearLayout.LayoutParams pp=new LinearLayout.LayoutParams(0,-1,.9f);
             pp.setMargins(0,0,dp(10),0);work.addView(stage,pp);
         }else{
-            LinearLayout column=vertical();
-            work.addView(column,new LinearLayout.LayoutParams(-1,-1));
-            LinearLayout.LayoutParams pp=new LinearLayout.LayoutParams(-1,dp(244));
+            LinearLayout.LayoutParams pp=new LinearLayout.LayoutParams(-1,dp(258));
             pp.setMargins(0,0,0,dp(8));column.addView(stage,pp);
         }
         LinearLayout appearanceControls=horizontal();
@@ -138,6 +170,7 @@ public final class CharacterCreatorActivity extends Activity {
         appearanceControls.addView(previousAppearance,new LinearLayout.LayoutParams(dp(44),dp(40)));
         appearanceLabel=text(appearanceText(),14);
         appearanceLabel.setGravity(Gravity.CENTER);
+        appearanceLabel.setTypeface(SERIF);
         appearanceLabel.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);
         appearanceControls.addView(appearanceLabel,new LinearLayout.LayoutParams(0,-2,1));
         Button nextAppearance=button("›",()->cycleAppearance(1));
@@ -171,15 +204,12 @@ public final class CharacterCreatorActivity extends Activity {
         });
         previewControls.addView(motion,new LinearLayout.LayoutParams(0,dp(39),1f));
         stage.addView(previewControls);
-        ScrollView scroll=new ScrollView(this);scroll.setFillViewport(false);
-        contents=vertical();contents.setPadding(dp(8),dp(7),dp(8),dp(24));
-        scroll.addView(contents);
-        if(landscape){
-            work.addView(scroll,new LinearLayout.LayoutParams(0,-1,1.1f));
-        }else{
-            LinearLayout column=(LinearLayout)stage.getParent();
-            column.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));
-        }
+        contents=vertical();contents.setPadding(dp(8),dp(8),dp(8),dp(16));
+        contents.setBackground(panel(PANEL,8));
+        column.addView(contents,new LinearLayout.LayoutParams(-1,-2));
+        work.addView(scroll,landscape
+            ? new LinearLayout.LayoutParams(0,-1,1.1f)
+            : new LinearLayout.LayoutParams(-1,-1));
         heading(tabs[tab]);
         if(tab==0)identity();
         if(tab==1)abilities();
@@ -187,44 +217,48 @@ public final class CharacterCreatorActivity extends Activity {
         if(tab==3)fighter();
         if(tab==4)equipment();
         if(tab==5)review();
-        LinearLayout footer=vertical();footer.setBackground(panel(0xFF233443,13));
-        footer.setPadding(dp(8),dp(5),dp(8),dp(5));
+        LinearLayout footer=vertical();footer.setBackground(panel(PANEL,8));
+        footer.setPadding(dp(6),dp(4),dp(6),dp(6));
         summary=text(stats(),13);summary.setGravity(Gravity.CENTER);summary.setTextColor(0xFFE5D2A9);footer.addView(summary);
         LinearLayout actions=horizontal();
         Button previous=button("Previous",()->{if(tab>0){tab--;show();}});
         previous.setEnabled(tab>0);
         actions.addView(previous,new LinearLayout.LayoutParams(0,dp(45),1));
-        Button save=button("Save draft",()->{hero.save(this);new AlertDialog.Builder(this).setMessage("Character draft saved locally.").setPositiveButton("OK",null).show();});
-        actions.addView(save,new LinearLayout.LayoutParams(0,dp(45),1));
-        Button next=button(tab==tabs.length-1?"START ADVENTURE":"Next step",()->{
+        previous.setAlpha(tab==0?.55f:1f);
+        Button next=button(tab==tabs.length-1?"Start adventure":"Next step",()->{
             if(tab<tabs.length-1){tab++;show();}else finishCharacter();
         });
-        next.setBackground(panel(0xFF9F8554,9));next.setTextColor(Color.WHITE);
-        actions.addView(next,new LinearLayout.LayoutParams(0,dp(45),1.2f));
+        next.setBackground(buttonBackground(FOREST));
+        LinearLayout.LayoutParams nextParams=new LinearLayout.LayoutParams(0,dp(45),1.2f);
+        nextParams.setMarginStart(dp(6));actions.addView(next,nextParams);
         footer.addView(actions);
-        root.addView(footer);
+        LinearLayout.LayoutParams footerParams=new LinearLayout.LayoutParams(-1,-2);
+        footerParams.topMargin=dp(6);root.addView(footer,footerParams);
         building=false;
         setContentView(root);
+        root.requestFocus();
+        ViewCompat.requestApplyInsets(root);
         persist();
     }
     private Button button(String caption,Runnable onClick){
-        Button b=new Button(this);b.setText(caption);b.setAllCaps(false);b.setTextColor(Color.WHITE);
-        b.setTextSize(13);b.setPadding(dp(5),0,dp(5),0);
-        b.setBackground(panel(0xFF304657,9));
+        Button b=new Button(this);b.setText(caption);b.setAllCaps(false);b.setTextColor(INK);
+        b.setTextSize(14);b.setPadding(dp(9),0,dp(9),0);
+        b.setMinWidth(0);b.setMinimumWidth(0);
+        b.setBackground(buttonBackground(SLATE));
         if(onClick!=null)b.setOnClickListener(v->onClick.run());
         return b;
     }
     private void select(String label,String[] options,String current,java.util.function.Consumer<String> changed){
         LinearLayout field=vertical();field.setPadding(dp(12),dp(7),dp(12),dp(9));
-        field.setBackground(panel(0xFF253747,11));
+        field.setBackground(panel(0xFF22383D,6));
         LinearLayout.LayoutParams fieldParams=new LinearLayout.LayoutParams(-1,-2);fieldParams.setMargins(0,dp(5),0,dp(5));
-        TextView title=text(label.toUpperCase(),12);title.setTextColor(accent);title.setLetterSpacing(.1f);
+        TextView title=text(label.toUpperCase(),12);title.setTextColor(BRASS);title.setLetterSpacing(.1f);
         field.addView(title);
         Spinner spinner=new Spinner(this);
         ArrayAdapter<String> a=new ArrayAdapter<String>(this,android.R.layout.simple_spinner_dropdown_item,options){
             @Override public View getView(int pos,View convert,android.view.ViewGroup parent){
                 TextView selected=(TextView)super.getView(pos,convert,parent);
-                selected.setTextColor(Color.WHITE);selected.setTextSize(16);return selected;
+                selected.setTextColor(INK);selected.setTextSize(16);return selected;
             }
         };
         spinner.setAdapter(a);int index=Arrays.asList(options).indexOf(current);spinner.setSelection(Math.max(0,index));
@@ -240,11 +274,11 @@ public final class CharacterCreatorActivity extends Activity {
         field.addView(spinner);contents.addView(field,fieldParams);
     }
     private void identity(){
-        note("High Elf  ·  Level 1");
+        note("Level 1  ·  Draft autosaves");
         note("Use the arrows above the model to choose your appearance.");
         contents.addView(text("Character name",15));
         EditText name=new EditText(this);name.setSingleLine(true);name.setText(hero.name);
-        name.setHint("Enter your character's name");name.setTextColor(fg);name.setHintTextColor(0xFF87919D);
+        name.setHint("Enter your character's name");name.setTextColor(INK);name.setHintTextColor(0xFF87919D);
         name.addTextChangedListener(new TextWatcher(){
             public void beforeTextChanged(CharSequence s,int start,int count,int after){}
             public void onTextChanged(CharSequence s,int start,int before,int count){hero.name=s.toString();persist();}

@@ -63,6 +63,11 @@ public class MainActivity extends Activity {
         create = new Button(this);
         create.setOnClickListener(v -> startActivity(new Intent(this, CharacterCreatorActivity.class)));
         root.addView(create);
+        Button explore = new Button(this);
+        explore.setText("Explore Wildlands");
+        explore.setOnClickListener(v -> startActivity(new Intent(this, OutdoorActivity.class)
+            .putExtra(OutdoorActivity.EXTRA_FREE_EXPLORE, true)));
+        root.addView(explore);
         check = new Button(this);
         check.setText("Check for updates");
         check.setOnClickListener(v -> checkUpdates());

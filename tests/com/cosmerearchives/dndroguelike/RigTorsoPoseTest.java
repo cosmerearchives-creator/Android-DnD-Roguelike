@@ -3,8 +3,8 @@ package com.cosmerearchives.dndroguelike;
 public final class RigTorsoPoseTest {
     public static void main(String[] args) {
         RigTorsoPose pose = new RigTorsoPose();
-        check(pose.shoulderSpread(-20f, -128f), -1.6f);
-        check(pose.shoulderSpread(20f, -128f), 1.6f);
+        check(pose.shoulderSpread(-20f, -128f), -3.76f);
+        check(pose.shoulderSpread(20f, -128f), 3.76f);
         check(pose.shoulderSpread(20f, RigTorsoPose.WAIST_Y), 0f);
         check(pose.shoulderSpread(20f, -150f), 0f);
 

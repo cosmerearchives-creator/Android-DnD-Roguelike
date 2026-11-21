@@ -168,7 +168,10 @@ final class RiggedElf {
         rightHandY += joints[3];
 
         float torsoX = sway * .35f + idle.hipX;
-        float torsoLean = attack.lean + punch.lean + idle.lean;
+        // The illustrated front and rear starts are level. Keep idle weight
+        // transfer through the hips without tilting the shoulder line.
+        float idleLean = boundBase && !side ? 0f : idle.lean;
+        float torsoLean = attack.lean + punch.lean + idleLean;
         if (closeUpWidth > 0f) {
             // Keep a steady close-up until the pose needs room for the blade.
             float blade = (float)Math.toRadians(attack.blade);

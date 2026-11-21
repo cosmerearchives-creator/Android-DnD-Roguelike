@@ -1,5 +1,10 @@
 # Android DnD Roguelike
 
+## v0.3.46 — shoulder spacing, exploration, and character creator
+- Widens front and back shoulder spacing by another 10% across all nine High Elves and keeps the idle shoulder line level.
+- Restores Explore Wildlands and lets players cycle appearances in the world without changing their saved character.
+- Styles the creator with the Wildlands palette and painted terrain. Keeps its footer clear of Android system bars and lets the portrait form scroll as one page.
+
 ## v0.3.45 — High Elf character creation and Wildlands start
 - New Game opens the High Elf creator. Cycle through all nine appearances and preview the actual model from four directions in idle, walk, and attack poses.
 - Create a level-one Fighter with the established ability rolls, background, fighting style, proficiencies, cantrip, languages, and starting gear. Start Adventure enters the Wildlands with your selected model. Continue restores the completed character, and unfinished drafts are stored separately.
