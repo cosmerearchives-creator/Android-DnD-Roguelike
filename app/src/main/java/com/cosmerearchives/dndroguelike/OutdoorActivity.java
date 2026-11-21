@@ -108,7 +108,12 @@ public final class OutdoorActivity extends Activity {
         private final String heroName;
         private float x=0.5f,y=0.5f,camX=x,camY=y,targetX=x,targetY=y;
         private float joyX,joyY,knobX,knobY;
-        private boolean joystick=false,moving=false,paused=false;
+        private static final int NO_POINTER = -1;
+        // One five-foot square per second, or six squares per six-second round.
+        private static final float WALK_TILES_PER_SECOND = 1f;
+        private static final float RUN_MULTIPLIER = 2f;
+        private int joystickPointer=NO_POINTER, runPointer=NO_POINTER;
+        private boolean moving=false,paused=false;
         private final RectF resumeBounds=new RectF(),menuBounds=new RectF(),quitBounds=new RectF();
         private final Context appContext;
         private int facing=0;
@@ -117,7 +122,7 @@ public final class OutdoorActivity extends Activity {
         private boolean visuallyWalking=false;
         private float gaitBlend=0f;
         private float attackRemaining=0f;
-        private final RectF attackBounds=new RectF();
+        private final RectF attackBounds=new RectF(), runBounds=new RectF();
         private long lastFrame;
         private static final float WORLD_RIG_SCALE=.86f;
         private static final float WORLD_COMPARISON_ZOOM=1f;
@@ -508,16 +513,17 @@ public final class OutdoorActivity extends Activity {
             boolean wasWalking=visuallyWalking;
             visuallyWalking=false;
             float dx=0,dy=0;
-            if(joystick){
+            if(joystickPointer!=NO_POINTER){
                 dx=knobX;
                 dy=knobY;
             }else if(moving){
                 dx=targetX-x;dy=targetY-y;
-                if(dx*dx+dy*dy<.0225f){moving=false;dx=0;dy=0;}
+                if(dx*dx+dy*dy<.000001f){moving=false;dx=0;dy=0;}
             }
             float distance=(float)Math.sqrt(dx*dx+dy*dy);
-            if(distance>.02f && attackRemaining<=0f){
-                float speed=movementFactor*2.4f;
+            if(distance>(joystickPointer!=NO_POINTER?.02f:.001f) && attackRemaining<=0f){
+                float speed=movementFactor*WALK_TILES_PER_SECOND;
+                if(runPointer!=NO_POINTER && canRun())speed*=RUN_MULTIPLIER;
                 float step=Math.min(distance,speed*dt),sx=dx/distance*step,sy=dy/distance*step;
                 float oldX=x,oldY=y;
                 if(walkable(x+sx,y))x+=sx;
@@ -663,6 +669,11 @@ public final class OutdoorActivity extends Activity {
             rounded(c,attackRemaining>0f?0xFF9B674A:0xFF4E5144,
                 attackBounds.left,attackBounds.top,attackBounds.right,attackBounds.bottom,7*d);
             text(c,"ATTACK",right-96*d,h-130*d,12*d,0xFFF5DFB1);
+            runBounds.set(right-214*d,h-158*d,right-118*d,h-112*d);
+            boolean runAvailable=canRun();
+            rounded(c,runAvailable?(runPointer!=NO_POINTER?0xFF3C685B:0xFF324B55):0xFF394249,
+                runBounds.left,runBounds.top,runBounds.right,runBounds.bottom,7*d);
+            text(c,"RUN",runBounds.left+14*d,h-130*d,12*d,runAvailable?0xFFF5DFB1:0xFF9B9E94);
             text(c,"Tap terrain to move  ·  Joystick to steer",135*d,h-9*d,10*d,0xFFB4C7C1);
             if(paused){
                 rect(c,0xD90A131C,0,0,getWidth(),h);
@@ -690,16 +701,56 @@ public final class OutdoorActivity extends Activity {
             // timer. The rig interpolates continuously; actual FPS depends on device load.
             if (!paused) postInvalidateOnAnimation();
         }
+        private boolean canRun(){
+            // Add hostile encounter state here when outdoor enemies are introduced.
+            return !paused && attackRemaining<=0f;
+        }
+
+        private void releaseJoystick(){
+            joystickPointer=NO_POINTER;
+            knobX=0;
+            knobY=0;
+        }
+
         private void setPaused(boolean value) {
             paused = value;
+            releaseJoystick();
+            runPointer=NO_POINTER;
             lastFrame = 0;
             invalidate();
         }
 
         private float ui(){return Math.min(density,Math.max(1f,getWidth()/390f));}
         @Override public boolean onTouchEvent(MotionEvent e){
-            int event=e.getActionMasked();float sx=e.getX(),sy=e.getY(),d=ui(),h=getHeight()-controlsBottom;
-            if(event==MotionEvent.ACTION_DOWN){
+            int event=e.getActionMasked(), index=e.getActionIndex();
+            int pointer=e.getPointerId(index);
+            float sx=e.getX(index),sy=e.getY(index),d=ui(),h=getHeight()-controlsBottom;
+            if(event==MotionEvent.ACTION_MOVE){
+                int stickIndex=e.findPointerIndex(joystickPointer);
+                if(stickIndex>=0)updateStick(e.getX(stickIndex),e.getY(stickIndex));
+                return true;
+            }
+            if(event==MotionEvent.ACTION_CANCEL || event==MotionEvent.ACTION_UP){
+                releaseJoystick();
+                runPointer=NO_POINTER;
+                return true;
+            }
+            if(event==MotionEvent.ACTION_POINTER_UP){
+                if(pointer==joystickPointer)releaseJoystick();
+                if(pointer==runPointer)runPointer=NO_POINTER;
+                return true;
+            }
+            if(event==MotionEvent.ACTION_DOWN || event==MotionEvent.ACTION_POINTER_DOWN){
+                if(runBounds.contains(sx,sy) && !paused){
+                    if(canRun() && runPointer==NO_POINTER)runPointer=pointer;
+                    return true;
+                }
+                if(event==MotionEvent.ACTION_POINTER_DOWN){
+                    if(runPointer==NO_POINTER || joystickPointer!=NO_POINTER)return true;
+                    if(sx<124*d && sy>h-110*d && sy<=h)startJoystick(pointer,sx,sy,h,d);
+                    else if(sy>=62*d && sy<h-110*d && !attackBounds.contains(sx,sy))targetTerrain(sx,sy);
+                    return true;
+                }
                 if(paused){
                     if(resumeBounds.contains(sx,sy)){setPaused(false);return true;}
                     if(menuBounds.contains(sx,sy)){
@@ -726,7 +777,7 @@ public final class OutdoorActivity extends Activity {
                 if(attackBounds.contains(sx,sy)){
                     if(attackRemaining<=0f){
                         attackRemaining=RigAttackPose.DURATION;
-                        moving=false;joystick=false;knobX=0;knobY=0;
+                        moving=false;releaseJoystick();runPointer=NO_POINTER;
                     }
                     invalidate();return true;
                 }
@@ -743,8 +794,8 @@ public final class OutdoorActivity extends Activity {
                         return true;
                     }
                     if(sx<124*d&&!paused){
-                        joystick=true;moving=false;
-                        joyX=65*d;joyY=h-62*d;updateStick(sx,sy);return true;
+                        startJoystick(pointer,sx,sy,h,d);
+                        return true;
                     }
                     return true;
                 }
@@ -752,11 +803,14 @@ public final class OutdoorActivity extends Activity {
                 targetTerrain(sx,sy);
                 return true;
             }
-            if(event==MotionEvent.ACTION_MOVE){if(joystick)updateStick(sx,sy);return true;}
-            if(event==MotionEvent.ACTION_CANCEL||event==MotionEvent.ACTION_UP){
-                joystick=false;knobX=0;knobY=0;return true;
-            }
             return true;
+        }
+        private void startJoystick(int pointer,float sx,float sy,float h,float d){
+            joystickPointer=pointer;
+            moving=false;
+            joyX=65*d;
+            joyY=h-62*d;
+            updateStick(sx,sy);
         }
         private void updateStick(float sx,float sy){
             float vx=(sx-joyX)/(47*ui()),vy=(sy-joyY)/(47*ui());
