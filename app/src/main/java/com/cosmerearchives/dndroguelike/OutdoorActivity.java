@@ -75,6 +75,8 @@ public final class OutdoorActivity extends Activity {
         private final Paint p=new Paint(Paint.ANTI_ALIAS_FLAG);
         private final Paint groundPaint=new Paint(Paint.ANTI_ALIAS_FLAG|Paint.FILTER_BITMAP_FLAG);
         private final Bitmap groundAtlas;
+        private final int[][] trailMaterials = new int[16][];
+        private final android.util.LruCache<Long, Bitmap> trailTiles = new android.util.LruCache<>(48);
         private final Bitmap vegetationAtlas;
         private final Rect tileSource=new Rect();
         private final RectF tileDestination=new RectF();
@@ -295,6 +297,52 @@ public final class OutdoorActivity extends Activity {
             if(kind==1)return (seed&3)==0?1:0;
             return (seed&7)==0?12:0;
         }
+        private boolean levelTrail(Tile neighbor,int level){
+            return neighbor.road && !neighbor.river && neighbor.level==level;
+        }
+
+        private Bitmap trailTexture(Tile tile){
+            if(groundAtlas==null || !tile.road || tile.river)return null;
+            int dirt=tileArt(tile);
+            long key=dirt;
+            int connected=0;
+            for(int slot=0;slot<8;slot++){
+                Tile neighbor=tileAt(tile.x+TrailTransitions.dx(slot),tile.y+TrailTransitions.dy(slot));
+                if(slot<4 && levelTrail(neighbor,tile.level))connected|=1<<slot;
+                if(neighbor.level!=tile.level || neighbor.road || neighbor.river || neighbor.kind>3)continue;
+                if(slot>=4){
+                    int corner=slot-4;
+                    int sides=(1<<corner)|(1<<((corner+1)%4));
+                    if((connected&sides)!=sides)continue;
+                }
+                key|=(long)(tileArt(neighbor)+1)<<TrailTransitions.shift(slot);
+            }
+            if(key==dirt)return null;
+            Bitmap cached=trailTiles.get(key);
+            if(cached!=null)return cached;
+            prepareTrailMaterial(dirt);
+            for(int slot=0;slot<8;slot++){
+                int material=(int)((key>>>TrailTransitions.shift(slot))&15)-1;
+                if(material>=0)prepareTrailMaterial(material);
+            }
+            int size=TrailTransitions.SIZE;
+            Bitmap transition=Bitmap.createBitmap(TrailTransitions.blend(key,trailMaterials),
+                size,size,Bitmap.Config.ARGB_8888);
+            trailTiles.put(key,transition);
+            return transition;
+        }
+
+        private void prepareTrailMaterial(int material){
+            if(trailMaterials[material]!=null)return;
+            int size=TrailTransitions.SIZE;
+            Bitmap tile=Bitmap.createBitmap(size,size,Bitmap.Config.ARGB_8888);
+            groundTexture(new Canvas(tile),material,0,0,size,size);
+            int[] pixels=new int[size*size];
+            tile.getPixels(pixels,0,size,0,0,size,size);
+            tile.recycle();
+            trailMaterials[material]=pixels;
+        }
+
         private void terrain(Canvas c, Tile tile, float sx, float sy){
             int level = tile.level, kind = tile.kind;
             int base=colorRange[kind];
@@ -312,7 +360,13 @@ public final class OutdoorActivity extends Activity {
             long seed=tile.terrainSeed;
             if(kind!=5 && (seed&7)==3)base=shade(base,-9);
             rect(c,base,left,top,right,bottom);
-            groundTexture(c,tileArt(tile),left,top,right,bottom);
+            Bitmap transition=trailTexture(tile);
+            if(transition==null){
+                groundTexture(c,tileArt(tile),left,top,right,bottom);
+            }else{
+                tileDestination.set(left,top,right,bottom);
+                c.drawBitmap(transition,null,tileDestination,groundPaint);
+            }
             if(kind!=5 && !tile.road){
                 polygon(c,0x224C8550,sx-24,sy-2,sx-4,sy-13,sx+17,sy-1,sx+4,sy+8);
                 if((seed&31)==11)oval(c,0x66375438,sx-21,sy-2,sx-3,sy+3);
@@ -325,7 +379,7 @@ public final class OutdoorActivity extends Activity {
             }
             // Low-cost hand-illustrated texture accents: ground clusters and irregular
             // fitted stone pavers (repeat deterministically across generated tiles).
-            if(tile.road && !tile.river){
+            if(tile.road && !tile.river && transition==null){
                 for(int n=0;n<3;n++){
                     float px=sx-19+n*15+((seed>>(n*5))&3);
                     float py=sy-3+((seed>>(n*4+1))&3);
@@ -333,7 +387,7 @@ public final class OutdoorActivity extends Activity {
                         px-9,py-2,px,py-7,px+10,py-2,px+5,py+4,px-6,py+4);
                     line(c,0xFF635849,1,px-6,py+3,px+5,py+3);
                 }
-            }else if(kind!=5){
+            }else if(kind!=5 && !tile.road){
                 for(int n=0;n<3;n++){
                     float px=sx-20+((seed>>(n*7))&31);
                     float py=sy-8+((seed>>(n*5+11))&15);
