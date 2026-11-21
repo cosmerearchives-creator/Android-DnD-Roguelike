@@ -35,7 +35,6 @@ final class ElfBaseArt {
     private final Facing[] facings = new Facing[4];
     private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
     private final ElfFistArt fistArt;
-    private final float[] shoulderPoint = new float[2];
     private final RigTorsoPose.Mesh bodyMesh = new RigTorsoPose.Mesh();
     private final RectF bootBounds = new RectF();
     private final RectF bodyBounds = new RectF(
@@ -102,24 +101,14 @@ final class ElfBaseArt {
                  float shoulderX, float shoulderY, float elbowX, float elbowY,
                  float wristX, float wristY, float closure, float impact) {
         Sprite arm = facings[facing].limbs[index];
-        float spread = torso.shoulderSpread(arm.rootX, arm.rootY);
-        float shoulderRatio = torso.shoulderRatio();
-        // Use widened neutral joints to avoid applying spread twice to artwork.
-        float elbowDx = elbowX - RigViewProfile.elbowX(facing, index, shoulderRatio) + .40f * spread;
+        // Translate the entire arm from its illustrated rest anchors. The torso
+        // and arm textures keep their original shape and proportions.
+        float elbowDx = elbowX - RigViewProfile.elbowX(facing, index);
         float elbowDy = elbowY - RigViewProfile.elbowY(facing, index);
-        float wristDx = wristX - RigViewProfile.handX(facing, index, shoulderRatio) + .10f * spread;
+        float wristDx = wristX - RigViewProfile.handX(facing, index);
         float wristDy = wristY - RigViewProfile.handY(facing, index);
-        arm.pose(shoulderX - RigViewProfile.shoulderX(facing, index, shoulderRatio) + spread, shoulderY + 108f,
+        arm.pose(shoulderX - RigViewProfile.shoulderX(facing, index), shoulderY + 108f,
             elbowDx, elbowDy, wristDx, wristDy);
-        if (!RigViewProfile.isSide(facing)) {
-            // Skin at the top of the arm follows the same deformation as its armhole.
-            float armholeFit = facing == 0 ? (index == 0 ? 1.7f : 1.05f)
-                : index == 1 ? 2f : 0f;
-            torso.bindShoulder(arm.mesh.vertices, (arm.sourceX - CENTER_X) * UNIT,
-                (arm.sourceY - SOLE_Y) * UNIT, WIDTH * UNIT, HEIGHT * UNIT, COLUMNS, ROWS,
-                arm.rootX, arm.rootY, facing == 2 ? -1f : 1f, armholeFit,
-                facing == 2 && index == 1 ? closure : 0f, shoulderPoint);
-        }
         if (closure > 0f && arm.sleeve != null) {
             boolean fistBehindArm = facing == 2;
             if (fistBehindArm) {

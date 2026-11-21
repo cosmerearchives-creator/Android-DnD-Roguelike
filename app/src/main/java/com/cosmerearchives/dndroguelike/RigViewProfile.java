@@ -19,20 +19,21 @@ final class RigViewProfile {
         return arm==0 ? -16.5f : 16.5f;
     }
 
-    // Shoulder, elbow and wrist all follow a single width ratio.
-    // Side profiles retain their existing narrow projection.
+    // Offset the arm attachment points without widening the torso or stretching
+    // the arms. Both elbow and wrist translate by the SAME amount as the root.
+    // Side profiles retain their original narrow projection.
     static float shoulderX(int facing,int arm,float ratio) {
         float base = shoulderX(facing, arm);
         return isSide(facing) ? base : base * ratio;
     }
 
     static float elbowX(int facing,int arm,float ratio) {
-        return elbowX(facing, arm) + .40f *
+        return elbowX(facing, arm) +
             (shoulderX(facing, arm, ratio) - shoulderX(facing, arm));
     }
 
     static float handX(int facing,int arm,float ratio) {
-        return handX(facing, arm) + .10f *
+        return handX(facing, arm) +
             (shoulderX(facing, arm, ratio) - shoulderX(facing, arm));
     }
 

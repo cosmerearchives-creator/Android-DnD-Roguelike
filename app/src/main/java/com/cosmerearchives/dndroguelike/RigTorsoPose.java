@@ -2,8 +2,8 @@ package com.cosmerearchives.dndroguelike;
 
 /** Chest and neck motion relative to the fixed waist and pelvis. */
 final class RigTorsoPose {
-    // One width setting controls the torso mesh and articulated shoulder joints.
-    // Character creation can temporarily switch to 1.0 for a visual comparison.
+    // Shoulder offset controls arm attachment positions ONLY.
+    // Never change the torso width to match the arms: doing so hides the improvement.
     private float shoulderRatio = RigViewProfile.WIDENED_SHOULDER_RATIO;
 
     void setShoulderRatio(float ratio) {
@@ -18,7 +18,7 @@ final class RigTorsoPose {
     static final float NECK_Y = -128f;
 
     private boolean side;
-    private float chestX, neckX, chestY, neckY, expansion, roll, shoulderOverlap;
+    private float chestX, neckX, chestY, neckY, expansion, roll;
 
     void sample(boolean side, float walk, float stride, float step, float breath, float hipShift) {
         this.side = side;
@@ -29,7 +29,6 @@ final class RigTorsoPose {
         neckY = -.27f * breath + .16f * walk * step;
         expansion = breath * (side ? .115f : .057f);
         roll = side ? 0f : walk * stride * .052f;
-        shoulderOverlap = .5f * walk;
     }
 
     void applyPunch(float shoulderDrive) {
@@ -45,32 +44,6 @@ final class RigTorsoPose {
         float front = side ? Math.max(0f, x + 1f) : x;
         target[at] = chest * (chestX + front * expansion) + neck * neckX;
         target[at + 1] = chest * (chestY + x * roll) + neck * neckY;
-    }
-
-    // Fade into the neck and waist so only the upper torso widens.
-    float shoulderSpread(float x, float y) {
-        if (side) return 0f;
-        return (shoulderRatio - 1f) * x * smooth((WAIST_Y - y) / 30f) * smooth((y + 144f) / 14f);
-    }
-
-    void bindShoulder(float[] vertices, float left, float top, float width, float height,
-                      int columns, int rows, float shoulderX, float shoulderY, float mirror,
-                      float armholeFit, float rearPunch, float[] offset) {
-        float tuck = -Math.signum(shoulderX) * (shoulderOverlap + armholeFit + .45f * rearPunch);
-        for (int row = 0; row <= rows; row++) {
-            float y = top + height * row / rows;
-            float followTorso = 1f - smooth((y - shoulderY - 1f - 2.4f * rearPunch) / (9f + 2f * armholeFit));
-            if (followTorso == 0f) break;
-            for (int col = 0; col <= columns; col++) {
-                int at = (row * (columns + 1) + col) * 2;
-                float x = left + width * col / columns;
-                offsets(x * mirror, y, offset, 0);
-                float attachedX = x + offset[0] * mirror + tuck + shoulderSpread(x, y);
-                float attachedY = y + offset[1];
-                vertices[at] += (attachedX - vertices[at]) * followTorso;
-                vertices[at + 1] += (attachedY - vertices[at + 1]) * followTorso;
-            }
-        }
     }
 
     private static float smooth(float t) {
@@ -89,7 +62,8 @@ final class RigTorsoPose {
                 for (int col = 0; col <= COLUMNS; col++) {
                     float x = left + (right - left) * col / COLUMNS;
                     pose.offsets(x, y, vertices, at);
-                    vertices[at++] += x + pose.shoulderSpread(x, y);
+                    // Preserve the original torso silhouette at every shoulder ratio.
+                    vertices[at++] += x;
                     vertices[at++] += y;
                 }
             }

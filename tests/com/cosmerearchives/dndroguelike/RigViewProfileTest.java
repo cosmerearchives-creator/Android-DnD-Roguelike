@@ -30,11 +30,19 @@ final class RigViewProfileTest {
             float wideWidth = RigViewProfile.shoulderX(d,1,RigViewProfile.WIDENED_SHOULDER_RATIO)
                 - RigViewProfile.shoulderX(d,0,RigViewProfile.WIDENED_SHOULDER_RATIO);
             check(Math.abs(wideWidth/baseWidth-RigViewProfile.WIDENED_SHOULDER_RATIO)<.0001f,
-                "front/back shoulder joints must actually widen 18.8%");
-            check(RigViewProfile.elbowX(d,0,RigViewProfile.WIDENED_SHOULDER_RATIO)
-                < RigViewProfile.elbowX(d,0), "elbow must follow shoulder outward");
-            check(RigViewProfile.handX(d,1,RigViewProfile.WIDENED_SHOULDER_RATIO)
-                > RigViewProfile.handX(d,1), "wrist must follow shoulder outward");
+                "front/back shoulder attachment width must increase 18.8%");
+            for(int arm=0;arm<2;arm++) {
+                float shoulderMove = RigViewProfile.shoulderX(d,arm,RigViewProfile.WIDENED_SHOULDER_RATIO)
+                    - RigViewProfile.shoulderX(d,arm);
+                float elbowMove = RigViewProfile.elbowX(d,arm,RigViewProfile.WIDENED_SHOULDER_RATIO)
+                    - RigViewProfile.elbowX(d,arm);
+                float handMove = RigViewProfile.handX(d,arm,RigViewProfile.WIDENED_SHOULDER_RATIO)
+                    - RigViewProfile.handX(d,arm);
+                check(Math.abs(shoulderMove-elbowMove)<.0001f,
+                    "upper arm must translate without stretching");
+                check(Math.abs(shoulderMove-handMove)<.0001f,
+                    "forearm must translate without stretching");
+            }
             check(!RigViewProfile.isSide(d),"front/back should retain broad profile");
             check(!RigViewProfile.drawSwordArmBehindTorso(d),
                 "front/back arms should remain individually visible");

@@ -1,5 +1,12 @@
 # Android DnD Roguelike
 
+## v0.3.48 — relocate shoulder sprites without widening the torso
+- Corrects the shoulder pass: BASE/WIDE now shifts the front and rear arm attachment locations, while the torso texture and torso mesh stay the same width in both modes.
+- Moves shoulder, elbow, and wrist by the exact same distance on each side to preserve original arm proportions and animation; leaves all side-view rigs untouched.
+- Removes mesh-based upper torso widening and shoulder seam pinning that hid the desired change. Adds regression tests for identical torso geometry and rigid arm translation across both front/back facings.
+- Keep checking the character creator's BASE/WIDE control for any uncovered shoulder gaps, which may need per-appearance art adjustments.
+
+
 ## v0.3.47 — shoulder rig consistency and visual comparison
 - Couples the front/back shoulder, elbow, and wrist skeleton locations to the same 18.8% width adjustment as the torso mesh, without double-widening the art.
 - Adds a BASE / WIDE toggle beside the character appearance controls to compare the original and widened shoulders at matching scale. Gameplay retains the wider shoulders.
