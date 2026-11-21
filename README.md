@@ -1,5 +1,10 @@
 # Android DnD Roguelike
 
+## v0.3.49 — restore CI after shoulder attachment refactor
+- Updates the legacy idle-pose test that still called the removed shoulder-mesh fitting method, replacing it with regression checks for stable torso vertices and widened front/rear arm anchors.
+- Keeps the v0.3.48 attachment-only shoulder correction unchanged, including the BASE/WIDE preview toggle.
+
+
 ## v0.3.48 — relocate shoulder sprites without widening the torso
 - Corrects the shoulder pass: BASE/WIDE now shifts the front and rear arm attachment locations, while the torso texture and torso mesh stay the same width in both modes.
 - Moves shoulder, elbow, and wrist by the exact same distance on each side to preserve original arm proportions and animation; leaves all side-view rigs untouched.

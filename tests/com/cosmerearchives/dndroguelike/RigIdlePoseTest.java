@@ -46,17 +46,28 @@ final class RigIdlePoseTest {
         torso.offsets(-16f, RigTorsoPose.CHEST_Y, points, 0);
         torso.offsets(16f, RigTorsoPose.CHEST_Y, points, 2);
         check(points[1] < -.75f && points[3] > .75f, "shoulders counter-rotate during walking");
-        float[] arm = {0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f};
-        torso.bindShoulder(arm, -18f, -110f, 4f, 20f, 1, 1, -16f, -108f, -1f, 0f, 0f, points);
+        // The armhole-fitting mesh was removed: idle motion still moves the
+        // torso, but shoulder-width changes must not alter any torso vertex.
         RigTorsoPose.Mesh mesh = new RigTorsoPose.Mesh();
-        mesh.pose(torso, 18f, -110f, 22f, -82f);
-        check(Math.abs(arm[0] - (.5f - mesh.vertices[0])) < .001f
-            && Math.abs(arm[1] - mesh.vertices[1]) < .001f, "rear shoulder follows mirrored torso");
-        check(arm[4] == 0f && arm[5] == 0f, "lower arm keeps its independent pose");
-        float idleShoulderX = arm[0];
-        torso.bindShoulder(arm, -18f, -110f, 4f, 20f, 1, 1, -16f, -108f, -1f, 2f, 1f, points);
-        check(Math.abs(arm[0] - idleShoulderX - 2.45f) < .001f, "rear punch keeps shoulder tucked");
-        check(arm[4] == 0f && arm[5] == 0f, "rear shoulder fit does not shift the lower arm");
+        torso.setShoulderRatio(1f);
+        mesh.pose(torso, -18f, -110f, 22f, -82f);
+        float[] original = mesh.vertices.clone();
+        torso.setShoulderRatio(RigViewProfile.WIDENED_SHOULDER_RATIO);
+        mesh.pose(torso, -18f, -110f, 22f, -82f);
+        for (int i = 0; i < original.length; i++) {
+            check(Math.abs(mesh.vertices[i] - original[i]) < .001f,
+                "idle torso geometry remains fixed when shoulder anchors move");
+        }
+        // Arm anchors are deliberately repositioned without rotating the
+        // shoulder line or changing the torso mesh.
+        for (int facing : new int[]{0, 2}) {
+            float shoulderLeft = RigViewProfile.shoulderX(facing, 0,
+                RigViewProfile.WIDENED_SHOULDER_RATIO);
+            float shoulderRight = RigViewProfile.shoulderX(facing, 1,
+                RigViewProfile.WIDENED_SHOULDER_RATIO);
+            check(shoulderRight - shoulderLeft > 33f,
+                "front and rear arm anchors actually move apart");
+        }
         System.out.println("Idle poses passed: weight transfer, looping, transitions, and planted feet.");
     }
 
