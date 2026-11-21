@@ -1,4 +1,4 @@
-name: Tawny Bob rear art candidate (temporary)
+name: Tawny Bob refined rear trim (temporary)
 on:
   push:
     branches: [art/bob-rear-trim-work]
@@ -12,49 +12,24 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          fetch-depth: 0
           persist-credentials: true
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - run: python -m pip install --quiet Pillow
-      - name: Prepare precisely masked rear-arm retouch
+      - run: python -m pip install --quiet Pillow numpy scipy opencv-python-headless
+      - name: Restore original current main artwork without touching rig
         run: |
-          python scripts/preview-bob-rear-trim.py
-          python - <<'PY'
-          from PIL import Image,ImageChops
-          from pathlib import Path
-          import shutil
-          original=Image.open('app/src/main/assets/elf_roster/bob/2.webp').convert('RGBA')
-          candidate=Image.open('build/bob-rear-trim/2.webp').convert('RGBA')
-          assert original.size==candidate.size==(800,400)
-          boxes=[(373,10,388,89),(444,10,460,89)]
-          delta=ImageChops.difference(original.convert('RGB'),candidate.convert('RGB'))
-          bbox=delta.getbbox()
-          assert bbox is not None and 1<=bbox[0] and bbox[2]<=544
-          changes=[]
-          for y in range(400):
-            for x in range(800):
-              if original.getpixel((x,y))!=candidate.getpixel((x,y)):
-                assert any(a<=x<b and c<=y<d for a,c,b,d in boxes),(x,y)
-                changes.append((x,y))
-          assert len(changes)>200,(len(changes),bbox)
-          for x,y in [(358,41),(471,41),(342,127),(491,127),(336,202),(498,202)]:
-            assert original.getpixel((x,y))==candidate.getpixel((x,y)),('registration pixel changed',x,y)
-          p=Path('.art-review')
-          p.mkdir(exist_ok=True)
-          for name,x0 in [('arm0',288),('arm1',416)]:
-            before=original.crop((x0,0,x0+128,145)).resize((640,725))
-            after=candidate.crop((x0,0,x0+128,145)).resize((640,725))
-            combined=Image.new('RGBA',(1280,725),(0,0,0,0))
-            combined.paste(before,(0,0));combined.paste(after,(640,0))
-            combined.save(p/(name+'_before_after.png'))
-          shutil.copyfile('build/bob-rear-trim/2.webp','app/src/main/assets/elf_roster/bob/2.webp')
-          print('VERIFIED CHANGED PIXELS:',len(changes),'BOUNDING BOX:',bbox)
-          PY
-      - name: Commit binary WebP and preview to isolated branch
+          git fetch origin main
+          git show FETCH_HEAD:app/src/main/assets/elf_roster/bob/2.webp > /tmp/bob-rear-original.webp
+      - name: Inpaint two specific shoulder gold bands and verify
+        run: |
+          python scripts/refine-bob-rear-art.py
+          cp build/bob-rear-refined/2.webp app/src/main/assets/elf_roster/bob/2.webp
+      - name: Commit candidate binary and before-after crops (branch only)
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add app/src/main/assets/elf_roster/bob/2.webp .art-review/
-          git commit -m "Binary artwork retouch: Tawny Bob rear shoulder trim [skip ci]"
+          git commit -m "Refine Tawny Bob rear shoulder trim (candidate) [skip ci]"
           git push origin HEAD:art/bob-rear-trim-work
