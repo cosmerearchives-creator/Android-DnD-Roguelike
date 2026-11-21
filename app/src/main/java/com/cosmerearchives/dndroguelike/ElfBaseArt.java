@@ -34,6 +34,7 @@ final class ElfBaseArt {
 
     private final String appearanceId;
     private final Facing[] facings = new Facing[4];
+    private final float[][] shoulderFit = new float[4][2];
     private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
     private final ElfFistArt fistArt;
     private final RigTorsoPose.Mesh bodyMesh = new RigTorsoPose.Mesh();
@@ -51,6 +52,10 @@ final class ElfBaseArt {
         if (registrations == null) return;
 
         for (int facing = 0; facing < facings.length; facing++) {
+            for (int arm = 0; arm < 2; arm++) {
+                shoulderFit[facing][arm] = RigViewProfile.shoulderFitX(
+                    registrations[facing][arm], facing, arm, CENTER_X, UNIT);
+            }
             String path = classic ? "elf_male_facing_" + facing + ".webp"
                 : directory + facing + ".webp";
             try (InputStream stream = context.getAssets().open(path)) {
@@ -87,7 +92,7 @@ final class ElfBaseArt {
     }
 
     float fittedShoulderX(int facing, int index, boolean useFit) {
-        return useFit ? RigViewProfile.shoulderFitX(appearanceId, facing, index) : 0f;
+        return useFit ? shoulderFit[facing][index] : 0f;
     }
 
     void drawBody(Canvas canvas, int facing, RigTorsoPose pose) {
@@ -99,7 +104,8 @@ final class ElfBaseArt {
     void shoulderOffset(int facing, int index, RigTorsoPose pose, float[] offsets, int at) {
         Sprite arm = facings[facing].limbs[index];
         float mirror = facing == 2 ? -1f : 1f;
-        pose.offsets(arm.rootX * mirror, arm.rootY, offsets, at);
+        pose.offsets((arm.rootX + shoulderFit[facing][index]) * mirror,
+            arm.rootY, offsets, at);
         offsets[at] *= mirror;
     }
 
