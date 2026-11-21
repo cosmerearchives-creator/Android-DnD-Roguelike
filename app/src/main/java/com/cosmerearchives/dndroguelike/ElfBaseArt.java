@@ -32,7 +32,6 @@ final class ElfBaseArt {
          {50,38,55,139,47,274,226,842}, {50,38,55,139,47,274,226,842}}
     };
 
-    private final String appearanceId;
     private final Facing[] facings = new Facing[4];
     private final float[][] shoulderFit = new float[4][2];
     private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
@@ -44,7 +43,6 @@ final class ElfBaseArt {
         (125 + BODY_WIDTH - CENTER_X) * UNIT, (510 + ATLAS_HEIGHT - SOLE_Y) * UNIT);
 
     ElfBaseArt(Context context, ElfAppearance appearance) {
-        appearanceId = appearance.id;
         fistArt = new ElfFistArt(appearance.fistSkin);
         boolean classic = appearance == ElfAppearance.CLASSIC;
         String directory = "elf_roster/" + appearance.id + "/";
