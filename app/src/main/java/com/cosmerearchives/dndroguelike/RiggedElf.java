@@ -70,6 +70,13 @@ final class RiggedElf {
     void draw(Canvas canvas,float footX,float footY,float scale,int facing,
               float distanceCycles,float movementBlend,float idleElapsed,
               float attackProgress,boolean armored,float closeUpWidth) {
+        draw(canvas,footX,footY,scale,facing,distanceCycles,movementBlend,idleElapsed,
+            attackProgress,armored,closeUpWidth,false);
+    }
+
+    void draw(Canvas canvas,float footX,float footY,float scale,int facing,
+              float distanceCycles,float movementBlend,float idleElapsed,
+              float attackProgress,boolean armored,float closeUpWidth,boolean showShoulderBinds) {
         Canvas c=canvas;
         float blend=clamp(movementBlend,0f,1f);
         boolean side=RigViewProfile.isSide(facing);
@@ -318,6 +325,10 @@ final class RiggedElf {
             if (armored) drawSwordGrip(c,rightHand,rightHandY,attack.blade);
         }
 
+        if(showShoulderBinds && boundBase && baseArt.hasShoulderBinds()){
+            if(back)c.scale(-1f,1f);
+            baseArt.drawShoulderBinds(c,facing,torso,showFarLimbs);
+        }
         c.restore();
         c.restore();
     }

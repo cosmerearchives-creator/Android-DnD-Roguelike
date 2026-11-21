@@ -32,6 +32,15 @@ final class ElfBaseArt {
          {50,38,55,139,47,274,226,842}, {50,38,55,139,47,274,226,842}}
     };
 
+    // Silver Curls armhole centers in the torso cell, in limb-cell order.
+    // Rear arm cells are reflected at draw time; torso coordinates are not.
+    private static final int[][] SILVER_ARMHOLES = {
+        {25,144,266,144}, {128,156,128,156},
+        {273,142,29,141}, {135,159,135,159}
+    };
+    private final float[] drawnArmRoots = new float[4];
+    private final float[] bindDebugPoint = new float[2];
+
     private final String appearanceId;
     private final Facing[] facings = new Facing[4];
     private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
@@ -87,11 +96,11 @@ final class ElfBaseArt {
     }
 
     float fittedShoulderX(int facing, int index, boolean useFit) {
-        return useFit ? RigViewProfile.shoulderFitX(appearanceId, facing, index) : 0f;
+        return useFit && !hasShoulderBinds() ? RigViewProfile.shoulderFitX(appearanceId, facing, index) : 0f;
     }
 
     float fittedShoulderY(int facing, int index, boolean useFit) {
-        if (!useFit || RigViewProfile.isSide(facing)) return 0f;
+        if (!useFit || hasShoulderBinds() || RigViewProfile.isSide(facing)) return 0f;
         // Fit from the pre-raise reference so FIT does not undo the authored lift.
         int liftPixels = switch (appearanceId) {
             case "silver" -> 10;
@@ -112,8 +121,49 @@ final class ElfBaseArt {
     void shoulderOffset(int facing, int index, RigTorsoPose pose, float[] offsets, int at) {
         Sprite arm = facings[facing].limbs[index];
         float mirror = facing == 2 ? -1f : 1f;
-        pose.offsets(arm.rootX * mirror, arm.rootY, offsets, at);
+        if (hasShoulderBinds() && pose.shoulderFitEnabled()) {
+            float x = bindX(facing,index), y = bindY(facing,index);
+            pose.offsets(x,y,offsets,at);
+            offsets[at] += x - arm.rootX * mirror;
+            offsets[at+1] += y - arm.rootY;
+        } else {
+            pose.offsets(arm.rootX * mirror, arm.rootY, offsets, at);
+        }
         offsets[at] *= mirror;
+    }
+
+    boolean hasShoulderBinds() {
+        return "silver".equals(appearanceId);
+    }
+
+    private float bindX(int facing,int index) {
+        return bodyBounds.left + SILVER_ARMHOLES[facing][index*2]*UNIT;
+    }
+
+    private float bindY(int facing,int index) {
+        return bodyBounds.top + SILVER_ARMHOLES[facing][index*2+1]*UNIT;
+    }
+
+    void drawShoulderBinds(Canvas canvas,int facing,RigTorsoPose pose,boolean showFarArm) {
+        float[] point = bindDebugPoint;
+        for(int index=0;index<2;index++){
+            if(!showFarArm && index!=(facing==3?1:0))continue;
+            float x=bindX(facing,index), y=bindY(facing,index);
+            pose.offsets(x,y,point,0);
+            x+=point[0];
+            y+=point[1];
+            float armX=drawnArmRoots[index*2], armY=drawnArmRoots[index*2+1];
+            if(facing==2)armX=-armX;
+            paint.setStrokeWidth(.65f);
+            paint.setColor(0xFFFFD481);
+            canvas.drawLine(x,y,armX,armY,paint);
+            paint.setStyle(Paint.Style.STROKE);
+            paint.setColor(0xFF75E5F5);
+            canvas.drawCircle(x,y,3f,paint);
+            paint.setStyle(Paint.Style.FILL);
+            paint.setColor(0xFFFFD481);
+            canvas.drawCircle(armX,armY,1.45f,paint);
+        }
     }
 
     void drawArm(Canvas canvas, int facing, int index, RigTorsoPose torso,
@@ -126,8 +176,11 @@ final class ElfBaseArt {
         float elbowDy = elbowY - RigViewProfile.elbowY(facing, index);
         float wristDx = wristX - RigViewProfile.handX(facing, index);
         float wristDy = wristY - RigViewProfile.handY(facing, index);
-        arm.pose(shoulderX - RigViewProfile.shoulderX(facing, index), shoulderY + 108f,
-            elbowDx, elbowDy, wristDx, wristDy);
+        float shoulderDx=shoulderX - RigViewProfile.shoulderX(facing,index);
+        float shoulderDy=shoulderY+108f;
+        drawnArmRoots[index*2]=arm.rootX+shoulderDx;
+        drawnArmRoots[index*2+1]=arm.rootY+shoulderDy;
+        arm.pose(shoulderDx,shoulderDy,elbowDx,elbowDy,wristDx,wristDy);
         if (closure > 0f && arm.sleeve != null) {
             boolean fistBehindArm = facing == 2;
             if (fistBehindArm) {

@@ -104,7 +104,8 @@ public final class OutdoorActivity extends Activity {
         private ElfAppearance appearance;
         private final RectF modelToggleBounds=new RectF();
         private final RectF viewToggleBounds=new RectF();
-        private boolean closeUp;
+        private boolean closeUp, shoulderBinds;
+        private final RectF shoulderBindBounds=new RectF();
         private final String heroName;
         private float x=0.5f,y=0.5f,camX=x,camY=y,targetX=x,targetY=y;
         private float joyX,joyY,knobX,knobY;
@@ -576,7 +577,19 @@ public final class OutdoorActivity extends Activity {
             float feetY=bottom-Math.max(15f*d,13f*scale);
             float phase=attackProgress();
             riggedArt.draw(c,closeWidth*.5f,feetY,scale,facing,walkTime,
-                gaitBlend,idleTime,phase,false,closeWidth);
+                gaitBlend,idleTime,phase,false,closeWidth,shoulderBinds);
+
+            if(appearance==ElfAppearance.SILVER){
+                shoulderBindBounds.set(12*d,72*d,112*d,103*d);
+                rounded(c,shoulderBinds?0xFF3C685B:0xFF324B55,
+                    shoulderBindBounds.left,shoulderBindBounds.top,
+                    shoulderBindBounds.right,shoulderBindBounds.bottom,6*d);
+                text(c,"SHOULDER BINDS",18*d,91*d,9*d,0xFFF3DBA4);
+                if(shoulderBinds){
+                    text(c,"Cyan: armhole",18*d,117*d,9*d,0xFF75E5F5);
+                    text(c,"Gold: arm root",18*d,130*d,9*d,0xFFFFD481);
+                }
+            }
 
             float referenceX=closeWidth+referenceWidth*.5f;
             oval(c,0x99112125,referenceX-23*referenceScale,feetY-4*referenceScale,
@@ -800,6 +813,11 @@ public final class OutdoorActivity extends Activity {
                     return true;
                 }
                 if(sy>h)return true;
+                if(closeUp && appearance==ElfAppearance.SILVER && shoulderBindBounds.contains(sx,sy)){
+                    shoulderBinds=!shoulderBinds;
+                    invalidate();
+                    return true;
+                }
                 if(viewToggleBounds.contains(sx,sy)){
                     closeUp=!closeUp;
                     invalidate();return true;
