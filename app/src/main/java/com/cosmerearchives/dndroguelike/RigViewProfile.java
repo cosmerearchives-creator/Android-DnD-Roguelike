@@ -82,9 +82,16 @@ final class RigViewProfile {
     // never fix their visually elevated arm connections.
     static final float REFERENCE_SHOULDER_ROOT_Y = (626f + 47f - 1192f) / 4.3f;
 
+    // Tawny Bob's front is approved. Its rear shoulder seams need only a
+    // small upward adjustment; keep both arms level and all other rigs fixed.
+    private static final float BOB_REAR_SHOULDER_Y_ADJUST = -1.5f;
+
     static float shoulderFitY(String appearance, int facing, float sourceRootY) {
         if (isSide(facing) || "classic".equals(appearance)) return 0f;
-        return REFERENCE_SHOULDER_ROOT_Y - sourceRootY;
+        float registrationFit = REFERENCE_SHOULDER_ROOT_Y - sourceRootY;
+        return "bob".equals(appearance) && facing == 2
+            ? registrationFit + BOB_REAR_SHOULDER_Y_ADJUST
+            : registrationFit;
     }
 
     static float elbowX(int facing,int arm) {

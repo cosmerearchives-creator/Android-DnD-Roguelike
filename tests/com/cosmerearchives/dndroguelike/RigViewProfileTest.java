@@ -39,6 +39,19 @@ final class RigViewProfileTest {
         }
         check(RigViewProfile.shoulderFitX("bronze",0,1)>2f,
             "narrow bronze base needs more shoulder spacing");
+
+        // Tawny Bob's rear is 1.5 rig units higher than the calibrated front;
+        // neither its front nor another appearance may inherit the correction.
+        float bobRoot = -127.2093f;
+        float bobFront = RigViewProfile.shoulderFitY("bob",0,bobRoot);
+        float bobRear = RigViewProfile.shoulderFitY("bob",2,bobRoot);
+        check(Math.abs((bobRear - bobFront) + 1.5f) < .0001f,
+            "Tawny Bob rear shoulders must move up only 1.5 units");
+        check(RigViewProfile.shoulderFitY("bob",1,bobRoot)==0f
+            && RigViewProfile.shoulderFitY("bob",3,bobRoot)==0f,
+            "Tawny Bob side views unchanged");
+        check(Math.abs(RigViewProfile.shoulderFitY("bronze",2,bobRoot)-bobFront)<.0001f,
+            "another elf's rear must not inherit Tawny Bob correction");
         for (String model : models) {
             for (int facing : new int[]{0,2}) {
                 check(!RigViewProfile.drawSwordArmBehindTorso(facing),
@@ -53,9 +66,10 @@ final class RigViewProfileTest {
                     float yCorrection = RigViewProfile.shoulderFitY(
                         model,facing,authoredRootY);
                     check(yCorrection>0f, "non-reference shoulder origins move downward");
-                    check(Math.abs(authoredRootY+yCorrection
-                        -RigViewProfile.REFERENCE_SHOULDER_ROOT_Y)<.0001f,
-                        "vertical fit must exactly meet the reference Y anchor");
+                    float expectedRootY = RigViewProfile.REFERENCE_SHOULDER_ROOT_Y
+                        + (model.equals("bob") && facing == 2 ? -1.5f : 0f);
+                    check(Math.abs(authoredRootY+yCorrection - expectedRootY)<.0001f,
+                        "vertical fit must preserve the per-character rear adjustment");
                 }
                 for (int arm=0;arm<2;arm++) {
                     float move=RigViewProfile.shoulderFitX(model,facing,arm);

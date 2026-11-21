@@ -1,5 +1,12 @@
 # Android DnD Roguelike
 
+## v0.3.52 — Tawny Bob rear shoulder height refinement
+- Raises only the two rear-facing Tawny Bob arm sprites by 1.5 rig units to bring their shoulder tops closer to the vest seams.
+- Front-facing Tawny Bob is deliberately unchanged, as are both side views and all eight other High Elves.
+- Moves the rear shoulder, elbow and wrist by the same Y delta, preserving arm proportions, X spacing, torso artwork, and existing walk/attack motion.
+- Adds targeted regression checks that keep this adjustment specific to Tawny Bob's rear-facing rig.
+
+
 ## v0.3.51 — lower and separate the eight non-reference elves' shoulders
 - Preserves the Classic Elf precisely as the reference; its X and Y shoulder registrations remain unchanged in both front and rear views.
 - Fixes the previously missed vertical-registration problem: non-reference arms were anchored between 2 and 7 rig units above the reference. Their Y corrections now use each atlas's actual shoulder root and align it to the reference's -120.7 Y, in both front and rear views.
