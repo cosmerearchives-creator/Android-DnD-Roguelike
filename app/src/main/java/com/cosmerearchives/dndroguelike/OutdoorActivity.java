@@ -112,7 +112,8 @@ public final class OutdoorActivity extends Activity {
         // One five-foot square per second, or six squares per six-second round.
         private static final float WALK_TILES_PER_SECOND = 1f;
         private static final float RUN_MULTIPLIER = 2f;
-        private int joystickPointer=NO_POINTER, runPointer=NO_POINTER;
+        private int joystickPointer=NO_POINTER;
+        private boolean runEnabled;
         private boolean moving=false,paused=false;
         private final RectF resumeBounds=new RectF(),menuBounds=new RectF(),quitBounds=new RectF();
         private final Context appContext;
@@ -121,7 +122,11 @@ public final class OutdoorActivity extends Activity {
         private float idleTime=0;
         private boolean visuallyWalking=false;
         private float gaitBlend=0f;
+        private static final long ACTION_POINT_REFILL_MS = 6000L;
+        private long actionPointReadyAt;
         private float attackRemaining=0f;
+        private float punchX,punchY;
+        private int punchLevel;
         private final RectF attackBounds=new RectF(), runBounds=new RectF();
         private long lastFrame;
         private static final float WORLD_RIG_SCALE=.86f;
@@ -523,7 +528,7 @@ public final class OutdoorActivity extends Activity {
             float distance=(float)Math.sqrt(dx*dx+dy*dy);
             if(distance>(joystickPointer!=NO_POINTER?.02f:.001f) && attackRemaining<=0f){
                 float speed=movementFactor*WALK_TILES_PER_SECOND;
-                if(runPointer!=NO_POINTER && canRun())speed*=RUN_MULTIPLIER;
+                if(runEnabled && canRun())speed*=RUN_MULTIPLIER;
                 float step=Math.min(distance,speed*dt),sx=dx/distance*step,sy=dy/distance*step;
                 float oldX=x,oldY=y;
                 if(walkable(x+sx,y))x+=sx;
@@ -636,6 +641,17 @@ public final class OutdoorActivity extends Activity {
             float h=getHeight()-controlsBottom;
             float d=ui();
             if(closeUp)drawCloseUp(c,h,d);
+            if(attackRemaining>0f){
+                float markerX=ox+screenX(punchX)*zoom;
+                float markerY=oy+screenY(punchY,punchLevel)*zoom;
+                float radius=TILE_SIZE*zoom*.28f;
+                oval(c,0x70E7A766,markerX-radius,markerY-radius,markerX+radius,markerY+radius);
+                p.setStyle(Paint.Style.STROKE);
+                p.setStrokeWidth(2*d);
+                p.setColor(0xFFF7CC85);
+                c.drawCircle(markerX,markerY,radius,p);
+                p.setStyle(Paint.Style.FILL);
+            }
             // Dark blue / antique gold HUD matches the illustrated elven equipment.
             rect(c,0xF0192630,0,0,getWidth(),62*d);
             rect(c,0xFFB89A62,0,61*d,getWidth(),62*d);
@@ -668,10 +684,16 @@ public final class OutdoorActivity extends Activity {
             attackBounds.set(right-110*d,h-158*d,right-10*d,h-112*d);
             rounded(c,attackRemaining>0f?0xFF9B674A:0xFF4E5144,
                 attackBounds.left,attackBounds.top,attackBounds.right,attackBounds.bottom,7*d);
-            text(c,"ATTACK",right-96*d,h-130*d,12*d,0xFFF5DFB1);
+            boolean pointReady=actionPointReady();
+            text(c,"ATTACK",right-96*d,h-130*d,12*d,pointReady?0xFFF5DFB1:0xFFB4AA92);
+            p.setColor(0xFFF5DFB1);
+            p.setStyle(pointReady?Paint.Style.FILL:Paint.Style.STROKE);
+            p.setStrokeWidth(1.5f*d);
+            c.drawCircle(right-24*d,h-136*d,5*d,p);
+            p.setStyle(Paint.Style.FILL);
             runBounds.set(right-214*d,h-158*d,right-118*d,h-112*d);
             boolean runAvailable=canRun();
-            rounded(c,runAvailable?(runPointer!=NO_POINTER?0xFF3C685B:0xFF324B55):0xFF394249,
+            rounded(c,runAvailable?(runEnabled?0xFF3C685B:0xFF324B55):0xFF394249,
                 runBounds.left,runBounds.top,runBounds.right,runBounds.bottom,7*d);
             text(c,"RUN",runBounds.left+14*d,h-130*d,12*d,runAvailable?0xFFF5DFB1:0xFF9B9E94);
             text(c,"Tap terrain to move  ·  Joystick to steer",135*d,h-9*d,10*d,0xFFB4C7C1);
@@ -701,6 +723,22 @@ public final class OutdoorActivity extends Activity {
             // timer. The rig interpolates continuously; actual FPS depends on device load.
             if (!paused) postInvalidateOnAnimation();
         }
+        private boolean actionPointReady(){
+            return android.os.SystemClock.elapsedRealtime()>=actionPointReadyAt;
+        }
+
+        private void punch(){
+            if(attackRemaining>0f || !actionPointReady())return;
+            actionPointReadyAt=android.os.SystemClock.elapsedRealtime()+ACTION_POINT_REFILL_MS;
+            attackRemaining=RigAttackPose.DURATION;
+            punchX=x+(facing==1?1:facing==3?-1:0);
+            punchY=y+(facing==0?1:facing==2?-1:0);
+            punchLevel=height(gridIndex(punchX),gridIndex(punchY));
+            runEnabled=false;
+            moving=false;
+            releaseJoystick();
+        }
+
         private boolean canRun(){
             // Add hostile encounter state here when outdoor enemies are introduced.
             return !paused && attackRemaining<=0f;
@@ -715,7 +753,6 @@ public final class OutdoorActivity extends Activity {
         private void setPaused(boolean value) {
             paused = value;
             releaseJoystick();
-            runPointer=NO_POINTER;
             lastFrame = 0;
             invalidate();
         }
@@ -732,25 +769,18 @@ public final class OutdoorActivity extends Activity {
             }
             if(event==MotionEvent.ACTION_CANCEL || event==MotionEvent.ACTION_UP){
                 releaseJoystick();
-                runPointer=NO_POINTER;
                 return true;
             }
             if(event==MotionEvent.ACTION_POINTER_UP){
                 if(pointer==joystickPointer)releaseJoystick();
-                if(pointer==runPointer)runPointer=NO_POINTER;
                 return true;
             }
             if(event==MotionEvent.ACTION_DOWN || event==MotionEvent.ACTION_POINTER_DOWN){
                 if(runBounds.contains(sx,sy) && !paused){
-                    if(canRun() && runPointer==NO_POINTER)runPointer=pointer;
+                    if(canRun())runEnabled=!runEnabled;
                     return true;
                 }
-                if(event==MotionEvent.ACTION_POINTER_DOWN){
-                    if(runPointer==NO_POINTER || joystickPointer!=NO_POINTER)return true;
-                    if(sx<124*d && sy>h-110*d && sy<=h)startJoystick(pointer,sx,sy,h,d);
-                    else if(sy>=62*d && sy<h-110*d && !attackBounds.contains(sx,sy))targetTerrain(sx,sy);
-                    return true;
-                }
+                if(event==MotionEvent.ACTION_POINTER_DOWN)return true;
                 if(paused){
                     if(resumeBounds.contains(sx,sy)){setPaused(false);return true;}
                     if(menuBounds.contains(sx,sy)){
@@ -775,10 +805,7 @@ public final class OutdoorActivity extends Activity {
                     invalidate();return true;
                 }
                 if(attackBounds.contains(sx,sy)){
-                    if(attackRemaining<=0f){
-                        attackRemaining=RigAttackPose.DURATION;
-                        moving=false;releaseJoystick();runPointer=NO_POINTER;
-                    }
+                    punch();
                     invalidate();return true;
                 }
                 if(sy<62*d)return true;

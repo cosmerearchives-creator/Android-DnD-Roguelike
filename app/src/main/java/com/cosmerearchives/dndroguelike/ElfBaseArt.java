@@ -97,7 +97,6 @@ final class ElfBaseArt {
             case "silver" -> 10;
             case "braided" -> 4;
             case "coiled" -> 7;
-            case "petite" -> 5;
             default -> 0;
         };
         float referenceRootY = facings[facing].limbs[index].rootY + liftPixels * UNIT;
