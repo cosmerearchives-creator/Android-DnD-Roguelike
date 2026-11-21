@@ -28,7 +28,7 @@ jobs:
           candidate=Image.open('build/bob-rear-trim/2.webp').convert('RGBA')
           assert original.size==candidate.size==(800,400)
           boxes=[(373,10,388,89),(444,10,460,89)]
-          delta=ImageChops.difference(original,candidate)
+          delta=ImageChops.difference(original.convert('RGB'),candidate.convert('RGB'))
           bbox=delta.getbbox()
           assert bbox is not None and 1<=bbox[0] and bbox[2]<=544
           changes=[]
