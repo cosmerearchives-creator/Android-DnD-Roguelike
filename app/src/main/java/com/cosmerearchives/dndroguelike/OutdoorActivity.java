@@ -75,8 +75,8 @@ public final class OutdoorActivity extends Activity {
         private final Paint p=new Paint(Paint.ANTI_ALIAS_FLAG);
         private final Paint groundPaint=new Paint(Paint.ANTI_ALIAS_FLAG|Paint.FILTER_BITMAP_FLAG);
         private final Bitmap groundAtlas;
-        private final int[][] trailMaterials = new int[16][];
-        private final android.util.LruCache<Long, Bitmap> trailTiles = new android.util.LruCache<>(48);
+        private final int[][] terrainMaterials = new int[16][];
+        private final android.util.LruCache<Long, Bitmap> transitionTiles = new android.util.LruCache<>(48);
         private final Bitmap vegetationAtlas;
         private final Rect tileSource=new Rect();
         private final RectF tileDestination=new RectF();
@@ -88,7 +88,7 @@ public final class OutdoorActivity extends Activity {
         private final Tile[] tileCache = new Tile[TILE_CACHE_SIDE * TILE_CACHE_SIDE];
 
         private static final class Tile {
-            int x, y, level, kind;
+            int x, y, level, kind, art;
             boolean road, river;
             long terrainSeed, propSeed;
         }
@@ -200,6 +200,7 @@ public final class OutdoorActivity extends Activity {
             tile.kind = generateBiome(xx, yy, tile.level, tile.river);
             tile.terrainSeed = hash(xx, yy, 27);
             tile.propSeed = hash(xx, yy, 83);
+            tile.art = tileArt(tile);
             return tile;
         }
 
@@ -288,59 +289,64 @@ public final class OutdoorActivity extends Activity {
         private int tileArt(Tile tile){
             int kind = tile.kind;
             long seed = tile.terrainSeed;
-            if(tile.road && tile.river)return 11; // textured wooden footbridge
-            if(kind==5)return 10; // rippling water
-            if(tile.road)return (seed&3)==0?5:4; // two illustrated soil variations
-            if(kind==4)return 8; // rocky plateau
-            if(kind==3)return 3; // drier meadow
-            if(kind==2)return (seed&3)==0?12:2; // ferns and leaf litter
-            if(kind==1)return (seed&3)==0?1:0;
+            if(tile.road && tile.river)return TerrainTransitions.BRIDGE;
+            if(kind==5)return TerrainTransitions.WATER;
+            float variation=field(tile.x,tile.y,8,67);
+            if(tile.road){
+                if(Math.abs(tile.x)>=8 && variation>.68f)return tile.level==2?6:9;
+                return (seed&3)==0?5:4;
+            }
+            if(kind==4){
+                if(variation>.69f)return 7;
+                if(variation<.31f)return 15;
+                return 8;
+            }
+            if(kind==3)return 3;
+            if(kind==2){
+                if(variation>.65f)return 14;
+                return (seed&3)==0?12:2;
+            }
+            if(kind==1){
+                if(variation<.30f)return 13;
+                return (seed&3)==0?1:0;
+            }
             return (seed&7)==0?12:0;
         }
-        private boolean levelTrail(Tile neighbor,int level){
-            return neighbor.road && !neighbor.river && neighbor.level==level;
-        }
 
-        private Bitmap trailTexture(Tile tile){
-            if(groundAtlas==null || !tile.road || tile.river)return null;
-            int dirt=tileArt(tile);
-            long key=dirt;
-            int connected=0;
+        private Bitmap transitionTexture(Tile tile,int center){
+            if(groundAtlas==null || center==TerrainTransitions.BRIDGE)return null;
+            long key=center;
             for(int slot=0;slot<8;slot++){
-                Tile neighbor=tileAt(tile.x+TrailTransitions.dx(slot),tile.y+TrailTransitions.dy(slot));
-                if(slot<4 && levelTrail(neighbor,tile.level))connected|=1<<slot;
-                if(neighbor.level!=tile.level || neighbor.road || neighbor.river || neighbor.kind>3)continue;
-                if(slot>=4){
-                    int corner=slot-4;
-                    int sides=(1<<corner)|(1<<((corner+1)%4));
-                    if((connected&sides)!=sides)continue;
-                }
-                key|=(long)(tileArt(neighbor)+1)<<TrailTransitions.shift(slot);
+                Tile neighbor=tileAt(tile.x+TerrainTransitions.dx(slot),tile.y+TerrainTransitions.dy(slot));
+                if(neighbor.level!=tile.level)continue;
+                int material=neighbor.art;
+                if(material==center || material==TerrainTransitions.BRIDGE)continue;
+                key|=(long)(material+1)<<TerrainTransitions.shift(slot);
             }
-            if(key==dirt)return null;
-            Bitmap cached=trailTiles.get(key);
+            if(key==center)return null;
+            Bitmap cached=transitionTiles.get(key);
             if(cached!=null)return cached;
-            prepareTrailMaterial(dirt);
+            prepareTerrainMaterial(center);
             for(int slot=0;slot<8;slot++){
-                int material=(int)((key>>>TrailTransitions.shift(slot))&15)-1;
-                if(material>=0)prepareTrailMaterial(material);
+                int material=TerrainTransitions.neighbor(key,slot);
+                if(material>=0)prepareTerrainMaterial(material);
             }
-            int size=TrailTransitions.SIZE;
-            Bitmap transition=Bitmap.createBitmap(TrailTransitions.blend(key,trailMaterials),
+            int size=TerrainTransitions.SIZE;
+            Bitmap transition=Bitmap.createBitmap(TerrainTransitions.blend(key,terrainMaterials),
                 size,size,Bitmap.Config.ARGB_8888);
-            trailTiles.put(key,transition);
+            transitionTiles.put(key,transition);
             return transition;
         }
 
-        private void prepareTrailMaterial(int material){
-            if(trailMaterials[material]!=null)return;
-            int size=TrailTransitions.SIZE;
+        private void prepareTerrainMaterial(int material){
+            if(terrainMaterials[material]!=null)return;
+            int size=TerrainTransitions.SIZE;
             Bitmap tile=Bitmap.createBitmap(size,size,Bitmap.Config.ARGB_8888);
             groundTexture(new Canvas(tile),material,0,0,size,size);
             int[] pixels=new int[size*size];
             tile.getPixels(pixels,0,size,0,0,size,size);
             tile.recycle();
-            trailMaterials[material]=pixels;
+            terrainMaterials[material]=pixels;
         }
 
         private void terrain(Canvas c, Tile tile, float sx, float sy){
@@ -360,9 +366,10 @@ public final class OutdoorActivity extends Activity {
             long seed=tile.terrainSeed;
             if(kind!=5 && (seed&7)==3)base=shade(base,-9);
             rect(c,base,left,top,right,bottom);
-            Bitmap transition=trailTexture(tile);
+            int material=tile.art;
+            Bitmap transition=transitionTexture(tile,material);
             if(transition==null){
-                groundTexture(c,tileArt(tile),left,top,right,bottom);
+                groundTexture(c,material,left,top,right,bottom);
             }else{
                 tileDestination.set(left,top,right,bottom);
                 c.drawBitmap(transition,null,tileDestination,groundPaint);
