@@ -10,18 +10,18 @@ public final class RigTorsoPoseTest {
         // Torso vertices remain pixel-identical with either shoulder attachment setting.
         RigTorsoPose.Mesh neutral = new RigTorsoPose.Mesh();
         RigTorsoPose.Mesh widened = new RigTorsoPose.Mesh();
-        pose.setShoulderRatio(1f);
+        pose.setShoulderFitEnabled(false);
         neutral.pose(pose, -33f, -128f, 33f, -82f);
-        pose.setShoulderRatio(RigViewProfile.WIDENED_SHOULDER_RATIO);
+        pose.setShoulderFitEnabled(true);
         widened.pose(pose, -33f, -128f, 33f, -82f);
         for (int i = 0; i < neutral.vertices.length; i++) {
             check(neutral.vertices[i], widened.vertices[i]);
         }
 
         // Also verify rear view, where the artwork is mirrored when painted.
-        pose.setShoulderRatio(1f);
+        pose.setShoulderFitEnabled(false);
         neutral.pose(pose, 33f, -128f, -33f, -82f);
-        pose.setShoulderRatio(RigViewProfile.WIDENED_SHOULDER_RATIO);
+        pose.setShoulderFitEnabled(true);
         widened.pose(pose, 33f, -128f, -33f, -82f);
         for (int i = 0; i < neutral.vertices.length; i++) {
             check(neutral.vertices[i], widened.vertices[i]);

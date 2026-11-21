@@ -175,13 +175,13 @@ public final class CharacterCreatorActivity extends Activity {
         appearanceLabel.setTypeface(SERIF);
         appearanceLabel.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);
         appearanceControls.addView(appearanceLabel,new LinearLayout.LayoutParams(0,-2,1));
-        Button compareShoulders=button(previewOriginalShoulders?"BASE":"WIDE",null);
+        Button compareShoulders=button(previewOriginalShoulders?"BASE":"FIT",null);
         compareShoulders.setTextSize(11);
-        compareShoulders.setContentDescription("Compare original and widened shoulder spacing");
+        compareShoulders.setContentDescription("Compare original and character-specific shoulder fit");
         compareShoulders.setOnClickListener(view->{
             previewOriginalShoulders=!previewOriginalShoulders;
             preview.shouldersOriginal(previewOriginalShoulders);
-            compareShoulders.setText(previewOriginalShoulders?"BASE":"WIDE");
+            compareShoulders.setText(previewOriginalShoulders?"BASE":"FIT");
         });
         appearanceControls.addView(compareShoulders,new LinearLayout.LayoutParams(dp(58),dp(40)));
         Button nextAppearance=button("›",()->cycleAppearance(1));

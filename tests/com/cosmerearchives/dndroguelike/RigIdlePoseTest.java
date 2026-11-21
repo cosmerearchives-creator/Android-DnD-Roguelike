@@ -49,24 +49,25 @@ final class RigIdlePoseTest {
         // The armhole-fitting mesh was removed: idle motion still moves the
         // torso, but shoulder-width changes must not alter any torso vertex.
         RigTorsoPose.Mesh mesh = new RigTorsoPose.Mesh();
-        torso.setShoulderRatio(1f);
+        torso.setShoulderFitEnabled(false);
         mesh.pose(torso, -18f, -110f, 22f, -82f);
         float[] original = mesh.vertices.clone();
-        torso.setShoulderRatio(RigViewProfile.WIDENED_SHOULDER_RATIO);
+        torso.setShoulderFitEnabled(true);
         mesh.pose(torso, -18f, -110f, 22f, -82f);
         for (int i = 0; i < original.length; i++) {
             check(Math.abs(mesh.vertices[i] - original[i]) < .001f,
                 "idle torso geometry remains fixed when shoulder anchors move");
         }
-        // Arm anchors are deliberately repositioned without rotating the
-        // shoulder line or changing the torso mesh.
-        for (int facing : new int[]{0, 2}) {
-            float shoulderLeft = RigViewProfile.shoulderX(facing, 0,
-                RigViewProfile.WIDENED_SHOULDER_RATIO);
-            float shoulderRight = RigViewProfile.shoulderX(facing, 1,
-                RigViewProfile.WIDENED_SHOULDER_RATIO);
-            check(shoulderRight - shoulderLeft > 33f,
-                "front and rear arm anchors actually move apart");
+        // Separate illustrated characters need different front/rear offsets.
+        for (int facing : new int[]{0,2}) {
+            float classicLeft=RigViewProfile.shoulderFitX("classic",facing,0);
+            float classicRight=RigViewProfile.shoulderFitX("classic",facing,1);
+            float bronzeLeft=RigViewProfile.shoulderFitX("bronze",facing,0);
+            float bronzeRight=RigViewProfile.shoulderFitX("bronze",facing,1);
+            check(classicLeft>0f && classicRight<0f,
+                "broad classic artwork tucks inward");
+            check(bronzeLeft<0f && bronzeRight>0f,
+                "narrow bronze artwork gets wider connections");
         }
         System.out.println("Idle poses passed: weight transfer, looping, transitions, and planted feet.");
     }

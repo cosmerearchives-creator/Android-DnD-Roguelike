@@ -1,5 +1,12 @@
 # Android DnD Roguelike
 
+## v0.3.50 — calibrate each illustrated elf's shoulders individually
+- Replaces the shared 18.8% shoulder change with small, character-specific front/rear arm attachment corrections for all nine High Elf appearances. The Classic Elf, whose original shoulder registration is already broad, now tucks inward slightly instead of widening.
+- Both elbow and wrist receive the exact same translation as their shoulder. No torso mesh or arm bitmap is stretched; left- and right-facing side profiles remain at their original registration.
+- The character creator comparison now says BASE (original atlas placement) or FIT (individual correction), so front/back results can be evaluated without changing zoom.
+- Updates the rig tests to check that different models require different attachment adjustments and to verify that arm lengths and torso geometry are unchanged. These are first-pass fit values; any remaining painted seam gaps will need per-sprite visual refinement.
+
+
 ## v0.3.49 — restore CI after shoulder attachment refactor
 - Updates the legacy idle-pose test that still called the removed shoulder-mesh fitting method, replacing it with regression checks for stable torso vertices and widened front/rear arm anchors.
 - Keeps the v0.3.48 attachment-only shoulder correction unchanged, including the BASE/WIDE preview toggle.

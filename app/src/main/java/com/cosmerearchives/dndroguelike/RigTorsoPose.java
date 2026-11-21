@@ -2,16 +2,15 @@ package com.cosmerearchives.dndroguelike;
 
 /** Chest and neck motion relative to the fixed waist and pelvis. */
 final class RigTorsoPose {
-    // Shoulder offset controls arm attachment positions ONLY.
-    // Never change the torso width to match the arms: doing so hides the improvement.
-    private float shoulderRatio = RigViewProfile.WIDENED_SHOULDER_RATIO;
+    // This toggles per-appearance attachment corrections, never torso geometry.
+    private boolean shoulderFitEnabled = true;
 
-    void setShoulderRatio(float ratio) {
-        shoulderRatio = Math.max(1f, ratio);
+    void setShoulderFitEnabled(boolean enabled) {
+        shoulderFitEnabled = enabled;
     }
 
-    float shoulderRatio() {
-        return shoulderRatio;
+    boolean shoulderFitEnabled() {
+        return shoulderFitEnabled;
     }
     static final float WAIST_Y = -82f;
     static final float CHEST_Y = -108f;

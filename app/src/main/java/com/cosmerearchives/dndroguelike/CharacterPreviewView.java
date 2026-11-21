@@ -56,7 +56,7 @@ final class CharacterPreviewView extends View {
     }
 
     void shouldersOriginal(boolean original) {
-        rig.setShoulderRatio(original ? 1f : RigViewProfile.WIDENED_SHOULDER_RATIO);
+        rig.setShoulderFitEnabled(!original);
         invalidate();
     }
 
