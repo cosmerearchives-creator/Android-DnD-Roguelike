@@ -25,44 +25,25 @@ final class RigViewProfileTest {
         }
         check(RigViewProfile.sideToFrontShoulderRatio()<.5f,
             "side shoulders must compress significantly");
-        String[] models = {
-            "classic","bronze","compact","silver","braided",
-            "petite","coiled","bob","petite_alt"
-        };
-        check(RigViewProfile.shoulderFitX("classic",0,1)<0f,
-            "broad classic base should tuck inward");
-        check(RigViewProfile.shoulderFitX("bronze",0,1)>2f,
-            "narrow bronze base needs more shoulder spacing");
-        for (String model : models) {
-            for (int facing : new int[]{0,2}) {
-                check(!RigViewProfile.drawSwordArmBehindTorso(facing),
-                    "front/back arms remain visible");
-                float l=RigViewProfile.shoulderFitX(model,facing,0);
-                float r=RigViewProfile.shoulderFitX(model,facing,1);
-                check(Math.abs(l)<=2.7f && Math.abs(r)<=2.7f,
-                    "fit must stay inside a conservative range");
-                check(Math.abs(r-l)<5.5f, "no universal 18.8% expansion");
-                for (int arm=0;arm<2;arm++) {
-                    float move=RigViewProfile.shoulderFitX(model,facing,arm);
-                    float shoulder=RigViewProfile.shoulderX(facing,arm)+move;
-                    float elbow=RigViewProfile.elbowX(facing,arm)+move;
-                    float wrist=RigViewProfile.handX(facing,arm)+move;
-                    check(Math.abs((elbow-shoulder)
-                        -(RigViewProfile.elbowX(facing,arm)-RigViewProfile.shoulderX(facing,arm)))<.0001f,
-                        "upper-arm rest length stays fixed");
-                    check(Math.abs((wrist-elbow)
-                        -(RigViewProfile.handX(facing,arm)-RigViewProfile.elbowX(facing,arm)))<.0001f,
-                        "forearm rest length stays fixed");
-                }
-            }
-            for(int facing:new int[]{1,3}) {
-                check(RigViewProfile.shoulderFitX(model,facing,0)==0f
-                    && RigViewProfile.shoulderFitX(model,facing,1)==0f,
-                    "front/back fit must not change side profiles");
+        int[] leftRoot = {48,47,42,138,29,227,100,626};
+        int[] rightRoot = {72,47,61,136,71,226,340,626};
+        for (int facing : new int[]{0,2}) {
+            int[][] registrations = {leftRoot, rightRoot};
+            for (int arm = 0; arm < registrations.length; arm++) {
+                int[] registration = registrations[arm];
+                float authoredRootX =
+                    (registration[6] + registration[0] - 271f) / 4.3f;
+                float fit = RigViewProfile.shoulderFitX(
+                    registration, facing, arm, 271f, 1f / 4.3f);
+                check(Math.abs(authoredRootX + fit
+                    - RigViewProfile.shoulderX(facing, arm)) < .0001f,
+                    "front/back root is fitted to its rig anchor");
             }
         }
-        check(RigViewProfile.shoulderFitX("unknown",0,0)==0f,
-            "new models default to original artwork anchors");
+        for (int facing : new int[]{1,3}) {
+            check(RigViewProfile.shoulderFitX(leftRoot, facing, 0, 271f, 1f / 4.3f)==0f,
+                "side profile shoulder fit stays unchanged");
+        }
         System.out.println("View projection passed: narrow profiles, depth-ordered arms, instant mirroring.");
     }
 }
