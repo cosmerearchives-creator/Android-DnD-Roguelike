@@ -1,5 +1,13 @@
 # Android DnD Roguelike
 
+## v0.3.51 — lower and separate the eight non-reference elves' shoulders
+- Preserves the Classic Elf precisely as the reference; its X and Y shoulder registrations remain unchanged in both front and rear views.
+- Fixes the previously missed vertical-registration problem: non-reference arms were anchored between 2 and 7 rig units above the reference. Their Y corrections now use each atlas's actual shoulder root and align it to the reference's -120.7 Y, in both front and rear views.
+- Widens the eight other models individually in X using revised appearance-specific offsets; retains different shoulder widths for different body types.
+- Moves shoulder, elbow, and wrist by the SAME X and Y amounts, after attack and walk rotations, without widening the torso or stretching any sprite mesh; side views remain untouched.
+- Adds regression tests for positive downward movement, rigid joint translation, distinct model fits, unmodified reference and side views.
+
+
 ## v0.3.50 — calibrate each illustrated elf's shoulders individually
 - Replaces the shared 18.8% shoulder change with small, character-specific front/rear arm attachment corrections for all nine High Elf appearances. The Classic Elf, whose original shoulder registration is already broad, now tucks inward slightly instead of widening.
 - Both elbow and wrist receive the exact same translation as their shoulder. No torso mesh or arm bitmap is stretched; left- and right-facing side profiles remain at their original registration.

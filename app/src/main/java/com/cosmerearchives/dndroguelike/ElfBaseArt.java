@@ -90,6 +90,12 @@ final class ElfBaseArt {
         return useFit ? RigViewProfile.shoulderFitX(appearanceId, facing, index) : 0f;
     }
 
+    float fittedShoulderY(int facing, int index, boolean useFit) {
+        if (!useFit) return 0f;
+        return RigViewProfile.shoulderFitY(
+            appearanceId, facing, facings[facing].limbs[index].rootY);
+    }
+
     void drawBody(Canvas canvas, int facing, RigTorsoPose pose) {
         bodyMesh.pose(pose, bodyBounds.left, bodyBounds.top, bodyBounds.right, bodyBounds.bottom);
         canvas.drawBitmapMesh(facings[facing].body, RigTorsoPose.Mesh.COLUMNS, RigTorsoPose.Mesh.ROWS,

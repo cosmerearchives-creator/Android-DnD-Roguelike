@@ -25,51 +25,66 @@ final class RigViewProfile {
      * Side views, which have separate registered art, stay untouched.
      * BASE mode ignores these corrections; FIT applies them.
      */
+    // Illustration registration is character-specific: NEVER use a global
+    // percentage, and never widen the torso or rescale shoulder sprites.
+    // A fit shifts each arm as a rigid 2-bone chain by the same X/Y offset.
+    // Classic is the approved reference and must remain completely unchanged.
     static float shoulderFitX(String appearance, int facing, int arm) {
         if (isSide(facing)) return 0f;
         boolean rear = facing == 2;
         float left, right;
         switch (appearance) {
             case "classic":
-                left = rear ? 0.10f : 0.15f;
-                right = rear ? -0.10f : -0.15f;
+                left = rear ? 0.00f : 0.00f;
+                right = rear ? 0.00f : 0.00f;
                 break;
             case "bronze":
-                left = rear ? -2.55f : -2.65f;
-                right = rear ? 2.55f : 2.65f;
+                left = rear ? -4.25f : -4.35f;
+                right = rear ? 4.25f : 4.35f;
                 break;
             case "compact":
-                left = rear ? -0.45f : -0.60f;
-                right = rear ? 0.45f : 0.60f;
+                left = rear ? -1.85f : -1.95f;
+                right = rear ? 1.85f : 1.95f;
                 break;
             case "silver":
-                left = rear ? 0.10f : 0.05f;
-                right = rear ? -0.10f : -0.05f;
+                left = rear ? -0.85f : -0.75f;
+                right = rear ? 0.85f : 0.75f;
                 break;
             case "braided":
-                left = rear ? -2.15f : -2.35f;
-                right = rear ? 2.15f : 2.35f;
+                left = rear ? -3.30f : -3.45f;
+                right = rear ? 3.30f : 3.45f;
                 break;
             case "petite":
-                left = rear ? -1.70f : -1.85f;
-                right = rear ? 1.70f : 1.85f;
+                left = rear ? -2.90f : -3.05f;
+                right = rear ? 2.90f : 3.05f;
                 break;
             case "coiled":
-                left = rear ? -0.50f : -0.45f;
-                right = rear ? 0.50f : 0.45f;
+                left = rear ? -2.00f : -1.90f;
+                right = rear ? 2.00f : 1.90f;
                 break;
             case "bob":
-                left = rear ? -1.35f : -1.25f;
-                right = rear ? 1.35f : 1.25f;
+                left = rear ? -2.80f : -2.60f;
+                right = rear ? 2.80f : 2.60f;
                 break;
             case "petite_alt":
-                left = rear ? -1.90f : -1.95f;
-                right = rear ? 1.90f : 1.95f;
+                left = rear ? -3.10f : -3.20f;
+                right = rear ? 3.10f : 3.20f;
                 break;
             default:
                 return 0f;
         }
         return arm == 0 ? left : right;
+    }
+
+    // The approved Classic Elf artwork has its shoulder origins approximately
+    // at -120.7 in BOTH front and rear views. The other eight atlases were
+    // authored with roots 2–7 rig units higher, so simply changing X could
+    // never fix their visually elevated arm connections.
+    static final float REFERENCE_SHOULDER_ROOT_Y = (626f + 47f - 1192f) / 4.3f;
+
+    static float shoulderFitY(String appearance, int facing, float sourceRootY) {
+        if (isSide(facing) || "classic".equals(appearance)) return 0f;
+        return REFERENCE_SHOULDER_ROOT_Y - sourceRootY;
     }
 
     static float elbowX(int facing,int arm) {

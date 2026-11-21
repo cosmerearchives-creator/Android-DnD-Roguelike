@@ -64,8 +64,8 @@ final class RigIdlePoseTest {
             float classicRight=RigViewProfile.shoulderFitX("classic",facing,1);
             float bronzeLeft=RigViewProfile.shoulderFitX("bronze",facing,0);
             float bronzeRight=RigViewProfile.shoulderFitX("bronze",facing,1);
-            check(classicLeft>0f && classicRight<0f,
-                "broad classic artwork tucks inward");
+            check(classicLeft==0f && classicRight==0f,
+                "approved classic reference artwork remains completely unchanged");
             check(bronzeLeft<0f && bronzeRight>0f,
                 "narrow bronze artwork gets wider connections");
         }

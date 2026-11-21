@@ -105,6 +105,8 @@ final class RiggedElf {
         // The torso and both arm textures stay at their authored dimensions.
         float leftFit = boundBase ? baseArt.fittedShoulderX(facing,0,torso.shoulderFitEnabled()) : 0f;
         float rightFit = boundBase ? baseArt.fittedShoulderX(facing,1,torso.shoulderFitEnabled()) : 0f;
+        float leftFitY = boundBase ? baseArt.fittedShoulderY(facing,0,torso.shoulderFitEnabled()) : 0f;
+        float rightFitY = boundBase ? baseArt.fittedShoulderY(facing,1,torso.shoulderFitEnabled()) : 0f;
         float leftShoulder=RigViewProfile.shoulderX(facing,0)+leftFit - (frontFallback ? .6f : 0f);
         float rightShoulder=RigViewProfile.shoulderX(facing,1)+rightFit + (frontFallback ? .6f : 0f);
         float shoulderY = frontFallback ? -109f : -108f;
@@ -165,15 +167,18 @@ final class RiggedElf {
         leftShoulder += joints[0];
         leftElbow += joints[0];
         leftHand += joints[0];
-        float leftShoulderY = shoulderY + joints[1];
-        leftElbowY += joints[1];
-        leftHandY += joints[1];
+        // Apply Y calibration AFTER attack/walk rotations and torso movement,
+        // identically to shoulder, elbow and wrist. This preserves bone length,
+        // avoids pulling the wrists upward, and leaves Classic untouched.
+        float leftShoulderY = shoulderY + joints[1] + leftFitY;
+        leftElbowY += joints[1] + leftFitY;
+        leftHandY += joints[1] + leftFitY;
         rightShoulder += joints[2];
         rightElbow += joints[2];
         rightHand += joints[2];
-        float rightShoulderY = shoulderY + joints[3];
-        rightElbowY += joints[3];
-        rightHandY += joints[3];
+        float rightShoulderY = shoulderY + joints[3] + rightFitY;
+        rightElbowY += joints[3] + rightFitY;
+        rightHandY += joints[3] + rightFitY;
 
         float torsoX = sway * .35f + idle.hipX;
         // The illustrated front and rear starts are level. Keep idle weight
