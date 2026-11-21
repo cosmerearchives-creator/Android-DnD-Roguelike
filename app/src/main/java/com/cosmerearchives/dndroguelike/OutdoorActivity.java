@@ -75,8 +75,13 @@ public final class OutdoorActivity extends Activity {
         private final Paint p=new Paint(Paint.ANTI_ALIAS_FLAG);
         private final Paint groundPaint=new Paint(Paint.ANTI_ALIAS_FLAG|Paint.FILTER_BITMAP_FLAG);
         private final Bitmap groundAtlas;
-        private final int[][] terrainMaterials = new int[16][];
-        private final android.util.LruCache<Long, Bitmap> transitionTiles = new android.util.LruCache<>(48);
+        private static final int TRANSITIONS_PER_FRAME = 4;
+        private static final int MAX_PENDING_TRANSITIONS = 8;
+        // A larger cache holds the visible combinations plus nearby scrolling tiles.
+        private final android.util.LruCache<Long, Bitmap> transitionTiles = new android.util.LruCache<>(192);
+        private final java.util.HashSet<Long> pendingTransitions = new java.util.HashSet<>();
+        private TransitionWorker transitionWorker;
+        private int transitionRequests;
         private final Bitmap vegetationAtlas;
         private final Rect tileSource=new Rect();
         private final RectF tileDestination=new RectF();
@@ -91,6 +96,7 @@ public final class OutdoorActivity extends Activity {
             int x, y, level, kind, art;
             boolean road, river;
             long terrainSeed, propSeed;
+            long transitionKey;
         }
         private final float movementFactor;
         private final RiggedElf riggedArt;
@@ -201,6 +207,7 @@ public final class OutdoorActivity extends Activity {
             tile.terrainSeed = hash(xx, yy, 27);
             tile.propSeed = hash(xx, yy, 83);
             tile.art = tileArt(tile);
+            tile.transitionKey = -1;
             return tile;
         }
 
@@ -313,40 +320,88 @@ public final class OutdoorActivity extends Activity {
             return (seed&7)==0?12:0;
         }
 
-        private Bitmap transitionTexture(Tile tile,int center){
-            if(groundAtlas==null || center==TerrainTransitions.BRIDGE)return null;
-            long key=center;
-            for(int slot=0;slot<8;slot++){
-                Tile neighbor=tileAt(tile.x+TerrainTransitions.dx(slot),tile.y+TerrainTransitions.dy(slot));
-                if(neighbor.level!=tile.level)continue;
-                int material=neighbor.art;
-                if(material==center || material==TerrainTransitions.BRIDGE)continue;
-                key|=(long)(material+1)<<TerrainTransitions.shift(slot);
-            }
-            if(key==center)return null;
-            Bitmap cached=transitionTiles.get(key);
-            if(cached!=null)return cached;
-            prepareTerrainMaterial(center);
-            for(int slot=0;slot<8;slot++){
-                int material=TerrainTransitions.neighbor(key,slot);
-                if(material>=0)prepareTerrainMaterial(material);
-            }
-            int size=TerrainTransitions.SIZE;
-            Bitmap transition=Bitmap.createBitmap(TerrainTransitions.blend(key,terrainMaterials),
-                size,size,Bitmap.Config.ARGB_8888);
-            transitionTiles.put(key,transition);
-            return transition;
+        @Override protected void onAttachedToWindow(){
+            super.onAttachedToWindow();
+            if(groundAtlas!=null)transitionWorker=new TransitionWorker(groundAtlas);
         }
 
-        private void prepareTerrainMaterial(int material){
-            if(terrainMaterials[material]!=null)return;
-            int size=TerrainTransitions.SIZE;
-            Bitmap tile=Bitmap.createBitmap(size,size,Bitmap.Config.ARGB_8888);
-            groundTexture(new Canvas(tile),material,0,0,size,size);
-            int[] pixels=new int[size*size];
-            tile.getPixels(pixels,0,size,0,0,size,size);
-            tile.recycle();
-            terrainMaterials[material]=pixels;
+        @Override protected void onDetachedFromWindow(){
+            if(transitionWorker!=null){
+                transitionWorker.executor.shutdownNow();
+                transitionWorker=null;
+            }
+            pendingTransitions.clear();
+            super.onDetachedFromWindow();
+        }
+
+        private long transitionKey(Tile tile){
+            if(tile.transitionKey>=0)return tile.transitionKey;
+            int center=tile.art;
+            long key=center;
+            if(groundAtlas!=null && center!=TerrainTransitions.BRIDGE){
+                for(int slot=0;slot<8;slot++){
+                    Tile neighbor=tileAt(tile.x+TerrainTransitions.dx(slot),tile.y+TerrainTransitions.dy(slot));
+                    if(neighbor.level!=tile.level)continue;
+                    int material=neighbor.art;
+                    if(material==center || material==TerrainTransitions.BRIDGE)continue;
+                    key|=(long)(material+1)<<TerrainTransitions.shift(slot);
+                }
+            }
+            tile.transitionKey=key;
+            return key;
+        }
+
+        private Bitmap transitionTexture(long key){
+            Bitmap cached=transitionTiles.get(key);
+            if(cached!=null)return cached;
+            TransitionWorker worker=transitionWorker;
+            if(worker==null || paused || transitionRequests>=TRANSITIONS_PER_FRAME
+                || pendingTransitions.size()>=MAX_PENDING_TRANSITIONS || !pendingTransitions.add(key)){
+                return null;
+            }
+            transitionRequests++;
+            worker.executor.execute(()->{
+                Bitmap result=worker.build(key);
+                post(()->{
+                    if(transitionWorker!=worker)return;
+                    pendingTransitions.remove(key);
+                    transitionTiles.put(key,result);
+                });
+            });
+            return null;
+        }
+
+        private static final class TransitionWorker {
+            final java.util.concurrent.ExecutorService executor =
+                java.util.concurrent.Executors.newSingleThreadExecutor();
+            private final Bitmap atlas;
+            private final int[][] materials=new int[16][];
+            private final Paint paint=new Paint(Paint.FILTER_BITMAP_FLAG);
+
+            TransitionWorker(Bitmap atlas){this.atlas=atlas;}
+
+            Bitmap build(long key){
+                prepareMaterial((int)(key&15));
+                for(int slot=0;slot<8;slot++){
+                    int material=TerrainTransitions.neighbor(key,slot);
+                    if(material>=0)prepareMaterial(material);
+                }
+                int size=TerrainTransitions.SIZE;
+                return Bitmap.createBitmap(TerrainTransitions.blend(key,materials),size,size,Bitmap.Config.ARGB_8888);
+            }
+
+            private void prepareMaterial(int material){
+                if(materials[material]!=null)return;
+                int size=TerrainTransitions.SIZE, sourceSize=atlas.getWidth()/4;
+                int left=(material%4)*sourceSize, top=(material/4)*sourceSize;
+                Rect source=new Rect(left,top,left+sourceSize,top+sourceSize);
+                Bitmap tile=Bitmap.createBitmap(size,size,Bitmap.Config.ARGB_8888);
+                new Canvas(tile).drawBitmap(atlas,source,new Rect(0,0,size,size),paint);
+                int[] pixels=new int[size*size];
+                tile.getPixels(pixels,0,size,0,0,size,size);
+                tile.recycle();
+                materials[material]=pixels;
+            }
         }
 
         private void terrain(Canvas c, Tile tile, float sx, float sy){
@@ -367,7 +422,8 @@ public final class OutdoorActivity extends Activity {
             if(kind!=5 && (seed&7)==3)base=shade(base,-9);
             rect(c,base,left,top,right,bottom);
             int material=tile.art;
-            Bitmap transition=transitionTexture(tile,material);
+            long key=transitionKey(tile);
+            Bitmap transition=key==material?null:transitionTexture(key);
             if(transition==null){
                 groundTexture(c,material,left,top,right,bottom);
             }else{
@@ -386,7 +442,7 @@ public final class OutdoorActivity extends Activity {
             }
             // Low-cost hand-illustrated texture accents: ground clusters and irregular
             // fitted stone pavers (repeat deterministically across generated tiles).
-            if(tile.road && !tile.river && transition==null){
+            if(tile.road && !tile.river && key==material){
                 for(int n=0;n<3;n++){
                     float px=sx-19+n*15+((seed>>(n*5))&3);
                     float py=sy-3+((seed>>(n*4+1))&3);
@@ -592,11 +648,19 @@ public final class OutdoorActivity extends Activity {
             int maxX=gridIndex(((getWidth()-ox)/zoom+128f)/TILE_SIZE);
             int minY=gridIndex((-oy/zoom-64f)/TILE_SIZE);
             int maxY=gridIndex(((getHeight()-oy)/zoom+220f)/TILE_SIZE);
+            float viewLeft=-ox/zoom, viewRight=(getWidth()-ox)/zoom;
+            float viewTop=-oy/zoom, viewBottom=(getHeight()-oy)/zoom;
+            int firstGroundColumn=gridIndex(viewLeft/TILE_SIZE);
+            int lastGroundColumn=gridIndex(viewRight/TILE_SIZE);
+            transitionRequests=0;
             int heroRow=gridIndex(y);
             for(int ty=minY;ty<=maxY;ty++){
-                for(int tx=minX;tx<=maxX;tx++){
+                for(int tx=firstGroundColumn;tx<=lastGroundColumn;tx++){
                     Tile tile=tileAt(tx,ty);
-                    terrain(c,tile,screenX(tx+.5f),screenY(ty+.5f,tile.level));
+                    float top=screenY(ty,tile.level);
+                    // South-facing cliff walls can extend to the unraised row boundary.
+                    if(top>=viewBottom || screenY(ty+1,0)<=viewTop)continue;
+                    terrain(c,tile,screenX(tx+.5f),top+TILE_SIZE*.5f);
                 }
                 // Place the explorer among props by ground depth within this row.
                 if(!closeUp && ty==heroRow && y<ty+.5f)drawExplorer(c);
