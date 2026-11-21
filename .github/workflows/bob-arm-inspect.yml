@@ -24,7 +24,7 @@ jobs:
           git show FETCH_HEAD:app/src/main/assets/elf_roster/bob/2.webp > /tmp/bob-rear-original.webp
       - name: Inpaint two specific shoulder gold bands and verify
         run: |
-          python scripts/refine-bob-rear-art.py
+          python scripts/refine-bob-rear-art-v3.py
           cp build/bob-rear-refined/2.webp app/src/main/assets/elf_roster/bob/2.webp
       - name: Commit candidate binary and before-after crops (branch only)
         run: |
