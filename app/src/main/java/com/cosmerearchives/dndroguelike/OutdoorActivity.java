@@ -75,13 +75,8 @@ public final class OutdoorActivity extends Activity {
         private final Paint p=new Paint(Paint.ANTI_ALIAS_FLAG);
         private final Paint groundPaint=new Paint(Paint.ANTI_ALIAS_FLAG|Paint.FILTER_BITMAP_FLAG);
         private final Bitmap groundAtlas;
-        private static final int TRANSITIONS_PER_FRAME = 4;
-        private static final int MAX_PENDING_TRANSITIONS = 8;
-        // A larger cache holds the visible combinations plus nearby scrolling tiles.
-        private final android.util.LruCache<Long, Bitmap> transitionTiles = new android.util.LruCache<>(192);
-        private final java.util.HashSet<Long> pendingTransitions = new java.util.HashSet<>();
-        private TransitionWorker transitionWorker;
-        private int transitionRequests;
+        private static final int WATER_TILE = 10;
+        private static final int BRIDGE_TILE = 11;
         private static final int SCENERY_SCALE = 2;
         private static final int PROP_HALF_WIDTH = 64;
         private static final int PROP_ABOVE_FOOT = 140;
@@ -102,7 +97,6 @@ public final class OutdoorActivity extends Activity {
             int x, y, level, kind, art, prop;
             boolean road, river;
             long terrainSeed, propSeed;
-            long transitionKey;
         }
         private final float movementFactor;
         private final RiggedElf riggedArt;
@@ -214,7 +208,6 @@ public final class OutdoorActivity extends Activity {
             tile.propSeed = hash(xx, yy, 83);
             tile.art = tileArt(tile);
             tile.prop = propKind(tile);
-            tile.transitionKey = -1;
             return tile;
         }
 
@@ -303,8 +296,8 @@ public final class OutdoorActivity extends Activity {
         private int tileArt(Tile tile){
             int kind = tile.kind;
             long seed = tile.terrainSeed;
-            if(tile.road && tile.river)return TerrainTransitions.BRIDGE;
-            if(kind==5)return TerrainTransitions.WATER;
+            if(tile.road && tile.river)return BRIDGE_TILE;
+            if(kind==5)return WATER_TILE;
             float variation=field(tile.x,tile.y,8,67);
             if(tile.road){
                 if(Math.abs(tile.x)>=8 && variation>.68f)return tile.level==2?6:9;
@@ -327,90 +320,6 @@ public final class OutdoorActivity extends Activity {
             return (seed&7)==0?12:0;
         }
 
-        @Override protected void onAttachedToWindow(){
-            super.onAttachedToWindow();
-            if(groundAtlas!=null)transitionWorker=new TransitionWorker(groundAtlas);
-        }
-
-        @Override protected void onDetachedFromWindow(){
-            if(transitionWorker!=null){
-                transitionWorker.executor.shutdownNow();
-                transitionWorker=null;
-            }
-            pendingTransitions.clear();
-            super.onDetachedFromWindow();
-        }
-
-        private long transitionKey(Tile tile){
-            if(tile.transitionKey>=0)return tile.transitionKey;
-            int center=tile.art;
-            long key=center;
-            if(groundAtlas!=null && center!=TerrainTransitions.BRIDGE){
-                for(int slot=0;slot<8;slot++){
-                    Tile neighbor=tileAt(tile.x+TerrainTransitions.dx(slot),tile.y+TerrainTransitions.dy(slot));
-                    if(neighbor.level!=tile.level)continue;
-                    int material=neighbor.art;
-                    if(material==center || material==TerrainTransitions.BRIDGE)continue;
-                    key|=(long)(material+1)<<TerrainTransitions.shift(slot);
-                }
-            }
-            tile.transitionKey=key;
-            return key;
-        }
-
-        private Bitmap transitionTexture(long key){
-            Bitmap cached=transitionTiles.get(key);
-            if(cached!=null)return cached;
-            TransitionWorker worker=transitionWorker;
-            if(worker==null || paused || transitionRequests>=TRANSITIONS_PER_FRAME
-                || pendingTransitions.size()>=MAX_PENDING_TRANSITIONS || !pendingTransitions.add(key)){
-                return null;
-            }
-            transitionRequests++;
-            worker.executor.execute(()->{
-                Bitmap result=worker.build(key);
-                post(()->{
-                    if(transitionWorker!=worker)return;
-                    pendingTransitions.remove(key);
-                    transitionTiles.put(key,result);
-                });
-            });
-            return null;
-        }
-
-        private static final class TransitionWorker {
-            final java.util.concurrent.ExecutorService executor =
-                java.util.concurrent.Executors.newSingleThreadExecutor();
-            private final Bitmap atlas;
-            private final int[][] materials=new int[16][];
-            private final Paint paint=new Paint(Paint.FILTER_BITMAP_FLAG);
-
-            TransitionWorker(Bitmap atlas){this.atlas=atlas;}
-
-            Bitmap build(long key){
-                prepareMaterial((int)(key&15));
-                for(int slot=0;slot<8;slot++){
-                    int material=TerrainTransitions.neighbor(key,slot);
-                    if(material>=0)prepareMaterial(material);
-                }
-                int size=TerrainTransitions.SIZE;
-                return Bitmap.createBitmap(TerrainTransitions.blend(key,materials),size,size,Bitmap.Config.ARGB_8888);
-            }
-
-            private void prepareMaterial(int material){
-                if(materials[material]!=null)return;
-                int size=TerrainTransitions.SIZE, sourceSize=atlas.getWidth()/4;
-                int left=(material%4)*sourceSize, top=(material/4)*sourceSize;
-                Rect source=new Rect(left,top,left+sourceSize,top+sourceSize);
-                Bitmap tile=Bitmap.createBitmap(size,size,Bitmap.Config.ARGB_8888);
-                new Canvas(tile).drawBitmap(atlas,source,new Rect(0,0,size,size),paint);
-                int[] pixels=new int[size*size];
-                tile.getPixels(pixels,0,size,0,0,size,size);
-                tile.recycle();
-                materials[material]=pixels;
-            }
-        }
-
         private void terrain(Canvas c, Tile tile, float sx, float sy){
             int level = tile.level, kind = tile.kind;
             int base=colorRange[kind];
@@ -428,15 +337,7 @@ public final class OutdoorActivity extends Activity {
             long seed=tile.terrainSeed;
             if(kind!=5 && (seed&7)==3)base=shade(base,-9);
             if(groundAtlas==null)rect(c,base,left,top,right,bottom);
-            int material=tile.art;
-            long key=transitionKey(tile);
-            Bitmap transition=key==material?null:transitionTexture(key);
-            if(transition==null){
-                groundTexture(c,material,left,top,right,bottom);
-            }else{
-                tileDestination.set(left,top,right,bottom);
-                c.drawBitmap(transition,null,tileDestination,groundPaint);
-            }
+            groundTexture(c,tile.art,left,top,right,bottom);
             long position=((long)tile.x<<32)^(tile.y&0xffffffffL);
             Bitmap accents=groundAccents.get(position);
             if(accents==null){
@@ -445,14 +346,14 @@ public final class OutdoorActivity extends Activity {
                 Canvas surface=new Canvas(accents);
                 surface.scale(SCENERY_SCALE,SCENERY_SCALE);
                 surface.translate(TILE_SIZE*.5f,TILE_SIZE*.5f);
-                drawGroundAccents(surface,tile,key==material);
+                drawGroundAccents(surface,tile);
                 groundAccents.put(position,accents);
             }
             tileDestination.set(left,top,right,bottom);
             c.drawBitmap(accents,null,tileDestination,groundPaint);
         }
 
-        private void drawGroundAccents(Canvas c, Tile tile, boolean bareRoad){
+        private void drawGroundAccents(Canvas c, Tile tile){
             float sx=0, sy=0;
             int kind=tile.kind;
             long seed=tile.terrainSeed;
@@ -468,7 +369,7 @@ public final class OutdoorActivity extends Activity {
             }
             // Low-cost hand-illustrated texture accents: ground clusters and irregular
             // fitted stone pavers (repeat deterministically across generated tiles).
-            if(tile.road && !tile.river && bareRoad){
+            if(tile.road && !tile.river){
                 for(int n=0;n<3;n++){
                     float px=sx-19+n*15+((seed>>(n*5))&3);
                     float py=sy-3+((seed>>(n*4+1))&3);
@@ -700,7 +601,6 @@ public final class OutdoorActivity extends Activity {
             int lastGroundColumn=gridIndex(viewRight/TILE_SIZE);
             int firstPropColumn=gridIndex((viewLeft-PROP_HALF_WIDTH)/TILE_SIZE);
             int lastPropColumn=gridIndex((viewRight+PROP_HALF_WIDTH)/TILE_SIZE);
-            transitionRequests=0;
             int heroRow=gridIndex(y);
             for(int ty=minY;ty<=maxY;ty++){
                 for(int tx=firstGroundColumn;tx<=lastGroundColumn;tx++){
