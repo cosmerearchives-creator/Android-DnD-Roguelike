@@ -29,60 +29,6 @@ final class RigViewProfile {
         return shoulderX(facing, arm) - authoredRootX;
     }
 
-    /**
-     * Appearance-specific front/back registration corrections in rig units.
-     * All values are relative to each sprite's ORIGINAL painted landmarks.
-     * Translation applies equally to shoulder, elbow and wrist: no mesh stretch.
-     * Side views, which have separate registered art, stay untouched.
-     * BASE mode ignores these corrections; FIT applies them.
-     */
-    static float shoulderFitX(String appearance, int facing, int arm) {
-        if (isSide(facing)) return 0f;
-        boolean rear = facing == 2;
-        float left, right;
-        switch (appearance) {
-            case "classic":
-                left = rear ? 0.10f : 0.15f;
-                right = rear ? -0.10f : -0.15f;
-                break;
-            case "bronze":
-                left = rear ? -2.55f : -2.65f;
-                right = rear ? 2.55f : 2.65f;
-                break;
-            case "compact":
-                left = rear ? -0.45f : -0.60f;
-                right = rear ? 0.45f : 0.60f;
-                break;
-            case "silver":
-                left = rear ? 0.10f : 0.05f;
-                right = rear ? -0.10f : -0.05f;
-                break;
-            case "braided":
-                left = rear ? -2.15f : -2.35f;
-                right = rear ? 2.15f : 2.35f;
-                break;
-            case "petite":
-                left = rear ? -1.70f : -1.85f;
-                right = rear ? 1.70f : 1.85f;
-                break;
-            case "coiled":
-                left = rear ? -0.50f : -0.45f;
-                right = rear ? 0.50f : 0.45f;
-                break;
-            case "bob":
-                left = rear ? -1.35f : -1.25f;
-                right = rear ? 1.35f : 1.25f;
-                break;
-            case "petite_alt":
-                left = rear ? -1.90f : -1.95f;
-                right = rear ? 1.90f : 1.95f;
-                break;
-            default:
-                return 0f;
-        }
-        return arm == 0 ? left : right;
-    }
-
     static float elbowX(int facing,int arm) {
         if(isSide(facing)) return arm==0 ? -6.5f : -5.5f;
         return arm==0 ? -21f : 21f;
