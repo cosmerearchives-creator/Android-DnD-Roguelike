@@ -1,5 +1,12 @@
 # Android DnD Roguelike
 
+## v0.3.53 — Tawny Bob rear upper-arm gold-trim removal
+- Retouches ONLY `app/src/main/assets/elf_roster/bob/2.webp` to remove leftover gold clothing trim on both rear upper-arm sprites. Starts from the original v0.3.52 atlas and blends nearby original skin texture inside two small, independently masked areas.
+- Preserves original 800×400 RGBA atlas cell positions, alpha transparency, all registered shoulder/elbow/wrist pixels, and every pixel outside the two targeted shoulder masks.
+- Does not change `bob/rig.txt`, approved front/side views, previously corrected rear shoulder coordinates, arm/torso meshes, animation, other characters, or application behavior.
+- A separate temporary GitHub Actions experiment performed the Pillow/Numpy-based binary retouch and verified pixel boundaries and lossless WebP roundtrip before the resulting image blob was included in this stable release.
+
+
 ## v0.3.52 — Tawny Bob rear shoulder height refinement
 - Raises only the two rear-facing Tawny Bob arm sprites by 1.5 rig units to bring their shoulder tops closer to the vest seams.
 - Front-facing Tawny Bob is deliberately unchanged, as are both side views and all eight other High Elves.
