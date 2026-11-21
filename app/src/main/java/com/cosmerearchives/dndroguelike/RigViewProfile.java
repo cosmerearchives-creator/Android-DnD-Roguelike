@@ -19,6 +19,17 @@ final class RigViewProfile {
     }
 
     /**
+     * Align an arm's authored shoulder root with its rig attachment point.
+     * Registration stores each limb cell's atlas origin and local shoulder root.
+     */
+    static float shoulderFitX(int[] registration, int facing, int arm,
+                              float centerX, float unit) {
+        if (isSide(facing)) return 0f;
+        float authoredRootX = (registration[6] + registration[0] - centerX) * unit;
+        return shoulderX(facing, arm) - authoredRootX;
+    }
+
+    /**
      * Appearance-specific front/back registration corrections in rig units.
      * All values are relative to each sprite's ORIGINAL painted landmarks.
      * Translation applies equally to shoulder, elbow and wrist: no mesh stretch.
