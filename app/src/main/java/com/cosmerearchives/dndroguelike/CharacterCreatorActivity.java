@@ -40,7 +40,7 @@ public final class CharacterCreatorActivity extends Activity {
     private LinearLayout root, contents;
     private TextView summary, appearanceLabel;
     private CharacterPreviewView preview;
-    private boolean previewGame=false;
+    private boolean previewGame=false, previewOriginalShoulders=false;
     private int previewDirection=0,previewAnimation=0;
     private int tab=0;
     private boolean building=false;
@@ -59,6 +59,7 @@ public final class CharacterCreatorActivity extends Activity {
             previewDirection=saved.getInt("facing");
             previewAnimation=saved.getInt("motion");
             previewGame=saved.getBoolean("smallPreview");
+            previewOriginalShoulders=saved.getBoolean("originalShoulders");
         }
         if(hero==null){hero=new PlayerCharacter();hero.rolls.add(PlayerCharacter.rollScores(random));hero.base=hero.rolls.get(0).clone();}
         if(hero.rolls.isEmpty())hero.rolls.add(hero.base.clone());
@@ -70,6 +71,7 @@ public final class CharacterCreatorActivity extends Activity {
         state.putInt("facing",previewDirection);
         state.putInt("motion",previewAnimation);
         state.putBoolean("smallPreview",previewGame);
+        state.putBoolean("originalShoulders",previewOriginalShoulders);
     }
 
     private TextView text(String value,int size){
@@ -173,6 +175,15 @@ public final class CharacterCreatorActivity extends Activity {
         appearanceLabel.setTypeface(SERIF);
         appearanceLabel.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);
         appearanceControls.addView(appearanceLabel,new LinearLayout.LayoutParams(0,-2,1));
+        Button compareShoulders=button(previewOriginalShoulders?"BASE":"WIDE",null);
+        compareShoulders.setTextSize(11);
+        compareShoulders.setContentDescription("Compare original and widened shoulder spacing");
+        compareShoulders.setOnClickListener(view->{
+            previewOriginalShoulders=!previewOriginalShoulders;
+            preview.shouldersOriginal(previewOriginalShoulders);
+            compareShoulders.setText(previewOriginalShoulders?"BASE":"WIDE");
+        });
+        appearanceControls.addView(compareShoulders,new LinearLayout.LayoutParams(dp(58),dp(40)));
         Button nextAppearance=button("›",()->cycleAppearance(1));
         nextAppearance.setContentDescription("Next appearance");
         appearanceControls.addView(nextAppearance,new LinearLayout.LayoutParams(dp(44),dp(40)));
@@ -180,6 +191,7 @@ public final class CharacterCreatorActivity extends Activity {
         if(preview==null)preview=new CharacterPreviewView(this,hero.appearance);
         else ((ViewGroup)preview.getParent()).removeView(preview);
         preview.mode(previewGame);preview.direction(previewDirection);preview.animation(previewAnimation);
+        preview.shouldersOriginal(previewOriginalShoulders);
         stage.addView(preview,new LinearLayout.LayoutParams(-1,0,1));
         LinearLayout previewControls=horizontal();
         Button mode=button(previewGame?"SMALL":"FULL BODY",null);

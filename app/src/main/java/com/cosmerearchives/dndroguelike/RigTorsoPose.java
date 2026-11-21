@@ -2,8 +2,17 @@ package com.cosmerearchives.dndroguelike;
 
 /** Chest and neck motion relative to the fixed waist and pelvis. */
 final class RigTorsoPose {
-    // One more 10% increase over the first 8% pass.
-    private static final float SHOULDER_SPREAD = 1.08f * 1.10f - 1f;
+    // One width setting controls the torso mesh and articulated shoulder joints.
+    // Character creation can temporarily switch to 1.0 for a visual comparison.
+    private float shoulderRatio = RigViewProfile.WIDENED_SHOULDER_RATIO;
+
+    void setShoulderRatio(float ratio) {
+        shoulderRatio = Math.max(1f, ratio);
+    }
+
+    float shoulderRatio() {
+        return shoulderRatio;
+    }
     static final float WAIST_Y = -82f;
     static final float CHEST_Y = -108f;
     static final float NECK_Y = -128f;
@@ -41,7 +50,7 @@ final class RigTorsoPose {
     // Fade into the neck and waist so only the upper torso widens.
     float shoulderSpread(float x, float y) {
         if (side) return 0f;
-        return SHOULDER_SPREAD * x * smooth((WAIST_Y - y) / 30f) * smooth((y + 144f) / 14f);
+        return (shoulderRatio - 1f) * x * smooth((WAIST_Y - y) / 30f) * smooth((y + 144f) / 14f);
     }
 
     void bindShoulder(float[] vertices, float left, float top, float width, float height,

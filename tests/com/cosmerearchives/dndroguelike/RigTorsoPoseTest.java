@@ -7,6 +7,10 @@ public final class RigTorsoPoseTest {
         check(pose.shoulderSpread(20f, -128f), 3.76f);
         check(pose.shoulderSpread(20f, RigTorsoPose.WAIST_Y), 0f);
         check(pose.shoulderSpread(20f, -150f), 0f);
+        pose.setShoulderRatio(1f);
+        check(pose.shoulderSpread(20f, -128f), 0f);
+        pose.setShoulderRatio(RigViewProfile.WIDENED_SHOULDER_RATIO);
+        check(pose.shoulderSpread(20f, -128f), 3.76f);
 
         pose.sample(false, 1f, .7f, -.3f, .2f, .1f);
         pose.applyPunch(3f);

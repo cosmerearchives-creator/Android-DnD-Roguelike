@@ -53,6 +53,10 @@ final class RiggedElf {
         baseArt = new ElfBaseArt(context, appearance);
     }
 
+    void setShoulderRatio(float ratio) {
+        torso.setShoulderRatio(ratio);
+    }
+
     private static Bitmap loadHeadAtlas(Context context) {
         try (java.io.InputStream input = context.getAssets().open("elf_head_layers.webp")) {
             Bitmap atlas = BitmapFactory.decodeStream(input);
@@ -97,13 +101,14 @@ final class RiggedElf {
             leftSwing = GaitModel.sample(cyc, 1).along * 16f * blend + armIdle;
             rightSwing = GaitModel.sample(cyc, 0).along * 16f * blend - armIdle;
         }
-        float leftShoulder=RigViewProfile.shoulderX(facing,0) - (frontFallback ? .6f : 0f);
-        float rightShoulder=RigViewProfile.shoulderX(facing,1) + (frontFallback ? .6f : 0f);
+        float shoulderRatio = torso.shoulderRatio();
+        float leftShoulder=RigViewProfile.shoulderX(facing,0,shoulderRatio) - (frontFallback ? .6f : 0f);
+        float rightShoulder=RigViewProfile.shoulderX(facing,1,shoulderRatio) + (frontFallback ? .6f : 0f);
         float shoulderY = frontFallback ? -109f : -108f;
-        float leftElbow=RigViewProfile.elbowX(facing,0)+leftSwing*.48f;
-        float rightElbow=RigViewProfile.elbowX(facing,1)+rightSwing*.48f;
-        float leftHand=RigViewProfile.handX(facing,0)+leftSwing;
-        float rightHand=RigViewProfile.handX(facing,1)+rightSwing;
+        float leftElbow=RigViewProfile.elbowX(facing,0,shoulderRatio)+leftSwing*.48f;
+        float rightElbow=RigViewProfile.elbowX(facing,1,shoulderRatio)+rightSwing*.48f;
+        float leftHand=RigViewProfile.handX(facing,0,shoulderRatio)+leftSwing;
+        float rightHand=RigViewProfile.handX(facing,1,shoulderRatio)+rightSwing;
         float leftElbowY = RigViewProfile.elbowY(facing, 0) + armDepth*.42f;
         float rightElbowY = RigViewProfile.elbowY(facing, 1) - armDepth*.42f;
         float leftHandY=RigViewProfile.handY(facing,0)+armDepth-attack.guard;

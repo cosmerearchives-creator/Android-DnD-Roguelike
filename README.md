@@ -1,5 +1,11 @@
 # Android DnD Roguelike
 
+## v0.3.47 — shoulder rig consistency and visual comparison
+- Couples the front/back shoulder, elbow, and wrist skeleton locations to the same 18.8% width adjustment as the torso mesh, without double-widening the art.
+- Adds a BASE / WIDE toggle beside the character appearance controls to compare the original and widened shoulders at matching scale. Gameplay retains the wider shoulders.
+- Keeps shoulder heights unchanged and narrow side profiles intact, with regression tests for actual skeletal shoulder width.
+
+
 ## v0.3.46 — shoulder spacing, exploration, and character creator
 - Widens front and back shoulder spacing by another 10% across all nine High Elves and keeps the idle shoulder line level.
 - Restores Explore Wildlands and lets players cycle appearances in the world without changing their saved character.

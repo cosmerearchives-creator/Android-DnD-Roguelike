@@ -55,6 +55,11 @@ final class CharacterPreviewView extends View {
         invalidate();
     }
 
+    void shouldersOriginal(boolean original) {
+        rig.setShoulderRatio(original ? 1f : RigViewProfile.WIDENED_SHOULDER_RATIO);
+        invalidate();
+    }
+
     void mode(boolean value) {
         worldScale = value;
         invalidate();

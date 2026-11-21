@@ -26,6 +26,15 @@ final class RigViewProfileTest {
         check(RigViewProfile.sideToFrontShoulderRatio()<.5f,
             "side shoulders must compress significantly");
         for(int d:new int[]{0,2}) {
+            float baseWidth = RigViewProfile.shoulderX(d,1) - RigViewProfile.shoulderX(d,0);
+            float wideWidth = RigViewProfile.shoulderX(d,1,RigViewProfile.WIDENED_SHOULDER_RATIO)
+                - RigViewProfile.shoulderX(d,0,RigViewProfile.WIDENED_SHOULDER_RATIO);
+            check(Math.abs(wideWidth/baseWidth-RigViewProfile.WIDENED_SHOULDER_RATIO)<.0001f,
+                "front/back shoulder joints must actually widen 18.8%");
+            check(RigViewProfile.elbowX(d,0,RigViewProfile.WIDENED_SHOULDER_RATIO)
+                < RigViewProfile.elbowX(d,0), "elbow must follow shoulder outward");
+            check(RigViewProfile.handX(d,1,RigViewProfile.WIDENED_SHOULDER_RATIO)
+                > RigViewProfile.handX(d,1), "wrist must follow shoulder outward");
             check(!RigViewProfile.isSide(d),"front/back should retain broad profile");
             check(!RigViewProfile.drawSwordArmBehindTorso(d),
                 "front/back arms should remain individually visible");
