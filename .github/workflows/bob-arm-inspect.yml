@@ -1,0 +1,54 @@
+name: Tawny Bob rear arm inspection (temporary)
+on:
+  push:
+    branches: [art/bob-rear-trim-work]
+    paths:
+      - '.github/workflows/bob-arm-inspect.yml'
+permissions:
+  contents: write
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install --quiet Pillow
+      - name: Generate readable crop previews without modifying assets
+        run: |
+          python - <<'PY'
+          from PIL import Image, ImageDraw
+          from pathlib import Path
+          p=Path('app/src/main/assets/elf_roster/bob/2.webp')
+          atlas=Image.open(p).convert('RGBA')
+          assert atlas.size==(800,400)
+          out=Path('.art-review');out.mkdir(exist_ok=True)
+          specs=[('rear_arm0_upper',(288,0,416,145),(70,41),(54,127)),('rear_arm1_upper',(416,0,544,145),(55,41),(75,127)),('rear_torso',(0,0,288,180),None,None)]
+          for name,box,root,elbow in specs:
+            c=atlas.crop(box).resize(((box[2]-box[0])*5,(box[3]-box[1])*5),Image.Resampling.NEAREST)
+            c.save(out/(name+'.png'))
+            marked=c.copy();d=ImageDraw.Draw(marked)
+            if root is not None:
+              for pt,col in ((root,'#00ff66'),(elbow,'#00bfff')):
+                x,y=pt[0]*5,pt[1]*5
+                d.ellipse((x-11,y-11,x+11,y+11),outline=col,width=3)
+            marked.save(out/(name+'_landmarks.png'))
+          # Print strong color clusters in the upper 80 px of the two arm cells.
+          for i,x0 in enumerate((288,416)):
+            arm=atlas.crop((x0,0,x0+128,110))
+            colors=arm.getcolors(128*110)
+            colors=sorted((n,rgba) for n,rgba in colors if rgba[3]>210)
+            colors=sorted(colors,key=lambda q:q[0],reverse=True)[:20]
+            print('ARM',i,'20 MOST COMMON OPAQUE COLORS:',colors)
+          print('Diagnostic crops generated:',[q.name for q in out.glob('*.png')])
+          PY
+      - name: Commit diagnostic crops to temporary branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .art-review/
+          git commit -m "Temporary: inspect Tawny Bob shoulder arm crop [skip ci]" || exit 0
+          git push origin HEAD:art/bob-rear-trim-work
