@@ -91,9 +91,17 @@ final class ElfBaseArt {
     }
 
     float fittedShoulderY(int facing, int index, boolean useFit) {
-        if (!useFit) return 0f;
-        return RigViewProfile.shoulderFitY(
-            appearanceId, facing, facings[facing].limbs[index].rootY);
+        if (!useFit || RigViewProfile.isSide(facing)) return 0f;
+        // Fit from the pre-raise reference so FIT does not undo the authored lift.
+        int liftPixels = switch (appearanceId) {
+            case "silver" -> 10;
+            case "braided" -> 4;
+            case "coiled" -> 7;
+            case "petite" -> 5;
+            default -> 0;
+        };
+        float referenceRootY = facings[facing].limbs[index].rootY + liftPixels * UNIT;
+        return RigViewProfile.shoulderFitY(appearanceId, facing, referenceRootY);
     }
 
     void drawBody(Canvas canvas, int facing, RigTorsoPose pose) {
