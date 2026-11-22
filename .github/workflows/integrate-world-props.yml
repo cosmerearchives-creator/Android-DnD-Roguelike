@@ -1,0 +1,68 @@
+name: Integrate Blender World Props
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: integrate-world-props
+  cancel-in-progress: false
+jobs:
+  render-and-commit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Blender and Pillow
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y blender xvfb
+          python3 -m pip install --quiet --break-system-packages Pillow
+      - name: Render four variants of each approved first-pass prop category
+        run: |
+          set -euo pipefail
+          mkdir -p build/factory-world
+          for category in rocks trees bushes ruins; do
+            xvfb-run -a blender --background --threads 3 --python blender/asset_factory.py -- --category "$category" --count 4 --output build/factory-world
+          done
+          python3 - <<'PY'
+          from pathlib import Path
+          from PIL import Image
+          src=Path('build/factory-world')
+          target=Path('app/src/main/assets/factory_world')
+          target.mkdir(parents=True,exist_ok=True)
+          for category in ('rocks','trees','bushes','ruins'):
+              for index in range(4):
+                  path=src/f'{category}_{index:02}.png'
+                  with Image.open(path) as image:
+                      assert image.size==(256,256) and image.mode=='RGBA'
+                      assert image.getchannel('A').getbbox()
+                      image.save(target/path.name,optimize=True)
+          print('Validated 16 Blender prop sprites')
+          PY
+      - name: Publish prop sprites and bump version for Android release
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/factory-world
+          cp app/src/main/assets/factory_world/*.png /tmp/factory-world/
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          for attempt in 1 2 3; do
+            git fetch origin main
+            git reset --hard origin/main
+            mkdir -p app/src/main/assets/factory_world
+            cp /tmp/factory-world/*.png app/src/main/assets/factory_world/
+            git add app/src/main/assets/factory_world/
+            if git diff --cached --quiet; then
+              echo "Prop sprites already published"
+              break
+            fi
+            git commit -m "Integrate 16 Blender-baked wilderness props"
+            if git push origin HEAD:main; then break; fi
+            if [ "$attempt" -eq 3 ]; then exit 1; fi
+            sleep 5
+          done
+      - uses: actions/upload-artifact@v4
+        with:
+          name: integrated-blender-world-props
+          path: build/factory-world/
+          retention-days: 30
