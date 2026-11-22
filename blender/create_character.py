@@ -152,20 +152,20 @@ def pose(mode,phase):
 
 # The editable source contains the neutral continuous-mesh figure.
 bpy.ops.wm.save_as_mainfile(filepath=os.path.abspath(os.path.join(out,"petite_pale_elf.blend")))
-for facing in range(8):
+for facing in (0,1,2,3,4):
     root.rotation_euler.z=facing*math.pi/4
-    for frame in range(4):
+    for frame in range(1):
         pose("idle",0)
         root.location.z=.012*math.sin(frame*math.pi/2)
         scene.render.filepath=os.path.abspath(os.path.join(out,"idle_f%d_%d.png"%(facing,frame)))
         bpy.ops.render.render(write_still=True)
-    for frame in range(8):
+    for frame in range(4):
         phase=frame*math.tau/8
         pose("walk",phase)
         root.location.z=.025*abs(math.sin(phase))
         scene.render.filepath=os.path.abspath(os.path.join(out,"walk_f%d_%d.png"%(facing,frame)))
         bpy.ops.render.render(write_still=True)
-    for frame in range(5):
+    for frame in range(3):
         pose("punch",frame/4)
         root.location.z=0
         scene.render.filepath=os.path.abspath(os.path.join(out,"punch_f%d_%d.png"%(facing,frame)))
