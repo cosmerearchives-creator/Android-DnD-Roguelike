@@ -121,8 +121,22 @@ final class WorldTerrain {
     int decoration(int x,int y) {
         return (int)(hash(x,y,315)&0x7fffffff);
     }
-    /** 1 tree, 2 bush, 0 boulder, 3 ruin. Sparse in meadows, clustered in woods. */
+    /** Ancient trees use deterministic 2x2 footprints on a 19-tile grid. */
+    boolean ancientTree(int x,int y) {
+        if(Math.floorMod(x,19)!=9||Math.floorMod(y,19)!=9)return false;
+        if(Math.abs(x)<8&&Math.abs(y)<8||trail(x,y))return false;
+        return (hash(Math.floorDiv(x,19),Math.floorDiv(y,19),731)&3)==0;
+    }
+    boolean ancientFootprint(int x,int y) {
+        for(int dx=0;dx<=1;dx++)for(int dy=0;dy<=1;dy++)
+            if(ancientTree(x-dx,y-dy))return true;
+        return false;
+    }
+    /** 1 tree, 2 bush, 0 boulder, 3 ruin, 4 ancient tree. */
+
     int wildernessProp(int x,int y) {
+        if(ancientTree(x,y))return 4;
+        if(ancientFootprint(x,y))return -1;
         if(Math.abs(x)<3&&Math.abs(y)<3||trail(x,y))return -1;
         int landmark=landmark(x,y);
         if(landmark==2)return 3;
