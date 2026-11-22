@@ -39,6 +39,8 @@ final class RiggedElf {
     private final ElfLayerSprites layers;
     private final Context context;
     private ElfBaseArt baseArt;
+    private ElfAppearance appearance;
+    private CoiledAnimation coiledAnimation;
     private final Rect headSrc = new Rect();
     private final RectF headDst = new RectF();
 
@@ -50,7 +52,11 @@ final class RiggedElf {
     }
 
     void setAppearance(ElfAppearance appearance) {
+        this.appearance = appearance;
         baseArt = new ElfBaseArt(context, appearance);
+        if (appearance == ElfAppearance.COILED && coiledAnimation == null) {
+            coiledAnimation = CoiledAnimation.load(context);
+        }
     }
 
     void setShoulderFitEnabled(boolean enabled) {
@@ -78,6 +84,15 @@ final class RiggedElf {
               float distanceCycles,float movementBlend,float idleElapsed,
               float attackProgress,boolean armored,float closeUpWidth,boolean showShoulderBinds) {
         Canvas c=canvas;
+        if (!armored && appearance == ElfAppearance.COILED && coiledAnimation != null) {
+            if (closeUpWidth > 0f) {
+                oval(c, 0x99112125, footX-23f*scale, footY-4f*scale,
+                    footX+23f*scale, footY+5f*scale);
+            }
+            coiledAnimation.draw(c, bitmapPaint, footX, footY, scale, facing,
+                distanceCycles, movementBlend, idleElapsed, attackProgress);
+            return;
+        }
         float blend=clamp(movementBlend,0f,1f);
         boolean side=RigViewProfile.isSide(facing);
         boolean back=facing==2;
