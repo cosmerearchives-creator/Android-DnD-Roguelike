@@ -58,14 +58,14 @@ public class MainActivity extends Activity {
         intro.setPadding(0,pad,0,pad);
         root.addView(intro);
         continueGame = new Button(this);
-        continueGame.setOnClickListener(v -> startActivity(new Intent(this, IsometricOverworldActivity.class)));
+        continueGame.setOnClickListener(v -> startActivity(new Intent(this, PrototypeWorldActivity.class)));
         root.addView(continueGame);
         create = new Button(this);
         create.setOnClickListener(v -> startActivity(new Intent(this, CharacterCreatorActivity.class)));
         root.addView(create);
         Button explore = new Button(this);
         explore.setText("Explore Wildlands · Isometric");
-        explore.setOnClickListener(v -> startActivity(new Intent(this, IsometricOverworldActivity.class)
+        explore.setOnClickListener(v -> startActivity(new Intent(this, PrototypeWorldActivity.class)
             .putExtra(OutdoorActivity.EXTRA_FREE_EXPLORE, true)));
         root.addView(explore);
         Button isometricRoom = new Button(this);
