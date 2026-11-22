@@ -4,8 +4,11 @@ on:
   push:
     branches: [main]
     paths:
-      - 'blender/**'
+      - 'blender/create_character.py'
       - '.github/workflows/bake-world.yml'
+concurrency:
+  group: blender-world-main
+  cancel-in-progress: true
 permissions:
   contents: write
 jobs:
@@ -52,21 +55,42 @@ jobs:
           for p in target.glob('*.png'):
               print('BLENDER_ASSET_VERIFIED',p,p.stat().st_size)
           PY
-      - name: Commit rendered assets to integration branch
+      - name: Commit generated atlases against latest main without binary rebase
         run: |
+          set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add app/src/main/assets/blender_world/
-          if ! git diff --cached --quiet; then
-            git commit -m "Bake real Blender world and Petite Pale atlases"
-            git pull --rebase origin main
-            git push origin HEAD:main
-          fi
+          mkdir -p /tmp/baked-world
+          cp app/src/main/assets/blender_world/petite_*.png /tmp/baked-world/
+          cp app/src/main/assets/blender_world/character_source.sha256 /tmp/baked-world/
+          for attempt in 1 2 3; do
+            git fetch origin main
+            git reset --hard origin/main
+            current=$(sha256sum blender/create_character.py | cut -d' ' -f1)
+            baked=$(cat /tmp/baked-world/character_source.sha256)
+            if [ "$current" != "$baked" ]; then
+              echo "::error::Character generator changed while rendering; a fresh bake is required"
+              exit 1
+            fi
+            cp /tmp/baked-world/petite_*.png app/src/main/assets/blender_world/
+            cp /tmp/baked-world/character_source.sha256 app/src/main/assets/blender_world/
+            git add app/src/main/assets/blender_world/
+            if git diff --cached --quiet; then
+              echo "Atlases already current"
+              break
+            fi
+            git commit -m "Bake current Petite Pale atlases"
+            if git push origin HEAD:main; then
+              break
+            fi
+            if [ "$attempt" -eq 3 ]; then exit 1; fi
+            sleep 5
+          done
       - name: Upload source and rendered assets
         uses: actions/upload-artifact@v4
         with:
           name: blender-world-source-and-atlases
           path: |
-            build/character/petite_pale_elf.blend
+            build/character/petite_pale.blend
             app/src/main/assets/blender_world/
           retention-days: 30
