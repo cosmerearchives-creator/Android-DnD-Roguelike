@@ -78,8 +78,9 @@ jobs:
             cp /tmp/baked-world/petite_*.png app/src/main/assets/blender_world/
             cp /tmp/baked-world/classic_*.png app/src/main/assets/blender_world/
             cp /tmp/baked-world/character_source.sha256 app/src/main/assets/blender_world/
-            # Only publish the new release after both styles have finished baking.
-            if grep -q '^versionName=0.3.83
+            if grep -q '^versionName=0.3.83$' version.properties; then
+              sed -i 's/^versionCode=104$/versionCode=105/;s/^versionName=0.3.83$/versionName=0.3.84/' version.properties
+            fi
             git add app/src/main/assets/blender_world/ version.properties
             if git diff --cached --quiet; then
               echo "Atlases already current"
@@ -96,30 +97,6 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh workflow run android.yml --ref main
-      - name: Upload source and rendered assets
-        uses: actions/upload-artifact@v4
-        with:
-          name: blender-world-source-and-atlases
-          path: |
-            build/character/petite/petite_pale.blend
-            build/character/classic/classic_study.blend
-            app/src/main/assets/blender_world/
-          retention-days: 30
- version.properties; then
-              sed -i 's/^versionCode=104$/versionCode=105/;s/^versionName=0.3.83$/versionName=0.3.84/' version.properties
-            fi
-            git add app/src/main/assets/blender_world/ version.properties
-            if git diff --cached --quiet; then
-              echo "Atlases already current"
-              break
-            fi
-            git commit -m "Bake redesigned Classic and Petite character atlases"
-            if git push origin HEAD:main; then
-              break
-            fi
-            if [ "$attempt" -eq 3 ]; then exit 1; fi
-            sleep 5
-          done
       - name: Upload source and rendered assets
         uses: actions/upload-artifact@v4
         with:
