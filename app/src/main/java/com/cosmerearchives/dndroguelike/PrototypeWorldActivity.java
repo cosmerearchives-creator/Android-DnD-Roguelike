@@ -59,7 +59,7 @@ public final class PrototypeWorldActivity extends Activity {
         private final SharedPreferences save;
         private final Bitmap atlas;
         private final Bitmap vegetation;
-        private final Bitmap bakedElf;
+        private final Bitmap bakedElf, bakedWalk, bakedPunch;
         private final Bitmap prototypeFloor, prototypeTree, prototypeLedge;
         private final Bitmap prototypeIdle, prototypeWalk, prototypePunch;
         private final boolean bakedEnvironment;
@@ -68,7 +68,9 @@ public final class PrototypeWorldActivity extends Activity {
         private final float movementFactor;
         private final GaitModel gait = new GaitModel();
         private float x, y, cameraX, cameraY, stickX, stickY;
-        private float facingScreenX, facingScreenY;
+        private float screenStickX, screenStickY;
+        private float stickCenterX, stickCenterY;
+        private boolean stickActive;
         private float idleTime, walkCycles, attackRemaining, blend;
         private int facing, pointer = -1;
         private boolean running, paused;
@@ -100,6 +102,8 @@ public final class PrototypeWorldActivity extends Activity {
             atlas = bakedEnvironment ? bakedTerrain : load(context, "wildlands_terrain_v031.png");
             vegetation = bakedEnvironment ? bakedProps : load(context, "wildlands_vegetation.webp");
             bakedElf = load(context, "blender_world/petite_idle.png");
+            bakedWalk = load(context, "blender_world/petite_walk.png");
+            bakedPunch = load(context, "blender_world/petite_punch.png");
             prototypeFloor = load(context,"isometric_lab/floor.png");
             prototypeTree = load(context,"isometric_lab/tree.png");
             prototypeLedge = load(context,"isometric_lab/ledge.png");
@@ -144,7 +148,7 @@ public final class PrototypeWorldActivity extends Activity {
             boolean moving=false;
             if (magnitude>.08f && attackRemaining==0) {
                 float speed=WALK_SPEED*movementFactor*(running?1.8f:1f);
-                float dx=stickX/magnitude*speed*dt, dy=stickY/magnitude*speed*dt;
+                float dx=stickX*speed*dt, dy=stickY*speed*dt;
                 float oldX=x,oldY=y;
                 if (clear(x+dx,y)) x+=dx;
                 if (clear(x,y+dy)) y+=dy;
@@ -154,8 +158,10 @@ public final class PrototypeWorldActivity extends Activity {
                 if (moving) {
                     // Prototype directions: 0 north (-Y), 1 east (+X),
                     // 2 south (+Y), 3 west (-X). Do not reverse north/south.
-                    facing=Math.abs(actualX)>Math.abs(actualY)
-                        ? (actualX>0?1:3) : (actualY>0?2:0);
+                    // Eight directions, ordered N, NE, E, SE, S, SW, W, NW.
+                    // The Blender atlas contains all eight orientations.
+                    float heading=(float)Math.atan2(actualX,-actualY);
+                    facing=Math.floorMod(Math.round(heading/(float)(Math.PI/4)),8);
                     gait.advance(travelled);
                     walkCycles=gait.cycles();
                 }
@@ -229,11 +235,19 @@ public final class PrototypeWorldActivity extends Activity {
             // The original approved test-room character and its real walk/punch
             // frames take priority over the later mismatched Blender prototype.
             if (appearance==ElfAppearance.PETITE && bakedElf!=null) {
+                Bitmap sheet=bakedElf;
                 int frame=Math.floorMod((int)(idleTime*4f),4);
+                if (attackRemaining>0 && bakedPunch!=null) {
+                    sheet=bakedPunch;
+                    frame=Math.min(4,(int)(5*(1-attackRemaining/RigAttackPose.DURATION)));
+                } else if (blend>.15f && bakedWalk!=null) {
+                    sheet=bakedWalk;
+                    frame=Math.floorMod((int)(walkCycles*8),8);
+                }
                 source.set(frame*168,facing*192,(frame+1)*168,(facing+1)*192);
                 destination.set(px-84,py-160,px+84,py+32);
                 paint.setColor(Color.WHITE);
-                c.drawBitmap(bakedElf,source,destination,paint);
+                c.drawBitmap(sheet,source,destination,paint);
                 return;
             }
             if (prototypeIdle!=null
@@ -247,13 +261,14 @@ public final class PrototypeWorldActivity extends Activity {
                     sheet=prototypeWalk;
                     frame=Math.floorMod((int)(walkCycles*8),8);
                 }
-                source.set(frame*144,facing*160,(frame+1)*144,(facing+1)*160);
+                int cardinal=(facing+1)/2%4;
+                source.set(frame*144,cardinal*160,(frame+1)*144,(cardinal+1)*160);
                 destination.set(px-72,py-135.303f,px+72,py+24.697f);
                 paint.setColor(Color.WHITE);
                 c.drawBitmap(sheet,source,destination,paint);
                 return;
             }
-            character.draw(c,px,py,.75f*appearance.heightScale,facing,walkCycles,
+            character.draw(c,px,py,.75f*appearance.heightScale,(facing+1)/2%4,walkCycles,
                 blend,idleTime,attackRemaining>0?1-attackRemaining/RigAttackPose.DURATION:0,
                 false,0f);
         }
@@ -295,9 +310,10 @@ public final class PrototypeWorldActivity extends Activity {
             runButton.set(getWidth()-125*d,bottom-111*d,getWidth()-18*d,bottom-70*d);
             attackButton.set(getWidth()-125*d,bottom-59*d,getWidth()-18*d,bottom);
             exitButton.set(getWidth()-94*d,18*d,getWidth()-12*d,54*d);
-            paint.setColor(0x99354B52);c.drawCircle(joystick.centerX(),joystick.centerY(),55*d,paint);
+            if (!stickActive) {stickCenterX=joystick.centerX();stickCenterY=joystick.centerY();}
+            paint.setColor(0x99354B52);c.drawCircle(stickCenterX,stickCenterY,55*d,paint);
             paint.setColor(0xFFB7D6C7);
-            c.drawCircle(joystick.centerX()+stickX*36*d,joystick.centerY()+stickY*36*d,19*d,paint);
+            c.drawCircle(stickCenterX+screenStickX*36*d,stickCenterY+screenStickY*36*d,19*d,paint);
             button(c,runButton,running?"RUN ON":"RUN");
             button(c,attackButton,"ATTACK / USE");
             button(c,exitButton,"MENU");
@@ -320,20 +336,23 @@ public final class PrototypeWorldActivity extends Activity {
         }
         private void stick(float px,float py) {
             float d=getResources().getDisplayMetrics().density;
-            float dx=(px-joystick.centerX())/(48*d),dy=(py-joystick.centerY())/(48*d);
+            float dx=(px-stickCenterX)/(48*d),dy=(py-stickCenterY)/(48*d);
             float mag=(float)Math.hypot(dx,dy);
-            if(mag>1){dx/=mag;dy/=mag;}
-            // Exact inverse of the prototype projection. The original
-            // transform is screenX=(x+y)*HALF_W, screenY=(x-y)*HALF_H.
-            // Compensate for unequal horizontal and vertical screen scales.
-            float ux=dx/HALF_W, uy=dy/HALF_H;
-            float wx=(ux+uy)*.5f, wy=(ux-uy)*.5f;
-            float worldLength=(float)Math.hypot(wx,wy);
-            float inputLength=(float)Math.hypot(dx,dy);
-            if(worldLength>.00001f){
-                stickX=wx/worldLength*inputLength;
-                stickY=wy/worldLength*inputLength;
-            } else {stickX=stickY=0f;}
+            if(mag>1){dx/=mag;dy/=mag;mag=1;}
+            screenStickX=dx;screenStickY=dy;
+            // Deadzone suppresses noise; outside it, displacement controls speed.
+            if(mag<.12f){stickX=stickY=0;return;}
+            float power=Math.min(1f,(mag-.12f)/.88f);
+            // Inverse of screen=(x+y)*HALF_W,(x-y)*HALF_H.
+            float wx=dx/HALF_W+dy/HALF_H;
+            float wy=dx/HALF_W-dy/HALF_H;
+            float length=(float)Math.hypot(wx,wy);
+            if(length>0){stickX=wx/length*power;stickY=wy/length*power;}
+            else {stickX=stickY=0;}
+        }
+        private void releaseStick() {
+            pointer=-1;stickActive=false;
+            stickX=stickY=screenStickX=screenStickY=0f;
         }
         @Override public boolean onTouchEvent(MotionEvent e) {
             int action=e.getActionMasked(),index=e.getActionIndex();
@@ -341,13 +360,14 @@ public final class PrototypeWorldActivity extends Activity {
             if(action==MotionEvent.ACTION_MOVE) {
                 int active=e.findPointerIndex(pointer);
                 if(active>=0)stick(e.getX(active),e.getY(active));
+                else if(pointer!=-1)releaseStick();
                 return true;
             }
             if(action==MotionEvent.ACTION_CANCEL) {
-                pointer=-1;stickX=stickY=0;return true;
+                releaseStick();return true;
             }
             if(action==MotionEvent.ACTION_UP||action==MotionEvent.ACTION_POINTER_UP) {
-                if(id==pointer){pointer=-1;stickX=stickY=0;}
+                if(id==pointer)releaseStick();
                 return true;
             }
             if(action==MotionEvent.ACTION_DOWN||action==MotionEvent.ACTION_POINTER_DOWN) {
@@ -361,8 +381,12 @@ public final class PrototypeWorldActivity extends Activity {
                     interact();
                     return true;
                 }
-                if(joystick.contains(px,py)&&pointer==-1) {
-                    pointer=id;stick(px,py);return true;
+                // Floating touchpad: any touch in the left lower half
+                // captures its own pointer; action buttons remain independent.
+                if(pointer==-1 && px<getWidth()*.52f && py>getHeight()*.38f) {
+                    pointer=id;stickActive=true;
+                    stickCenterX=px;stickCenterY=py;
+                    stick(px,py);return true;
                 }
                 if(paused)paused=false;
                 return true;
