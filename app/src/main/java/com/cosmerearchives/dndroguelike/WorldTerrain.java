@@ -45,7 +45,23 @@ final class WorldTerrain {
         if(wet<.36f)return 3;
         return temp>.55f?0:1;
     }
+    /** Sparse persistent world landmarks: 1 = hamlet, 2 = ancient ruins, 3 = wilderness encounter. */
+    int landmark(int x,int y) {
+        if (Math.abs(x)<9&&Math.abs(y)<9) return 0;
+        int cx=Math.floorDiv(x,24),cy=Math.floorDiv(y,24);
+        int lx=Math.floorMod(x,24),ly=Math.floorMod(y,24);
+        if(lx!=12||ly!=12)return 0;
+        long h=hash(cx,cy,111);
+        if((h&7)==0)return 1;
+        if((h&7)==1)return 2;
+        if((h&7)==2)return 3;
+        return 0;
+    }
     int prop(int x,int y) {
+        int landmark=landmark(x,y);
+        if(landmark==1)return 4;
+        if(landmark==2)return 0;
+        if(landmark==3)return 3;
         if((x==13&&y==-11)||(x==-19&&y==12)||(x==30&&y==25))return 0;
         if(Math.abs(x)<7&&Math.abs(y)<7||road(x,y)||river(x,y))return -1;
         long seed=hash(x,y,83);
@@ -56,6 +72,7 @@ final class WorldTerrain {
         return -1;
     }
     boolean blocked(int x,int y) {
+        if(landmark(x,y)!=0)return true;
         if(road(x,y))return false;
         if(river(x,y))return true;
         if(Math.abs(x)<6&&Math.abs(y)<6)return false;
