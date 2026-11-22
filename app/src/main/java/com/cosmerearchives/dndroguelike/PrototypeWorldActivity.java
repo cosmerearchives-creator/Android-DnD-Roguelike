@@ -133,11 +133,10 @@ public final class PrototypeWorldActivity extends Activity {
             }
             return true;
         }
-        private boolean isTree(int tx,int ty) { int kind=terrain.prop(tx,ty); return kind==1||kind==2; }
+        private boolean isTree(int tx,int ty) { int kind=terrain.wildernessProp(tx,ty); return kind==1||kind==3; }
         private float elevation(float wx,float wy) {
             int tx=Math.round(wx),ty=Math.round(wy);
-            int kind=terrain.prop(tx,ty);
-            return (kind==3||kind==4) && Math.abs(wx-tx)<.48f && Math.abs(wy-ty)<.48f ? PLATFORM_RISE : 0f;
+            return 0f;
         }
         private void update(float dt) {
             if (paused) return;
@@ -171,35 +170,100 @@ public final class PrototypeWorldActivity extends Activity {
             // joystick appear to drift and the walk animation slide.
             cameraX=x;cameraY=y;
         }
-        // Keep the approved test-room art direction. Repeat its illustrated floor
-        // across the camera's visible world instead of painting Blender blocks.
-        // Each source floor covers a 5 x 5 isometric patch; its coordinate system
-        // is identical to IsometricRoomActivity (70.0036 / 35.83905).
-        private void drawPrototypeGround(Canvas c) {
-            if(prototypeFloor==null)return;
-            int cx=Math.floorDiv((int)Math.floor(cameraX),5);
-            int cy=Math.floorDiv((int)Math.floor(cameraY),5);
-            paint.setColor(Color.WHITE);
-            for(int depth=-8;depth<=8;depth++)for(int ix=-4;ix<=4;ix++){
-                int iy=ix-depth;
-                if(Math.abs(iy)>4)continue;
-                float wx=ix*5f+cx*5f,wy=iy*5f+cy*5f;
-                float px=sx(wx,wy),py=sy(wx,wy);
-                destination.set(px-384,py-304.493f,px+384,py+271.507f);
-                c.drawBitmap(prototypeFloor,null,destination,paint);
+        // Continuous coordinate-seeded wilderness. Draw world-space diamonds rather
+        // than repeating a room bitmap; large-scale noise creates connected meadows,
+        // woodland, stony ridges and a wandering trail without visible atlas seams.
+        private void ground(Canvas c) {
+            int cx=(int)Math.floor(cameraX),cy=(int)Math.floor(cameraY);
+            for(int depth=-VISIBLE_RADIUS*2-3;depth<=VISIBLE_RADIUS*2+3;depth++) {
+                for(int xx=-VISIBLE_RADIUS-3;xx<=VISIBLE_RADIUS+3;xx++) {
+                    int yy=xx-depth;
+                    if(Math.abs(yy)>VISIBLE_RADIUS+3)continue;
+                    int tx=cx+xx,ty=cy+yy;
+                    float px=sx(tx+.5f,ty+.5f),py=sy(tx+.5f,ty+.5f);
+                    int biome=terrain.wildernessBiome(tx,ty);
+                    int base=biome==3?0xFF6D725C:biome==2?0xFF354D3C:
+                        biome==1?0xFF496947:0xFF668457;
+                    if(terrain.trail(tx,ty))base=0xFF77634B;
+                    float tint=terrain.groundVariation(tx,ty);
+                    int delta=(int)((tint-.5f)*21);
+                    int r=Math.max(0,Math.min(255,Color.red(base)+delta));
+                    int g=Math.max(0,Math.min(255,Color.green(base)+delta));
+                    int b=Math.max(0,Math.min(255,Color.blue(base)+delta));
+                    paint.setColor(Color.rgb(r,g,b));
+                    diamond.reset();
+                    diamond.moveTo(px,py-HALF_H);
+                    diamond.lineTo(px+HALF_W,py);
+                    diamond.lineTo(px,py+HALF_H);
+                    diamond.lineTo(px-HALF_W,py);
+                    diamond.close();
+                    c.drawPath(diamond,paint);
+                    int h=terrain.decoration(tx,ty);
+                    if(!terrain.trail(tx,ty)&&h%5==0) {
+                        paint.setColor(biome==2?0x664F7652:0x667F9C65);
+                        c.drawOval(px-18,py-5,px+19,py+6,paint);
+                    }
+                    if(h%9==1) {
+                        paint.setColor(0x88502F22);
+                        c.drawCircle(px+(h%17)-8,py+((h/17)%13)-6,2.3f,paint);
+                    }
+                    if(h%13==3&&biome!=3&&!terrain.trail(tx,ty)) {
+                        paint.setColor(0xFFB3A47B);
+                        c.drawCircle(px-8,py+2,1.7f,paint);
+                        paint.setColor(0xFFB3A1C1);
+                        c.drawCircle(px+5,py-3,1.5f,paint);
+                    }
+                }
             }
         }
         private void prop(Canvas c,int tx,int ty) {
-            int kind=terrain.prop(tx,ty);
+            int kind=terrain.wildernessProp(tx,ty);
             if(kind<0)return;
-            float px=sx(tx,ty),py=sy(tx,ty);
-            Bitmap art=(kind==1||kind==2)?prototypeTree:prototypeLedge;
-            if(art==null)return;
-            paint.setColor(Color.WHITE);
-            float anchor=art==prototypeTree?165.8486f:87.4622f;
-            destination.set(px-art.getWidth()*.5f,py-anchor,
-                px+art.getWidth()*.5f,py-anchor+art.getHeight());
-            c.drawBitmap(art,null,destination,paint);
+            float px=sx(tx+.5f,ty+.5f),py=sy(tx+.5f,ty+.5f);
+            if(kind==0) {
+                // Low, rounded rock with ground shadow instead of a raised square platform.
+                paint.setColor(0x66302224);
+                c.drawOval(px-25,py-7,px+26,py+13,paint);
+                paint.setColor(0xFF555D58);
+                c.drawOval(px-19,py-16,px+19,py+8,paint);
+                paint.setColor(0xFF849083);
+                c.drawOval(px-14,py-17,px+13,py-5,paint);
+                return;
+            }
+            if(kind==3) {
+                paint.setColor(0x77332828);
+                c.drawOval(px-28,py-8,px+29,py+11,paint);
+                paint.setColor(0xFF777B6E);
+                c.drawRect(px-15,py-35,px-5,py+2,paint);
+                c.drawRect(px+6,py-26,px+17,py+2,paint);
+                paint.setColor(0xFF9A9A83);
+                c.drawRect(px-19,py-37,px-3,py-31,paint);
+                return;
+            }
+            if(kind==2) {
+                paint.setColor(0xAA2A4734);
+                c.drawOval(px-22,py-8,px+22,py+8,paint);
+                paint.setColor(0xFF53764A);
+                c.drawCircle(px-10,py-8,15,paint);
+                c.drawCircle(px+8,py-12,18,paint);
+                paint.setColor(0xFF6F955B);
+                c.drawCircle(px+1,py-19,13,paint);
+                return;
+            }
+            // Tall forest trees, with a layered canopy and a distinct ground shadow.
+            paint.setColor(0x77302628);
+            c.drawOval(px-30,py-8,px+32,py+13,paint);
+            paint.setColor(0xFF544838);
+            c.drawRect(px-5,py-64,px+6,py+3,paint);
+            paint.setColor(0xFF233D34);
+            c.drawCircle(px-17,py-73,24,paint);
+            c.drawCircle(px+16,py-77,27,paint);
+            c.drawCircle(px,py-99,31,paint);
+            paint.setColor(0xFF3D6144);
+            c.drawCircle(px-11,py-95,25,paint);
+            c.drawCircle(px+11,py-104,20,paint);
+            paint.setColor(0xFF567B4D);
+            c.drawCircle(px-7,py-113,13,paint);
         }
         @Override protected void onDraw(Canvas c) {
             long now=System.nanoTime();
@@ -211,7 +275,7 @@ public final class PrototypeWorldActivity extends Activity {
             zoom=Math.max(.65f,Math.min(1.15f,getWidth()/768f));
             c.save();c.translate(centerX,centerY);c.scale(zoom,zoom);
             int cx=(int)Math.floor(cameraX),cy=(int)Math.floor(cameraY);
-            drawPrototypeGround(c);
+            ground(c);
             float heroDepth=x-y;
             boolean actorDrawn=false;
             for(int depth=-VISIBLE_RADIUS*2;depth<=VISIBLE_RADIUS*2;depth++){
