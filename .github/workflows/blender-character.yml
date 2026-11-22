@@ -1,0 +1,55 @@
+name: Blender Character Prototype
+on:
+  workflow_dispatch:
+  push:
+    branches: [feature/blender-character-pipeline]
+    paths:
+      - 'blender/**'
+      - '.github/workflows/blender-character.yml'
+  pull_request:
+    paths:
+      - 'blender/**'
+      - '.github/workflows/blender-character.yml'
+permissions:
+  contents: read
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Blender and Pillow
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y blender
+          python3 -m pip install --quiet --break-system-packages Pillow
+      - name: Render editable model and 16 directional preview frames
+        run: |
+          blender --version
+          blender --background --threads 2 --python blender/create_character.py -- --output build/blender-preview
+      - name: Assemble and validate 4x4 idle atlas
+        run: |
+          python3 - <<'PY'
+          from PIL import Image
+          from pathlib import Path
+          out=Path('build/blender-preview')
+          atlas=Image.new('RGBA',(168*4,192*4),(0,0,0,0))
+          for facing in range(4):
+              for frame in range(4):
+                  with Image.open(out/f'idle_f{facing}_{frame}.png') as image:
+                      assert image.size==(168,192)
+                      assert image.getchannel('A').getbbox(), (facing,frame)
+                      atlas.paste(image.convert('RGBA'),(frame*168,facing*192))
+          atlas.save(out/'idle_atlas.png')
+          assert (out/'high_elf_prototype.blend').stat().st_size>1000
+          print('Validated 16 rendered frames and editable Blender project.')
+          PY
+      - name: Upload editable Blender model and render previews
+        uses: actions/upload-artifact@v4
+        with:
+          name: blender-high-elf-prototype
+          path: |
+            build/blender-preview/high_elf_prototype.blend
+            build/blender-preview/idle_atlas.png
+            build/blender-preview/idle_f0_0.png
+          retention-days: 30
