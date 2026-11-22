@@ -61,6 +61,7 @@ public final class PrototypeWorldActivity extends Activity {
         private final Bitmap vegetation;
         private final Bitmap[][] factoryProps = new Bitmap[4][4];
         private final Bitmap bakedElf, bakedWalk, bakedPunch;
+        private final Bitmap classicElf, classicWalk, classicPunch;
         private final Bitmap prototypeFloor, prototypeTree, prototypeLedge;
         private final Bitmap prototypeIdle, prototypeWalk, prototypePunch;
         private final boolean bakedEnvironment;
@@ -114,6 +115,9 @@ public final class PrototypeWorldActivity extends Activity {
             bakedElf = load(context, "blender_world/petite_idle.png");
             bakedWalk = load(context, "blender_world/petite_walk.png");
             bakedPunch = load(context, "blender_world/petite_punch.png");
+            classicElf = load(context, "blender_world/classic_idle.png");
+            classicWalk = load(context, "blender_world/classic_walk.png");
+            classicPunch = load(context, "blender_world/classic_punch.png");
             prototypeFloor = load(context,"isometric_lab/floor.png");
             prototypeTree = load(context,"isometric_lab/tree.png");
             prototypeLedge = load(context,"isometric_lab/ledge.png");
@@ -365,20 +369,24 @@ public final class PrototypeWorldActivity extends Activity {
         }
         private void drawHero(Canvas c) {
             float px=sx(x,y),py=sy(x,y)-elevation(x,y);
-            // The original approved test-room character and its real walk/punch
-            // frames take priority over the later mismatched Blender prototype.
-            if (petiteStyle && bakedElf!=null && bakedWalk!=null && bakedPunch!=null) {
-                Bitmap sheet=bakedElf;
-                int frame=Math.floorMod((int)(idleTime*4f),4);
-                if (attackRemaining>0 && bakedPunch!=null) {
-                    sheet=bakedPunch;
+            // Both selectable styles use their own Blender-baked 8-direction
+            // character; never silently substitute the old Coiled Puff prototype.
+            Bitmap idle = petiteStyle ? bakedElf : classicElf;
+            Bitmap walk = petiteStyle ? bakedWalk : classicWalk;
+            Bitmap punch = petiteStyle ? bakedPunch : classicPunch;
+            if (idle!=null && walk!=null && punch!=null) {
+                Bitmap sheet=idle;
+                int frame=0;
+                if (attackRemaining>0) {
+                    sheet=punch;
                     frame=Math.min(4,(int)(5*(1-attackRemaining/RigAttackPose.DURATION)));
-                } else if (blend>.15f && bakedWalk!=null) {
-                    sheet=bakedWalk;
+                } else if (blend>.15f) {
+                    sheet=walk;
                     frame=Math.floorMod((int)(walkCycles*8),8);
                 }
                 source.set(frame*168,facing*192,(frame+1)*168,(facing+1)*192);
-                destination.set(px-84,py-160,px+84,py+32);
+                float size = petiteStyle ? 1f : 1.12f;
+                destination.set(px-84*size,py-160*size,px+84*size,py+32*size);
                 paint.setColor(Color.WHITE);
                 c.drawBitmap(sheet,source,destination,paint);
                 return;
