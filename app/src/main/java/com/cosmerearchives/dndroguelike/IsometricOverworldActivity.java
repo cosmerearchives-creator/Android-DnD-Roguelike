@@ -163,8 +163,8 @@ public final class IsometricOverworldActivity extends Activity {
             int kind=terrain.prop(tx,ty);
             if(kind<0)return;
             float px=sx(tx+.5f,ty+.5f),py=sy(tx+.5f,ty+.5f)-terrain.height(tx,ty)*11f;
-            if(vegetation!=null && kind<4) {
-                source.set(kind*256,0,(kind+1)*256,256);
+            if(vegetation!=null && kind>=1 && kind<=4) {
+                source.set((kind-1)*256,0,kind*256,256);
                 destination.set(px-35,py-95,px+35,py+6);
                 paint.setColor(Color.WHITE);
                 c.drawBitmap(vegetation,source,destination,paint);
