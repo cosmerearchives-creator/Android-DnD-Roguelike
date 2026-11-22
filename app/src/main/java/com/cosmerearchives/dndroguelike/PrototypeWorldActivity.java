@@ -129,11 +129,11 @@ public final class PrototypeWorldActivity extends Activity {
             int minY=(int)Math.floor(wy-PLAYER_RADIUS), maxY=(int)Math.floor(wy+PLAYER_RADIUS);
 
             for (int tx=minX;tx<=maxX;tx++) for (int ty=minY;ty<=maxY;ty++) {
-                if (isTree(tx,ty)) return false;
+                if (isTree(tx,ty) || terrain.ancientFootprint(tx,ty)) return false;
             }
             return true;
         }
-        private boolean isTree(int tx,int ty) { int kind=terrain.wildernessProp(tx,ty); return kind==1||kind==3; }
+        private boolean isTree(int tx,int ty) { int kind=terrain.wildernessProp(tx,ty); return kind==1||kind==3||kind==4; }
         private float elevation(float wx,float wy) {
             int tx=Math.round(wx),ty=Math.round(wy);
             return 0f;
@@ -220,6 +220,10 @@ public final class PrototypeWorldActivity extends Activity {
             int kind=terrain.wildernessProp(tx,ty);
             if(kind<0)return;
             float px=sx(tx+.5f,ty+.5f),py=sy(tx+.5f,ty+.5f);
+            if(kind==4) {
+                drawTree(c,px+HALF_W,py,2.35f,tx*17+ty*31);
+                return;
+            }
             if(kind==0) {
                 // Low, rounded rock with ground shadow instead of a raised square platform.
                 paint.setColor(0x66302224);
@@ -250,21 +254,33 @@ public final class PrototypeWorldActivity extends Activity {
                 c.drawCircle(px+1,py-19,13,paint);
                 return;
             }
-            // Tall forest trees, with a layered canopy and a distinct ground shadow.
-            paint.setColor(0x77302628);
-            c.drawOval(px-30,py-8,px+32,py+13,paint);
-            paint.setColor(0xFF544838);
-            c.drawRect(px-5,py-64,px+6,py+3,paint);
-            paint.setColor(0xFF233D34);
-            c.drawCircle(px-17,py-73,24,paint);
-            c.drawCircle(px+16,py-77,27,paint);
-            c.drawCircle(px,py-99,31,paint);
-            paint.setColor(0xFF3D6144);
-            c.drawCircle(px-11,py-95,25,paint);
-            c.drawCircle(px+11,py-104,20,paint);
-            paint.setColor(0xFF567B4D);
-            c.drawCircle(px-7,py-113,13,paint);
+            // A typical tree is substantially taller than the player; deterministic
+            // size variation makes groves less uniform.
+            int seed=terrain.decoration(tx,ty);
+            float scale=1.12f+(seed%7)*.12f;
+            drawTree(c,px,py,scale,seed);
         }
+        private void drawTree(Canvas c,float px,float py,float scale,int seed) {
+            c.save();
+            c.translate(px,py);
+            c.scale(scale,scale);
+            float shade=(seed&3)*.03f;
+            paint.setColor(0x77302628);
+            c.drawOval(-30,-8,32,13,paint);
+            paint.setColor(0xFF544838);
+            c.drawRect(-5,-78,6,3,paint);
+            paint.setColor(0xFF233D34);
+            c.drawCircle(-19,-85,25,paint);
+            c.drawCircle(18,-88,29,paint);
+            c.drawCircle(0,-111,33,paint);
+            paint.setColor(shade>.05f?0xFF365940:0xFF3D6144);
+            c.drawCircle(-13,-107,27,paint);
+            c.drawCircle(12,-117,24,paint);
+            paint.setColor(0xFF567B4D);
+            c.drawCircle(-8,-129,15,paint);
+            c.restore();
+        }
+
         @Override protected void onDraw(Canvas c) {
             long now=System.nanoTime();
             float dt=lastFrame==0?0:Math.min(.05f,(now-lastFrame)*1e-9f);
@@ -298,7 +314,7 @@ public final class PrototypeWorldActivity extends Activity {
             float px=sx(x,y),py=sy(x,y)-elevation(x,y);
             // The original approved test-room character and its real walk/punch
             // frames take priority over the later mismatched Blender prototype.
-            if (appearance==ElfAppearance.PETITE && bakedElf!=null) {
+            if (bakedElf!=null && bakedWalk!=null && bakedPunch!=null) {
                 Bitmap sheet=bakedElf;
                 int frame=Math.floorMod((int)(idleTime*4f),4);
                 if (attackRemaining>0 && bakedPunch!=null) {
