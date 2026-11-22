@@ -2,7 +2,7 @@ name: Bake Blender World Assets
 on:
   workflow_dispatch:
   push:
-    branches: [feature/controls-forest-feminine-model]
+    branches: [feature/knee-walk-joystick-punch-v0375]
     paths:
       - 'blender/**'
       - '.github/workflows/bake-world.yml'
@@ -31,13 +31,14 @@ jobs:
           from pathlib import Path
           target=Path('app/src/main/assets/blender_world')
           target.mkdir(parents=True,exist_ok=True)
-          char=Image.new('RGBA',(4*168,4*192))
-          for f in range(4):
-              for n in range(4):
-                  with Image.open(f'build/character/idle_f{f}_{n}.png') as frame:
-                      assert frame.getchannel('A').getbbox(),(f,n)
-                      char.paste(frame,(n*168,f*192))
-          char.save(target/'petite_idle.png')
+          for motion, frames in (('idle',4),('walk',8),('punch',5)):
+              sheet=Image.new('RGBA',(frames*168,4*192))
+              for facing in range(4):
+                  for frame in range(frames):
+                      with Image.open(f'build/character/{motion}_f{facing}_{frame}.png') as image:
+                          assert image.getchannel('A').getbbox(),(motion,facing,frame)
+                          sheet.paste(image,(frame*168,facing*192))
+              sheet.save(target/f'petite_{motion}.png')
           for p in target.glob('*.png'):
               print('BLENDER_ASSET_VERIFIED',p,p.stat().st_size)
           PY
