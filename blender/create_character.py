@@ -17,7 +17,8 @@ def material(name, color):
     bs.inputs["Roughness"].default_value=.84
     return m
 
-classic = variant == "classic_study"
+classic = variant in ("classic_study", "classic_male")
+male = variant in ("classic_male", "petite_male")
 skin = material("Skin", (.65,.39,.26) if classic else (.88,.73,.70))
 hair = material("Hair", (.075,.043,.023) if classic else (.032,.026,.041))
 highlight = material("Hair ribbons", (.14,.075,.039) if classic else (.070,.049,.085))
@@ -29,7 +30,7 @@ leather = material("Leather", (.20,.097,.060) if classic else (.11,.079,.13))
 eye = material("Eyes", (.08,.14,.14))
 lips = material("Lips", (.34,.13,.12) if classic else (.45,.20,.23))
 
-root = bpy.data.objects.new("Classic Ranger" if classic else "Petite Scout", None)
+root = bpy.data.objects.new(("Classic Ranger" if classic else "Petite Scout") + (" Male" if male else " Female"), None)
 bpy.context.collection.objects.link(root)
 
 def finish(obj, name, mat, limb):
@@ -163,12 +164,12 @@ if variant == "dagger_goblin":
                 if obj.name.startswith("Hair cap"): obj.scale.x *= 1.15
     root.scale=(.79,.78,.62)
 else:
-    w = 1.0 if classic else .88
-    hip = .279 if classic else .238
+    w = (1.12 if classic else .99) if male else (1.0 if classic else .88)
+    hip = (.245 if classic else .215) if male else (.279 if classic else .238)
     torso_skin = surface("Upper torso skin", [(0,0,z,rx,ry) for z,rx,ry in [
         (1.32,.162*w,.115),(1.47,.198*w,.139),(1.60,.233*w,.158),
         (1.645,.235*w,.146),(1.70,.232*w,.123),(1.76,.191*w,.105),(1.81,.093,.079)]], skin)
-    for vertex in torso_skin.data.vertices:
+    for vertex in ([] if male else torso_skin.data.vertices):
         x,y,z = vertex.co
         if y >= 0:
             continue
@@ -224,7 +225,21 @@ else:
         spline.use_cyclic_u=True
         trim=bpy.data.objects.new("Gold neckline piping",curve)
         bpy.context.collection.objects.link(trim);trim.parent=root;curve.materials.append(gold)
-    fitted_bodice()
+    if male:
+        # Flat, broad-chested masculine torso with visible shoulder and ribcage
+        # volume; reuse the same material language as the female models.
+        surface("Male ranger cuirass" if classic else "Male scout jerkin",
+            [(0,0,z,rx,ry) for z,rx,ry in [
+              (1.26,.177*w,.140),(1.36,.195*w,.154),
+              (1.50,.230*w,.177),(1.62,.267*w,.184),
+              (1.72,.269*w,.147),(1.79,.160*w,.110)]],
+            metal if classic else cloth)
+        uv("Male chest insignia",(0,-.184,1.58),(.043,.019,.103),gold)
+        for side in (-1,1):
+            uv("Broad shoulder guard",(.267*w*side,.013,1.688),
+               (.115,.117,.085),metal if classic else cloth,"arm_left" if side<0 else "arm_right")
+    else:
+        fitted_bodice()
 
     surface("Fitted hip panel", [(0,0,z,rx,ry) for z,rx,ry in [
         (1.02,hip*.91,.148),(1.09,hip,.172),(1.16,hip*.93,.161),
@@ -233,7 +248,7 @@ else:
         (0,0,1.28,.180*w,.138)], leather)
     uv("Belt clasp", (0,-.148,1.255), (.042,.021,.028), gold)
     for side in (-1,1):
-        if not classic:
+        if not classic and not male:
             panel=uv("Split violet overskirt",(.116*side,-.110,1.104),(.086,.049,.126),cloth)
             panel.rotation_euler.y=-.23*side
         strap=uv("Fitted shoulder strap",(.159*w*side,-.074,1.706),(.034,.046,.091),metal if classic else cloth)
@@ -278,23 +293,34 @@ else:
         uv("Boot cuff", (leg_x,.014,.211), (.058,.060,.033), metal if classic else cloth, leg+"_boot")
         if classic:
             uv("Small knee plate", (leg_x,-.072,.556), (.062,.028,.066), metal, leg)
-        else:
+        elif not male:
             uv("Long side hair", (.114*side,.059,1.94), (.037,.051,.176), hair)
     if classic:
         uv("Short ranger cape", (0,.136,1.465), (.225,.039,.341), cloth)
-        uv("Tied hair bun", (0,.145,2.129), (.086,.077,.073), highlight)
+        if not male: uv("Tied hair bun", (0,.145,2.129), (.086,.077,.073), highlight)
         for i in range(5):
             lock = uv("Swept hair lock", (-.103+i*.041,-.049,2.142+i*.007),
                       (.045,.071,.055), hair if i%2 else highlight)
             lock.rotation_euler.y = -.43
     else:
         uv("Sash knot", (.121,-.146,1.26), (.055,.027,.045), gold)
-        uv("Straight hair back", (0,.125,1.923), (.136,.057,.251), hair)
+        if not male: uv("Straight hair back", (0,.125,1.923), (.136,.057,.251), hair)
         for side in (-1,1):
             swept = uv("Parted fringe", (.055*side,-.040,2.131), (.080,.067,.063), hair)
             swept.rotation_euler.y = .53*side
-        for i in range(5):
+        for i in range(0 if male else 5):
             uv("Hair sheen", ((i-2)*.042,.168,1.901), (.010,.014,.176), highlight)
+    if male:
+        # Distinct jaw, brow and hairstyle for both male silhouettes.
+        uv("Angular jaw",(0,-.051,1.919),(.109,.086,.057),skin)
+        for side in (-1,1):
+            uv("Heavy brow",(.057*side,-.105,2.077),(.061,.022,.016),hair)
+            uv("Short temple hair",(.123*side,.023,2.094),(.034,.052,.080),hair)
+        if classic:
+            uv("Short ranger beard",(0,-.100,1.895),(.094,.039,.066),hair)
+            uv("Beard chin point",(0,-.099,1.856),(.047,.030,.057),hair)
+        else:
+            uv("Scout cropped crest",(0,.032,2.218),(.102,.096,.048),hair)
 
 world=bpy.context.scene.world
 world.color=(.32,.32,.32)
