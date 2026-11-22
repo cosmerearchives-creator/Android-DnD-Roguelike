@@ -7,6 +7,7 @@ from mathutils import Vector
 
 args = sys.argv[sys.argv.index("--")+1:] if "--" in sys.argv else []
 out = args[args.index("--output")+1] if "--output" in args else "build/blender-preview"
+variant = args[args.index("--variant")+1] if "--variant" in args else "petite_pale"
 os.makedirs(out, exist_ok=True)
 bpy.ops.object.select_all(action="SELECT")
 bpy.ops.object.delete(use_global=False)
@@ -19,14 +20,14 @@ def material(name, color):
     bs.inputs["Roughness"].default_value=.84
     return m
 
-skin=material("Warm elf skin",(.72,.46,.32))
-hair=material("Coiled dark hair",(.13,.085,.075))
-navy=material("Navy tunic",(.055,.10,.22))
+skin=material("Pale elf skin",(.87,.73,.68))
+hair=material("Pale silver-blonde hair",(.73,.70,.60))
+navy=material("Deep blue tunic",(.075,.12,.23))
 gold=material("Gold trim",(.72,.45,.14))
 leather=material("Brown leather",(.18,.10,.065))
 eye=material("Eyes",(.08,.14,.17))
 
-root=bpy.data.objects.new("CharacterRoot",None)
+root=bpy.data.objects.new("PetitePaleElfRoot",None)
 bpy.context.collection.objects.link(root)
 def uv(name,loc,scale,mat):
     bpy.ops.mesh.primitive_uv_sphere_add(segments=20,ring_count=12,location=loc)
@@ -59,9 +60,9 @@ for side in (-1,1):
     uv("Shoulder trim "+str(x),(.28*x,-.02,1.71),(.045,.17,.035),gold)
 uv("Belt",(0,-.01,1.13),(.31,.195,.065),leather)
 uv("Buckle",(0,-.205,1.13),(.07,.025,.055),gold)
-for i in range(9):
-    angle=2*math.pi*i/9
-    uv("Hair curl %02d"%i,(.17*math.cos(angle),.12*math.sin(angle)+.02,2.27),(.105,.105,.12),hair)
+for i in range(12):
+    angle=2*math.pi*i/12
+    uv("Hair curl %02d"%i,(.17*math.cos(angle),.12*math.sin(angle)+.02,2.27),(.083,.083,.10),hair)
 uv("Hair crown",(0,.055,2.30),(.215,.19,.13),hair)
 
 world=bpy.context.scene.world
@@ -74,12 +75,12 @@ direction=Vector((0,0,1.15))-camera.location
 camera.rotation_euler=direction.to_track_quat("-Z","Y").to_euler()
 camera.data.type="ORTHO";camera.data.ortho_scale=2.85
 scene=bpy.context.scene;scene.camera=camera
-scene.render.engine="BLENDER_EEVEE_NEXT" if bpy.app.version >= (4,2,0) else "BLENDER_EEVEE"
+scene.render.engine="BLENDER_EEVEE"
 scene.render.resolution_x=168;scene.render.resolution_y=192;scene.render.resolution_percentage=100
 scene.render.image_settings.file_format="PNG";scene.render.film_transparent=True
 scene.view_settings.view_transform="Standard"
 # Save the editable source before rendering.
-bpy.ops.wm.save_as_mainfile(filepath=os.path.abspath(os.path.join(out,"high_elf_prototype.blend")))
+bpy.ops.wm.save_as_mainfile(filepath=os.path.abspath(os.path.join(out,"petite_pale_elf.blend")))
 for facing in range(4):
     root.rotation_euler.z=facing*math.pi/2
     for frame in range(4):
