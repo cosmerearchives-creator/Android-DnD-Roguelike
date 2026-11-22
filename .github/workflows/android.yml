@@ -144,6 +144,8 @@ jobs:
 
 
           PY
+      - name: Verify Blender baked world and Petite Pale assets
+        run: python3 scripts/verify-blender-world.py
       - name: Verify articulated gait math
         run: |
           mkdir -p "$RUNNER_TEMP/gait-tests"
