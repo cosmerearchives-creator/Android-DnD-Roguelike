@@ -46,8 +46,8 @@ public final class IsometricOverworldActivity extends Activity {
     }
 
     static final class World extends View {
-        private static final float HALF_W = 45f, HALF_H = 23f;
-        private static final int VISIBLE_RADIUS = 17;
+        private static final float HALF_W = 70.0036f, HALF_H = 35.83905f;
+        private static final int VISIBLE_RADIUS = 11;
         private static final float WALK_SPEED = 1.75f;
         private static final float PLAYER_RADIUS = .20f;
         private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
@@ -59,6 +59,8 @@ public final class IsometricOverworldActivity extends Activity {
         private final Bitmap atlas;
         private final Bitmap vegetation;
         private final Bitmap bakedElf;
+        private final Bitmap prototypeFloor, prototypeTree, prototypeLedge;
+        private final Bitmap prototypeIdle, prototypeWalk, prototypePunch;
         private final boolean bakedEnvironment;
         private final RiggedElf character;
         private final ElfAppearance appearance;
@@ -96,6 +98,12 @@ public final class IsometricOverworldActivity extends Activity {
             atlas = bakedEnvironment ? bakedTerrain : load(context, "wildlands_terrain_v031.png");
             vegetation = bakedEnvironment ? bakedProps : load(context, "wildlands_vegetation.webp");
             bakedElf = load(context, "blender_world/petite_idle.png");
+            prototypeFloor = load(context,"isometric_lab/floor.png");
+            prototypeTree = load(context,"isometric_lab/tree.png");
+            prototypeLedge = load(context,"isometric_lab/ledge.png");
+            prototypeIdle = load(context,"isometric_lab/idle.png");
+            prototypeWalk = load(context,"isometric_lab/walk.png");
+            prototypePunch = load(context,"isometric_lab/punch.png");
             setFocusable(true);
         }
         private static Bitmap load(Context c, String name) {
@@ -146,53 +154,35 @@ public final class IsometricOverworldActivity extends Activity {
             float follow=Math.min(1,dt*7f);
             cameraX+=(x-cameraX)*follow;cameraY+=(y-cameraY)*follow;
         }
-        private void tile(Canvas c,int tx,int ty) {
-            float px=sx(tx+.5f,ty+.5f),py=sy(tx+.5f,ty+.5f);
-            int elevation=terrain.height(tx,ty);
-            py-=elevation*11f;
-            int kind=terrain.biome(tx,ty);
-            int art=terrain.art(tx,ty);
-            diamond.reset();
-            diamond.moveTo(px,py-HALF_H);diamond.lineTo(px+HALF_W,py);
-            diamond.lineTo(px,py+HALF_H);diamond.lineTo(px-HALF_W,py);
-            diamond.close();
-            paint.setColor(kind==5?0xFF326E80:kind==4?0xFF6B6C66:0xFF587554);
-            c.drawPath(diamond,paint);
-            if (atlas!=null) {
-                int size=atlas.getWidth()/4;
-                source.set((art%4)*size,(art/4)*size,(art%4+1)*size,(art/4+1)*size);
-                c.save();
-                c.clipPath(diamond);
-                paint.setColor(Color.WHITE);
-                destination.set(px-HALF_W,py-HALF_H,px+HALF_W,py+HALF_H);
-                c.drawBitmap(atlas,source,destination,paint);
-                c.restore();
-            }
-            // Visible raised edge; terrain remains continuous beyond the camera.
-            if(elevation>terrain.height(tx+1,ty) || elevation>terrain.height(tx,ty-1)){
-                paint.setColor(0xBB283C36);
-                c.drawLine(px,py+HALF_H,px,py+HALF_H+elevation*5f,paint);
+        // Keep the approved test-room art direction. Repeat its illustrated floor
+        // across the camera's visible world instead of painting Blender blocks.
+        // Each source floor covers a 5 x 5 isometric patch; its coordinate system
+        // is identical to IsometricRoomActivity (70.0036 / 35.83905).
+        private void drawPrototypeGround(Canvas c) {
+            if(prototypeFloor==null)return;
+            int cx=Math.floorDiv((int)Math.floor(cameraX),5);
+            int cy=Math.floorDiv((int)Math.floor(cameraY),5);
+            paint.setColor(Color.WHITE);
+            for(int depth=-8;depth<=8;depth++)for(int ix=-4;ix<=4;ix++){
+                int iy=ix-depth;
+                if(Math.abs(iy)>4)continue;
+                float wx=ix*5f+cx*5f,wy=iy*5f+cy*5f;
+                float px=sx(wx,wy),py=sy(wx,wy);
+                destination.set(px-384,py-304.493f,px+384,py+271.507f);
+                c.drawBitmap(prototypeFloor,null,destination,paint);
             }
         }
         private void prop(Canvas c,int tx,int ty) {
             int kind=terrain.prop(tx,ty);
             if(kind<0)return;
-            float px=sx(tx+.5f,ty+.5f),py=sy(tx+.5f,ty+.5f)-terrain.height(tx,ty)*11f;
-            if(vegetation!=null && kind>=1 && kind<=4) {
-                int index=bakedEnvironment?kind:kind-1;
-                source.set(index*256,0,(index+1)*256,256);
-                destination.set(px-45,py-115,px+45,py+10);
-                paint.setColor(Color.WHITE);
-                c.drawBitmap(vegetation,source,destination,paint);
-            } else if(vegetation!=null && kind==0 && bakedEnvironment) {
-                source.set(0,0,256,256);
-                destination.set(px-42,py-112,px+42,py+10);
-                paint.setColor(Color.WHITE);
-                c.drawBitmap(vegetation,source,destination,paint);
-            } else {
-                paint.setColor(0xFF354D40);
-                c.drawCircle(px,py-17,12,paint);
-            }
+            float px=sx(tx+.5f,ty+.5f),py=sy(tx+.5f,ty+.5f);
+            Bitmap art=(kind==1||kind==2)?prototypeTree:prototypeLedge;
+            if(art==null)return;
+            paint.setColor(Color.WHITE);
+            float anchor=art==prototypeTree?165.8486f:87.4622f;
+            destination.set(px-art.getWidth()*.5f,py-anchor,
+                px+art.getWidth()*.5f,py-anchor+art.getHeight());
+            c.drawBitmap(art,null,destination,paint);
         }
         @Override protected void onDraw(Canvas c) {
             long now=System.nanoTime();
@@ -201,18 +191,10 @@ public final class IsometricOverworldActivity extends Activity {
             update(dt);
             c.drawColor(0xFF14242A);
             float centerX=getWidth()*.5f,centerY=getHeight()*.44f;
-            zoom=Math.max(.8f,Math.min(1.6f,getWidth()/440f));
+            zoom=Math.max(.65f,Math.min(1.15f,getWidth()/768f));
             c.save();c.translate(centerX,centerY);c.scale(zoom,zoom);
             int cx=(int)Math.floor(cameraX),cy=(int)Math.floor(cameraY);
-            // Painter order for isometric diamond tiles is ascending x-y.
-            for(int depth=-VISIBLE_RADIUS*2;depth<=VISIBLE_RADIUS*2;depth++){
-                for(int xx=-VISIBLE_RADIUS;xx<=VISIBLE_RADIUS;xx++){
-                    int yy=xx-depth;
-                    if(Math.abs(yy)>VISIBLE_RADIUS)continue;
-                    int tx=cx+xx,ty=cy+yy;
-                    tile(c,tx,ty);
-                }
-            }
+            drawPrototypeGround(c);
             float heroDepth=x-y;
             boolean actorDrawn=false;
             for(int depth=-VISIBLE_RADIUS*2;depth<=VISIBLE_RADIUS*2;depth++){
@@ -232,15 +214,25 @@ public final class IsometricOverworldActivity extends Activity {
             postInvalidateOnAnimation();
         }
         private void drawHero(Canvas c) {
-            float px=sx(x,y),py=sy(x,y)-terrain.height((int)Math.floor(x),(int)Math.floor(y))*11f;
-            if (appearance==ElfAppearance.PETITE && bakedElf!=null) {
-                int row=Math.floorMod(facing,4);
-                int frame=Math.min(3,(int)(GaitModel.fractional(idleTime*.6f)*4));
-                source.set(frame*168,row*192,(frame+1)*168,(row+1)*192);
-                float scale=.76f*appearance.heightScale;
-                destination.set(px-84*scale,py-180*scale,px+84*scale,py+12*scale);
+            float px=sx(x,y),py=sy(x,y);
+            // The original approved test-room character and its real walk/punch
+            // frames take priority over the later mismatched Blender prototype.
+            if (appearance==ElfAppearance.COILED && prototypeIdle!=null
+                    && prototypeWalk!=null && prototypePunch!=null) {
+                Bitmap sheet=prototypeIdle;
+                int columns=4;
+                int frame=Math.floorMod((int)(idleTime*2f),4);
+                if(attackRemaining>0){
+                    sheet=prototypePunch;columns=7;
+                    frame=Math.min(6,(int)(7*(1-attackRemaining/RigAttackPose.DURATION)));
+                } else if(blend>.15f){
+                    sheet=prototypeWalk;columns=8;
+                    frame=Math.floorMod((int)(walkCycles*8),8);
+                }
+                source.set(frame*144,facing*160,(frame+1)*144,(facing+1)*160);
+                destination.set(px-72,py-135.303f,px+72,py+24.697f);
                 paint.setColor(Color.WHITE);
-                c.drawBitmap(bakedElf,source,destination,paint);
+                c.drawBitmap(sheet,source,destination,paint);
                 return;
             }
             character.draw(c,px,py,.75f*appearance.heightScale,facing,walkCycles,
