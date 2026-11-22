@@ -155,6 +155,11 @@ public final class OutdoorActivity extends Activity {
             this.appearance=appearance;
             riggedArt=new RiggedElf(context,appearance);
             heroName=hero==null ? "Explorer" : hero.name;
+            android.content.SharedPreferences saved=context.getSharedPreferences("wildlands_world",Context.MODE_PRIVATE);
+            x=saved.getFloat("player_x",0.5f);
+            y=saved.getFloat("player_y",0.5f);
+            if(!Float.isFinite(x)||!Float.isFinite(y)||Math.abs(x)>1000000f||Math.abs(y)>1000000f){x=.5f;y=.5f;}
+            camX=x;camY=y;targetX=x;targetY=y;
             density=getResources().getDisplayMetrics().density;
             setFocusable(true);
             if (Build.VERSION.SDK_INT < 28) setLayerType(View.LAYER_TYPE_SOFTWARE, null);
@@ -554,6 +559,8 @@ public final class OutdoorActivity extends Activity {
             int tx=(int)Math.floor(x),ty=(int)Math.floor(y);
             if(tx!=lastVisitedX||ty!=lastVisitedY){
                 lastVisitedX=tx;lastVisitedY=ty;
+                appContext.getSharedPreferences("wildlands_world",Context.MODE_PRIVATE).edit()
+                    .putFloat("player_x",x).putFloat("player_y",y).apply();
                 for(int ay=-4;ay<=4;ay++)for(int ax=-4;ax<=4;ax++){
                     long key=((long)(tx+ax)<<32)^((ty+ay)&0xffffffffL);
                     if(seen.add(key))discovered++;
