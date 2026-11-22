@@ -1,4 +1,5 @@
 name: Android APK
+# A normal main-branch commit triggers validation and publication after the Blender bake.
 on:
   push:
     branches: [main]
