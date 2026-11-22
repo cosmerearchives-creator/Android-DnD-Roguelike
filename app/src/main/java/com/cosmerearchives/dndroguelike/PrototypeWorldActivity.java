@@ -59,6 +59,7 @@ public final class PrototypeWorldActivity extends Activity {
         private final SharedPreferences save;
         private final Bitmap atlas;
         private final Bitmap vegetation;
+        private final Bitmap[][] factoryProps = new Bitmap[4][4];
         private final Bitmap bakedElf, bakedWalk, bakedPunch;
         private final Bitmap prototypeFloor, prototypeTree, prototypeLedge;
         private final Bitmap prototypeIdle, prototypeWalk, prototypePunch;
@@ -103,6 +104,13 @@ public final class PrototypeWorldActivity extends Activity {
             bakedEnvironment = bakedTerrain != null && bakedProps != null;
             atlas = bakedEnvironment ? bakedTerrain : load(context, "wildlands_terrain_v031.png");
             vegetation = bakedEnvironment ? bakedProps : load(context, "wildlands_vegetation.webp");
+            String[] groups = {"rocks", "trees", "bushes", "ruins"};
+            for (int group=0;group<groups.length;group++) {
+                for (int variant=0;variant<4;variant++) {
+                    factoryProps[group][variant] = load(context, String.format(java.util.Locale.US,
+                        "factory_world/%s_%02d.png",groups[group],variant));
+                }
+            }
             bakedElf = load(context, "blender_world/petite_idle.png");
             bakedWalk = load(context, "blender_world/petite_walk.png");
             bakedPunch = load(context, "blender_world/petite_punch.png");
@@ -222,6 +230,17 @@ public final class PrototypeWorldActivity extends Activity {
             int kind=terrain.wildernessProp(tx,ty);
             if(kind<0)return;
             float px=sx(tx+.5f,ty+.5f),py=sy(tx+.5f,ty+.5f);
+            int group = kind==0 ? 0 : kind==2 ? 2 : kind==3 ? 3 : 1;
+            int variation = Math.floorMod(terrain.decoration(tx,ty),4);
+            Bitmap rendered = factoryProps[group][variation];
+            if(rendered != null) {
+                float width = group==1 ? 125f : group==3 ? 100f : 83f;
+                float height = group==1 ? 165f : group==3 ? 100f : 79f;
+                paint.setColor(Color.WHITE);
+                destination.set(px-width*.5f,py-height*.86f,px+width*.5f,py+height*.14f);
+                c.drawBitmap(rendered,null,destination,paint);
+                return;
+            }
             if(kind==4) {
                 drawTree(c,px+HALF_W,py,2.35f,tx*17+ty*31);
                 return;
