@@ -58,6 +58,8 @@ public final class IsometricOverworldActivity extends Activity {
         private final SharedPreferences save;
         private final Bitmap atlas;
         private final Bitmap vegetation;
+        private final Bitmap bakedElf;
+        private final boolean bakedEnvironment;
         private final RiggedElf character;
         private final ElfAppearance appearance;
         private final float movementFactor;
@@ -82,8 +84,12 @@ public final class IsometricOverworldActivity extends Activity {
             appearance = hero == null ? ElfAppearance.COILED : hero.appearance;
             character = new RiggedElf(context, appearance);
             movementFactor = hero == null ? 1f : hero.loadout().movementFactor();
-            atlas = load(context, "wildlands_terrain_v031.png");
-            vegetation = load(context, "wildlands_vegetation.webp");
+            Bitmap bakedTerrain = load(context, "blender_world/terrain.png");
+            Bitmap bakedProps = load(context, "blender_world/props.png");
+            bakedEnvironment = bakedTerrain != null && bakedProps != null;
+            atlas = bakedEnvironment ? bakedTerrain : load(context, "wildlands_terrain_v031.png");
+            vegetation = bakedEnvironment ? bakedProps : load(context, "wildlands_vegetation.webp");
+            bakedElf = load(context, "blender_world/petite_idle.png");
             setFocusable(true);
         }
         private static Bitmap load(Context c, String name) {
@@ -164,8 +170,14 @@ public final class IsometricOverworldActivity extends Activity {
             if(kind<0)return;
             float px=sx(tx+.5f,ty+.5f),py=sy(tx+.5f,ty+.5f)-terrain.height(tx,ty)*11f;
             if(vegetation!=null && kind>=1 && kind<=4) {
-                source.set((kind-1)*256,0,kind*256,256);
-                destination.set(px-35,py-95,px+35,py+6);
+                int index=bakedEnvironment?kind:kind-1;
+                source.set(index*256,0,(index+1)*256,256);
+                destination.set(px-45,py-115,px+45,py+10);
+                paint.setColor(Color.WHITE);
+                c.drawBitmap(vegetation,source,destination,paint);
+            } else if(vegetation!=null && kind==0 && bakedEnvironment) {
+                source.set(0,0,256,256);
+                destination.set(px-42,py-112,px+42,py+10);
                 paint.setColor(Color.WHITE);
                 c.drawBitmap(vegetation,source,destination,paint);
             } else {
@@ -212,6 +224,16 @@ public final class IsometricOverworldActivity extends Activity {
         }
         private void drawHero(Canvas c) {
             float px=sx(x,y),py=sy(x,y)-terrain.height((int)Math.floor(x),(int)Math.floor(y))*11f;
+            if (appearance==ElfAppearance.PETITE && bakedElf!=null) {
+                int row=Math.floorMod(facing,4);
+                int frame=Math.min(3,(int)(GaitModel.fractional(idleTime*.6f)*4));
+                source.set(frame*168,row*192,(frame+1)*168,(row+1)*192);
+                float scale=.76f*appearance.heightScale;
+                destination.set(px-84*scale,py-180*scale,px+84*scale,py+12*scale);
+                paint.setColor(Color.WHITE);
+                c.drawBitmap(bakedElf,source,destination,paint);
+                return;
+            }
             character.draw(c,px,py,.75f*appearance.heightScale,facing,walkCycles,
                 blend,idleTime,attackRemaining>0?1-attackRemaining/RigAttackPose.DURATION:0,
                 false,0f);
