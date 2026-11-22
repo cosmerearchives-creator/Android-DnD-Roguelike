@@ -234,10 +234,29 @@ public final class PrototypeWorldActivity extends Activity {
             int variation = Math.floorMod(terrain.decoration(tx,ty),4);
             Bitmap rendered = factoryProps[group][variation];
             if(rendered != null) {
-                float width = group==1 ? 125f : group==3 ? 100f : 83f;
-                float height = group==1 ? 165f : group==3 ? 100f : 79f;
+                // Preserve the old wilderness size hierarchy, independently of
+                // which Blender model variant was selected for this tile.
+                int seed = terrain.decoration(tx,ty);
+                float scale;
+                if (group==1) {
+                    // Four model variants x seven deterministic scale tiers.
+                    // Kind 4 remains a landmark-sized tree, not an ordinary sapling.
+                    scale = kind==4 ? 1.85f + Math.floorMod(seed,5)*.14f
+                                    : .72f + Math.floorMod(seed,7)*.155f;
+                } else if (group==2) {
+                    scale = .70f + Math.floorMod(seed,8)*.105f;
+                } else if (group==0) {
+                    scale = .68f + Math.floorMod(seed,7)*.115f;
+                } else {
+                    scale = .80f + Math.floorMod(seed,6)*.12f;
+                }
+                float width = (group==1 ? 125f : group==3 ? 100f : 83f)*scale;
+                float height = (group==1 ? 165f : group==3 ? 100f : 79f)*scale;
+                // Keep the sprite's feet on the same tile anchor at every size.
+                float anchorX = kind==4 ? px+HALF_W : px;
                 paint.setColor(Color.WHITE);
-                destination.set(px-width*.5f,py-height*.86f,px+width*.5f,py+height*.14f);
+                destination.set(anchorX-width*.5f,py-height*.86f,
+                                anchorX+width*.5f,py+height*.14f);
                 c.drawBitmap(rendered,null,destination,paint);
                 return;
             }
