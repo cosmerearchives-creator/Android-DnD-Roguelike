@@ -2,7 +2,7 @@ name: Bake Blender World Assets
 on:
   workflow_dispatch:
   push:
-    branches: [feature/baked-blender-world-integration]
+    branches: [feature/controls-forest-feminine-model]
     paths:
       - 'blender/**'
       - '.github/workflows/bake-world.yml'
@@ -61,8 +61,8 @@ jobs:
           git add app/src/main/assets/blender_world/
           if ! git diff --cached --quiet; then
             git commit -m "Bake real Blender world and Petite Pale atlases"
-            git pull --rebase origin feature/baked-blender-world-integration
-            git push origin HEAD:feature/baked-blender-world-integration
+            git pull --rebase origin feature/controls-forest-feminine-model
+            git push origin HEAD:feature/controls-forest-feminine-model
           fi
       - name: Upload source and rendered assets
         uses: actions/upload-artifact@v4
