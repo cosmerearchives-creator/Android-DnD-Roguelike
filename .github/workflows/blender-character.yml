@@ -1,4 +1,4 @@
-name: Blender Character Prototype
+name: Blender Petite Pale Elf
 on:
   workflow_dispatch:
   push:
@@ -41,15 +41,15 @@ jobs:
                       assert image.getchannel('A').getbbox(), (facing,frame)
                       atlas.paste(image.convert('RGBA'),(frame*168,facing*192))
           atlas.save(out/'idle_atlas.png')
-          assert (out/'high_elf_prototype.blend').stat().st_size>1000
+          assert (out/'petite_pale_elf.blend').stat().st_size>1000
           print('Validated 16 rendered frames and editable Blender project.')
           PY
       - name: Upload editable Blender model and render previews
         uses: actions/upload-artifact@v4
         with:
-          name: blender-high-elf-prototype
+          name: blender-petite-pale-elf
           path: |
-            build/blender-preview/high_elf_prototype.blend
+            build/blender-preview/petite_pale_elf.blend
             build/blender-preview/idle_atlas.png
             build/blender-preview/idle_f0_0.png
           retention-days: 30
