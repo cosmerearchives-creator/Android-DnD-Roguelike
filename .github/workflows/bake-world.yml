@@ -38,6 +38,8 @@ jobs:
         run: |
           xvfb-run -a blender --background --threads 4 --python blender/create_character.py -- --variant petite_pale --output build/character/petite
           xvfb-run -a blender --background --threads 4 --python blender/create_character.py -- --variant classic_study --output build/character/classic
+          xvfb-run -a blender --background --threads 4 --python blender/create_character.py -- --variant petite_male --output build/character/petite_male
+          xvfb-run -a blender --background --threads 4 --python blender/create_character.py -- --variant classic_male --output build/character/classic_male
           xvfb-run -a blender --background --threads 4 --python blender/create_character.py -- --variant dagger_goblin --output build/character/goblin
       - name: Assemble and verify new character atlas
         if: steps.bake.outputs.required == 'true'
@@ -50,7 +52,7 @@ jobs:
           frame_maps={'idle':[0,0,0,0],
                       'walk':[0,1,2,3,4,5,6,7],
                       'punch':[0,1,2,3,4]}
-          for style in ('petite','classic','goblin'):
+          for style in ('petite','classic','petite_male','classic_male','goblin'):
            for motion, frame_map in frame_maps.items():
               sheet=Image.new('RGBA',(len(frame_map)*168,8*192))
               for facing in range(8):
@@ -76,6 +78,8 @@ jobs:
           cp app/src/main/assets/blender_world/petite_*.png /tmp/baked-world/
           cp app/src/main/assets/blender_world/classic_*.png /tmp/baked-world/
           cp app/src/main/assets/blender_world/goblin_*.png /tmp/baked-world/
+          cp app/src/main/assets/blender_world/petite_male_*.png /tmp/baked-world/
+          cp app/src/main/assets/blender_world/classic_male_*.png /tmp/baked-world/
           cp app/src/main/assets/blender_world/character_source.sha256 /tmp/baked-world/
           for attempt in 1 2 3; do
             git fetch origin main
@@ -89,6 +93,8 @@ jobs:
             cp /tmp/baked-world/petite_*.png app/src/main/assets/blender_world/
             cp /tmp/baked-world/classic_*.png app/src/main/assets/blender_world/
             cp /tmp/baked-world/goblin_*.png app/src/main/assets/blender_world/
+            cp /tmp/baked-world/petite_male_*.png app/src/main/assets/blender_world/
+            cp /tmp/baked-world/classic_male_*.png app/src/main/assets/blender_world/
             cp /tmp/baked-world/character_source.sha256 app/src/main/assets/blender_world/
             if grep -q '^versionName=0.3.83$' version.properties; then
               sed -i 's/^versionCode=104$/versionCode=105/;s/^versionName=0.3.83$/versionName=0.3.84/' version.properties
@@ -114,5 +120,7 @@ jobs:
             build/character/petite/petite_pale.blend
             build/character/classic/classic_study.blend
             build/character/goblin/dagger_goblin.blend
+            build/character/petite_male/petite_male.blend
+            build/character/classic_male/classic_male.blend
             app/src/main/assets/blender_world/
           retention-days: 30
