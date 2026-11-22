@@ -68,6 +68,7 @@ public final class PrototypeWorldActivity extends Activity {
         private final float movementFactor;
         private final GaitModel gait = new GaitModel();
         private float x, y, cameraX, cameraY, stickX, stickY;
+        private float facingScreenX, facingScreenY;
         private float idleTime, walkCycles, attackRemaining, blend;
         private int facing, pointer = -1;
         private boolean running, paused;
@@ -151,15 +152,18 @@ public final class PrototypeWorldActivity extends Activity {
                 float travelled=(float)Math.hypot(actualX,actualY);
                 moving=travelled>0.00001f;
                 if (moving) {
+                    // Prototype directions: 0 north (-Y), 1 east (+X),
+                    // 2 south (+Y), 3 west (-X). Do not reverse north/south.
                     facing=Math.abs(actualX)>Math.abs(actualY)
-                        ? (actualX>0?1:3) : (actualY>0?0:2);
+                        ? (actualX>0?1:3) : (actualY>0?2:0);
                     gait.advance(travelled);
                     walkCycles=gait.cycles();
                 }
             }
             blend=Math.max(0,Math.min(1,blend+(moving?10f:-13f)*dt));
-            float follow=Math.min(1,dt*7f);
-            cameraX+=(x-cameraX)*follow;cameraY+=(y-cameraY)*follow;
+            // Lock the camera to the character. A lagging camera made the
+            // joystick appear to drift and the walk animation slide.
+            cameraX=x;cameraY=y;
         }
         // Keep the approved test-room art direction. Repeat its illustrated floor
         // across the camera's visible world instead of painting Blender blocks.
@@ -224,6 +228,14 @@ public final class PrototypeWorldActivity extends Activity {
             float px=sx(x,y),py=sy(x,y)-elevation(x,y);
             // The original approved test-room character and its real walk/punch
             // frames take priority over the later mismatched Blender prototype.
+            if (appearance==ElfAppearance.PETITE && bakedElf!=null) {
+                int frame=Math.floorMod((int)(idleTime*4f),4);
+                source.set(frame*168,facing*192,(frame+1)*168,(facing+1)*192);
+                destination.set(px-84,py-160,px+84,py+32);
+                paint.setColor(Color.WHITE);
+                c.drawBitmap(bakedElf,source,destination,paint);
+                return;
+            }
             if (prototypeIdle!=null
                     && prototypeWalk!=null && prototypePunch!=null) {
                 Bitmap sheet=prototypeIdle;
@@ -311,9 +323,17 @@ public final class PrototypeWorldActivity extends Activity {
             float dx=(px-joystick.centerX())/(48*d),dy=(py-joystick.centerY())/(48*d);
             float mag=(float)Math.hypot(dx,dy);
             if(mag>1){dx/=mag;dy/=mag;}
-            // Screen diagonal to world axes: inverse isometric projection.
-            stickX=(dx+dy)*.70710678f;
-            stickY=(dx-dy)*.70710678f;
+            // Exact inverse of the prototype projection. The original
+            // transform is screenX=(x+y)*HALF_W, screenY=(x-y)*HALF_H.
+            // Compensate for unequal horizontal and vertical screen scales.
+            float ux=dx/HALF_W, uy=dy/HALF_H;
+            float wx=(ux+uy)*.5f, wy=(ux-uy)*.5f;
+            float worldLength=(float)Math.hypot(wx,wy);
+            float inputLength=(float)Math.hypot(dx,dy);
+            if(worldLength>.00001f){
+                stickX=wx/worldLength*inputLength;
+                stickY=wy/worldLength*inputLength;
+            } else {stickX=stickY=0f;}
         }
         @Override public boolean onTouchEvent(MotionEvent e) {
             int action=e.getActionMasked(),index=e.getActionIndex();

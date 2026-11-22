@@ -41,29 +41,58 @@ def link(name,a,b,r,mat):
     o.data.materials.append(mat);o.parent=root
     return o
 
-uv("Torso",(0,0,1.42),(.32,.18,.43),navy)
-uv("Hips",(0,0,1.04),(.29,.19,.18),navy)
+uv("Waist",(0,0,1.33),(.205,.155,.25),navy)
+uv("Ribcage",(0,0,1.55),(.29,.19,.28),navy)
+uv("Bust left",(-.14,-.125,1.57),(.16,.13,.17),navy)
+uv("Bust right",(.14,-.125,1.57),(.16,.13,.17),navy)
+uv("Pelvis",(0,0,1.09),(.32,.21,.23),navy)
+uv("Hip left",(-.18,0,1.07),(.18,.18,.18),navy)
+uv("Hip right",(.18,0,1.07),(.18,.18,.18),navy)
 uv("Neck",(0,0,1.84),(.105,.105,.15),skin)
-uv("Head",(0,-.015,2.04),(.225,.20,.29),skin)
-uv("Nose",(0,-.215,2.025),(.055,.065,.07),skin)
+uv("Head",(0,-.015,2.04),(.185,.165,.255),skin)
+uv("Jaw",(0,-.08,1.92),(.135,.125,.11),skin)
+uv("Nose",(0,-.167,2.015),(.032,.035,.055),skin)
 for side in (-1,1):
     x=side
-    uv("Pointed ear "+str(x),(.25*x,0,2.05),(.17,.065,.07),skin)
-    uv("Eye "+str(x),(.09*x,-.194,2.09),(.034,.019,.028),eye)
+    uv("Pointed ear "+str(x),(.195*x,0,2.05),(.075,.045,.045),skin)
+    uv("Eye "+str(x),(.075*x,-.163,2.085),(.022,.012,.018),eye)
     link("Upper arm "+str(x),(.29*x,0,1.72),(.41*x,0,1.35),.105,skin)
     link("Sleeve "+str(x),(.29*x,0,1.72),(.34*x,0,1.55),.125,navy)
     link("Forearm "+str(x),(.41*x,0,1.35),(.40*x,-.035,1.05),.078,skin)
     uv("Hand "+str(x),(.40*x,-.035,1.015),(.083,.065,.11),skin)
-    link("Thigh "+str(x),(.16*x,0,1.00),(.18*x,0,.56),.135,leather)
-    link("Shin "+str(x),(.18*x,0,.56),(.18*x,-.01,.16),.095,skin)
+    link("Thigh "+str(x),(.17*x,0,1.04),(.18*x,0,.57),.145,leather)
+    uv("Upper leg contour "+str(x),(.17*x,0,.83),(.145,.14,.25),leather)
+    link("Shin "+str(x),(.18*x,0,.56),(.18*x,-.01,.16),.105,skin)
+    uv("Calf contour "+str(x),(.18*x,-.01,.37),(.108,.108,.21),skin)
     uv("Boot "+str(x),(.18*x,-.065,.14),(.125,.20,.15),leather)
     uv("Shoulder trim "+str(x),(.28*x,-.02,1.71),(.045,.17,.035),gold)
 uv("Belt",(0,-.01,1.13),(.31,.195,.065),leather)
 uv("Buckle",(0,-.205,1.13),(.07,.025,.055),gold)
 for i in range(12):
     angle=2*math.pi*i/12
-    uv("Hair curl %02d"%i,(.17*math.cos(angle),.12*math.sin(angle)+.02,2.27),(.083,.083,.10),hair)
-uv("Hair crown",(0,.055,2.30),(.215,.19,.13),hair)
+    uv("Hair strand %02d"%i,(.16*math.cos(angle),.115*math.sin(angle)+.025,2.245),(.072,.065,.12),hair)
+uv("Hair crown",(0,.045,2.29),(.195,.18,.105),hair)
+for side in (-1,1):
+    uv("Side hair "+str(side),(.17*side,.045,1.99),(.07,.10,.29),hair)
+uv("Back hair",(0,.12,1.96),(.18,.09,.34),hair)
+# Smooth the intersecting primitive silhouette into a continuous surface.
+# Keep materials grouped so clothing, skin and hair remain independently shaded.
+for material_group in (navy, skin, leather):
+    parts=[o for o in bpy.data.objects if o.type=="MESH" and o.data.materials and o.data.materials[0]==material_group]
+    if len(parts)<2: continue
+    bpy.ops.object.select_all(action="DESELECT")
+    for o in parts:o.select_set(True)
+    bpy.context.view_layer.objects.active=parts[0]
+    bpy.ops.object.join()
+    joined=bpy.context.object
+    joined.name="Continuous "+material_group.name
+    remesh=joined.modifiers.new("Blend overlapping anatomy","REMESH")
+    remesh.mode="VOXEL";remesh.voxel_size=.032
+    bpy.ops.object.modifier_apply(modifier=remesh.name)
+    smooth=joined.modifiers.new("Soft organic silhouette","SMOOTH")
+    smooth.factor=1.2;smooth.iterations=4
+    bpy.ops.object.modifier_apply(modifier=smooth.name)
+    for polygon in joined.data.polygons:polygon.use_smooth=True
 
 world=bpy.context.scene.world
 world.color=(.32,.32,.32)
