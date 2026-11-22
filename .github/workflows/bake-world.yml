@@ -46,6 +46,9 @@ jobs:
                           assert image.getchannel('A').getbbox(),(motion,facing,frame)
                           sheet.paste(image,(frame*168,facing*192))
               sheet.save(target/f'petite_{motion}.png')
+          import hashlib
+          digest=hashlib.sha256(Path('blender/create_character.py').read_bytes()).hexdigest()
+          (target/'character_source.sha256').write_text(digest+'\n')
           for p in target.glob('*.png'):
               print('BLENDER_ASSET_VERIFIED',p,p.stat().st_size)
           PY
