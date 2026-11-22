@@ -108,8 +108,8 @@ public final class PrototypeWorldActivity extends Activity {
             String[] groups = {"rocks", "trees", "bushes", "ruins"};
             for (int group=0;group<groups.length;group++) {
                 for (int variant=0;variant<4;variant++) {
-                    factoryProps[group][variant] = load(context, String.format(java.util.Locale.US,
-                        "factory_world/%s_%02d.png",groups[group],variant));
+                    factoryProps[group][variant] = trimTransparentMargins(load(context, String.format(java.util.Locale.US,
+                        "factory_world/%s_%02d.png",groups[group],variant)));
                 }
             }
             bakedElf = load(context, "blender_world/petite_idle.png");
@@ -125,6 +125,26 @@ public final class PrototypeWorldActivity extends Activity {
             prototypeWalk = load(context,"isometric_lab/walk.png");
             prototypePunch = load(context,"isometric_lab/punch.png");
             setFocusable(true);
+        }
+        // Blender's orthographic PNGs contain substantial transparent space
+        // below the trunk. Crop it once when loading; draw the visible trunk
+        // base at the tile's ground point instead of anchoring the PNG canvas.
+        private static Bitmap trimTransparentMargins(Bitmap bitmap) {
+            if (bitmap == null) return null;
+            int w=bitmap.getWidth(), h=bitmap.getHeight();
+            int[] pixels=new int[w*h];
+            bitmap.getPixels(pixels,0,w,0,0,w,h);
+            int left=w,top=h,right=-1,bottom=-1;
+            for (int y=0;y<h;y++) for (int x=0;x<w;x++) {
+                if ((pixels[y*w+x] >>> 24) < 12) continue;
+                if (x<left) left=x;
+                if (x>right) right=x;
+                if (y<top) top=y;
+                if (y>bottom) bottom=y;
+            }
+            if (right<left) return bitmap;
+            if (left==0 && top==0 && right==w-1 && bottom==h-1) return bitmap;
+            return Bitmap.createBitmap(bitmap,left,top,right-left+1,bottom-top+1);
         }
         private static Bitmap load(Context c, String name) {
             try (InputStream in = c.getAssets().open(name)) {
@@ -259,8 +279,8 @@ public final class PrototypeWorldActivity extends Activity {
                 // Keep the sprite's feet on the same tile anchor at every size.
                 float anchorX = kind==4 ? px+HALF_W : px;
                 paint.setColor(Color.WHITE);
-                destination.set(anchorX-width*.5f,py-height*.86f,
-                                anchorX+width*.5f,py+height*.14f);
+                destination.set(anchorX-width*.5f,py-height+3f,
+                                anchorX+width*.5f,py+3f);
                 c.drawBitmap(rendered,null,destination,paint);
                 return;
             }
