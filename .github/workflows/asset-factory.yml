@@ -1,0 +1,61 @@
+name: Experimental Blender Asset Factory
+on:
+  workflow_dispatch:
+    inputs:
+      count:
+        description: 'Variations per category (1-24)'
+        required: false
+        default: '12'
+  push:
+    branches: [main]
+    paths:
+      - 'blender/asset_factory.py'
+      - '.github/workflows/asset-factory.yml'
+permissions:
+  contents: read
+jobs:
+  render:
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        category: [trees, bushes, rocks, ruins]
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Blender and preview tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y blender xvfb
+          python3 -m pip install --quiet --break-system-packages Pillow
+      - name: Render variation batch
+        env:
+          REQUESTED_COUNT: ${{ inputs.count || '12' }}
+        run: |
+          xvfb-run -a blender --background --threads 3 --python blender/asset_factory.py -- --category ${{ matrix.category }} --count "$REQUESTED_COUNT" --output build/asset-factory/${{ matrix.category }}
+      - name: Validate and create review sheet
+        run: |
+          python3 - <<'PY'
+          from PIL import Image,ImageDraw
+          from pathlib import Path
+          root=Path('build/asset-factory/${{ matrix.category }}')
+          images=sorted(root.glob('*.png'))
+          assert images,'No renders produced'
+          sheet=Image.new('RGB',(256*4,288*((len(images)+3)//4)),(34,42,46))
+          draw=ImageDraw.Draw(sheet)
+          for i,p in enumerate(images):
+              with Image.open(p) as im:
+                  assert im.size==(256,256) and im.mode=='RGBA'
+                  assert im.getchannel('A').getbbox(),p
+                  x=(i%4)*256;y=(i//4)*288
+                  sheet.paste(im,(x,y),im)
+                  draw.text((x+12,y+260),p.stem,fill='white')
+          sheet.save(root/'contact-sheet.jpg',quality=88)
+          print('VERIFIED',len(images),'assets',root)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: experimental-${{ matrix.category }}-${{ github.run_number }}
+          path: build/asset-factory/${{ matrix.category }}/
+          retention-days: 30
