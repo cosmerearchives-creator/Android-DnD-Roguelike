@@ -23,7 +23,7 @@ jobs:
           python3 -m pip install --quiet --break-system-packages Pillow
       - name: Bake improved Petite Pale character
         run: |
-          xvfb-run -a blender --background --threads 2 --python blender/create_character.py -- --output build/character
+          xvfb-run -a blender --background --threads 4 --python blender/create_character.py -- --output build/character
       - name: Assemble and verify new character atlas
         run: |
           python3 - <<'PY'
@@ -31,11 +31,18 @@ jobs:
           from pathlib import Path
           target=Path('app/src/main/assets/blender_world')
           target.mkdir(parents=True,exist_ok=True)
-          for motion, frames in (('idle',4),('walk',8),('punch',5)):
-              sheet=Image.new('RGBA',(frames*168,8*192))
+          from PIL import ImageOps
+          frame_maps={'idle':[0,0,0,0],
+                      'walk':[0,1,2,3,2,1,0,1],
+                      'punch':[0,1,2,1,0]}
+          for motion, frame_map in frame_maps.items():
+              sheet=Image.new('RGBA',(len(frame_map)*168,8*192))
               for facing in range(8):
-                  for frame in range(frames):
-                      with Image.open(f'build/character/{motion}_f{facing}_{frame}.png') as image:
+                  source_facing=facing if facing<=4 else 8-facing
+                  for frame,source_frame in enumerate(frame_map):
+                      with Image.open(f'build/character/{motion}_f{source_facing}_{source_frame}.png') as rendered:
+                          image=rendered.convert('RGBA')
+                          if facing>4: image=ImageOps.mirror(image)
                           assert image.getchannel('A').getbbox(),(motion,facing,frame)
                           sheet.paste(image,(frame*168,facing*192))
               sheet.save(target/f'petite_{motion}.png')
