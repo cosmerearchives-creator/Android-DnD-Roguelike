@@ -14,7 +14,7 @@ permissions:
 jobs:
   bake:
     runs-on: ubuntu-latest
-    timeout-minutes: 55
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
         with:
@@ -24,9 +24,10 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y blender libegl1 libgl1 libgl1-mesa-dri xvfb
           python3 -m pip install --quiet --break-system-packages Pillow
-      - name: Bake improved Petite Pale character
+      - name: Bake both redesigned characters
         run: |
-          xvfb-run -a blender --background --threads 4 --python blender/create_character.py -- --output build/character
+          xvfb-run -a blender --background --threads 4 --python blender/create_character.py -- --variant petite_pale --output build/character/petite
+          xvfb-run -a blender --background --threads 4 --python blender/create_character.py -- --variant classic_study --output build/character/classic
       - name: Assemble and verify new character atlas
         run: |
           python3 - <<'PY'
@@ -38,17 +39,18 @@ jobs:
           frame_maps={'idle':[0,0,0,0],
                       'walk':[0,1,2,3,4,5,6,7],
                       'punch':[0,1,2,1,0]}
-          for motion, frame_map in frame_maps.items():
+          for style,folder in (('petite','petite'),('classic','classic')):
+           for motion, frame_map in frame_maps.items():
               sheet=Image.new('RGBA',(len(frame_map)*168,8*192))
               for facing in range(8):
                   source_facing=facing if facing<=4 else 8-facing
                   for frame,source_frame in enumerate(frame_map):
-                      with Image.open(f'build/character/{motion}_f{source_facing}_{source_frame}.png') as rendered:
+                      with Image.open(f'build/character/{folder}/{motion}_f{source_facing}_{source_frame}.png') as rendered:
                           image=rendered.convert('RGBA')
                           if facing>4: image=ImageOps.mirror(image)
                           assert image.getchannel('A').getbbox(),(motion,facing,frame)
                           sheet.paste(image,(frame*168,facing*192))
-              sheet.save(target/f'petite_{motion}.png')
+              sheet.save(target/f'{style}_{motion}.png')
           import hashlib
           digest=hashlib.sha256(Path('blender/create_character.py').read_bytes()).hexdigest()
           (target/'character_source.sha256').write_text(digest+'\n')
@@ -62,6 +64,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           mkdir -p /tmp/baked-world
           cp app/src/main/assets/blender_world/petite_*.png /tmp/baked-world/
+          cp app/src/main/assets/blender_world/classic_*.png /tmp/baked-world/
           cp app/src/main/assets/blender_world/character_source.sha256 /tmp/baked-world/
           for attempt in 1 2 3; do
             git fetch origin main
@@ -73,13 +76,14 @@ jobs:
               exit 1
             fi
             cp /tmp/baked-world/petite_*.png app/src/main/assets/blender_world/
+            cp /tmp/baked-world/classic_*.png app/src/main/assets/blender_world/
             cp /tmp/baked-world/character_source.sha256 app/src/main/assets/blender_world/
             git add app/src/main/assets/blender_world/
             if git diff --cached --quiet; then
               echo "Atlases already current"
               break
             fi
-            git commit -m "Bake current Petite Pale atlases"
+            git commit -m "Bake redesigned Classic and Petite character atlases"
             if git push origin HEAD:main; then
               break
             fi
@@ -91,6 +95,7 @@ jobs:
         with:
           name: blender-world-source-and-atlases
           path: |
-            build/character/petite_pale.blend
+            build/character/petite/petite_pale.blend
+            build/character/classic/classic_study.blend
             app/src/main/assets/blender_world/
           retention-days: 30
