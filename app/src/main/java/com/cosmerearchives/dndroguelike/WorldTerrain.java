@@ -101,4 +101,51 @@ final class WorldTerrain {
         if(kind==1)return variation<.30f?13:(seed&3)==0?1:0;
         return (seed&7)==0?12:0;
     }
+    /** Broad, smoothly blended biome regions: meadow, grassland, woodland, ridge. */
+    int wildernessBiome(int x,int y) {
+        float forest=field(x,y,25,301)*.75f+field(x,y,10,302)*.25f;
+        float ridge=field(x+900,y-400,36,303);
+        if(ridge>.77f)return 3;
+        if(forest>.64f)return 2;
+        if(forest>.47f)return 1;
+        return 0;
+    }
+    /** A meandering path whose center drifts gradually rather than repeating diagonals. */
+    boolean trail(int x,int y) {
+        float center=(field(x,0,34,311)-.5f)*11f;
+        return Math.abs(y-center)<.62f;
+    }
+    float groundVariation(int x,int y) {
+        return field(x,y,5,313)*.7f+field(x,y,13,314)*.3f;
+    }
+    int decoration(int x,int y) {
+        return (int)(hash(x,y,315)&0x7fffffff);
+    }
+    /** 1 tree, 2 bush, 0 boulder, 3 ruin. Sparse in meadows, clustered in woods. */
+    int wildernessProp(int x,int y) {
+        if(Math.abs(x)<3&&Math.abs(y)<3||trail(x,y))return -1;
+        int landmark=landmark(x,y);
+        if(landmark==2)return 3;
+        if(landmark==1)return 0;
+        int biome=wildernessBiome(x,y);
+        int roll=(int)(hash(x,y,316)&255);
+        if(biome==2) {
+            if(roll<47)return 1;
+            if(roll<75)return 2;
+            if(roll<82)return 0;
+        } else if(biome==1) {
+            if(roll<17)return 1;
+            if(roll<33)return 2;
+            if(roll<38)return 0;
+        } else if(biome==3) {
+            if(roll<19)return 0;
+            if(roll<27)return 2;
+        } else {
+            if(roll<5)return 1;
+            if(roll<17)return 2;
+            if(roll<21)return 0;
+        }
+        return -1;
+    }
+
 }
