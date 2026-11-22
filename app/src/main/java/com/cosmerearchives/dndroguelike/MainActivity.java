@@ -65,7 +65,7 @@ public class MainActivity extends Activity {
         root.addView(create);
         Button explore = new Button(this);
         explore.setText("Explore Wildlands · Isometric");
-        explore.setOnClickListener(v -> startActivity(new Intent(this, OutdoorActivity.class)
+        explore.setOnClickListener(v -> startActivity(new Intent(this, IsometricOverworldActivity.class)
             .putExtra(OutdoorActivity.EXTRA_FREE_EXPLORE, true)));
         root.addView(explore);
         Button isometricRoom = new Button(this);

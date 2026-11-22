@@ -58,6 +58,8 @@ public final class IsometricOverworldActivity extends Activity {
         private final SharedPreferences save;
         private final Bitmap atlas;
         private final Bitmap vegetation;
+        private final Bitmap bakedElf;
+        private final boolean bakedEnvironment;
         private final RiggedElf character;
         private final ElfAppearance appearance;
         private final float movementFactor;
@@ -66,6 +68,9 @@ public final class IsometricOverworldActivity extends Activity {
         private float idleTime, walkCycles, attackRemaining, blend;
         private int facing, pointer = -1;
         private boolean running, paused;
+        private int health, experience, gold;
+        private String worldMessage="";
+        private float messageRemaining;
         private long lastFrame;
         private final RectF joystick = new RectF(), runButton = new RectF(), attackButton = new RectF();
         private final RectF exitButton = new RectF();
@@ -79,11 +84,18 @@ public final class IsometricOverworldActivity extends Activity {
             if (!Float.isFinite(x) || !Float.isFinite(y) || Math.abs(x) > 1000000
                     || Math.abs(y) > 1000000) { x=.5f; y=.5f; }
             cameraX = x; cameraY = y;
+            health=save.getInt("hero_health",100);
+            experience=save.getInt("hero_experience",0);
+            gold=save.getInt("hero_gold",0);
             appearance = hero == null ? ElfAppearance.COILED : hero.appearance;
             character = new RiggedElf(context, appearance);
             movementFactor = hero == null ? 1f : hero.loadout().movementFactor();
-            atlas = load(context, "wildlands_terrain_v031.png");
-            vegetation = load(context, "wildlands_vegetation.webp");
+            Bitmap bakedTerrain = load(context, "blender_world/terrain.png");
+            Bitmap bakedProps = load(context, "blender_world/props.png");
+            bakedEnvironment = bakedTerrain != null && bakedProps != null;
+            atlas = bakedEnvironment ? bakedTerrain : load(context, "wildlands_terrain_v031.png");
+            vegetation = bakedEnvironment ? bakedProps : load(context, "wildlands_vegetation.webp");
+            bakedElf = load(context, "blender_world/petite_idle.png");
             setFocusable(true);
         }
         private static Bitmap load(Context c, String name) {
@@ -92,7 +104,9 @@ public final class IsometricOverworldActivity extends Activity {
             } catch (IOException e) { return null; }
         }
         void save() {
-            save.edit().putFloat("player_x", x).putFloat("player_y", y).apply();
+            save.edit().putFloat("player_x", x).putFloat("player_y", y)
+                .putInt("hero_health",health).putInt("hero_experience",experience)
+                .putInt("hero_gold",gold).apply();
         }
         private float sx(float wx, float wy) { return (wx - cameraX + wy - cameraY) * HALF_W; }
         private float sy(float wx, float wy) { return (wx - cameraX - (wy - cameraY)) * HALF_H; }
@@ -108,6 +122,7 @@ public final class IsometricOverworldActivity extends Activity {
         private void update(float dt) {
             if (paused) return;
             idleTime+=dt;
+            messageRemaining=Math.max(0,messageRemaining-dt);
             if (attackRemaining>0) attackRemaining=Math.max(0,attackRemaining-dt);
             float magnitude=(float)Math.hypot(stickX,stickY);
             boolean moving=false;
@@ -164,8 +179,14 @@ public final class IsometricOverworldActivity extends Activity {
             if(kind<0)return;
             float px=sx(tx+.5f,ty+.5f),py=sy(tx+.5f,ty+.5f)-terrain.height(tx,ty)*11f;
             if(vegetation!=null && kind>=1 && kind<=4) {
-                source.set((kind-1)*256,0,kind*256,256);
-                destination.set(px-35,py-95,px+35,py+6);
+                int index=bakedEnvironment?kind:kind-1;
+                source.set(index*256,0,(index+1)*256,256);
+                destination.set(px-45,py-115,px+45,py+10);
+                paint.setColor(Color.WHITE);
+                c.drawBitmap(vegetation,source,destination,paint);
+            } else if(vegetation!=null && kind==0 && bakedEnvironment) {
+                source.set(0,0,256,256);
+                destination.set(px-42,py-112,px+42,py+10);
                 paint.setColor(Color.WHITE);
                 c.drawBitmap(vegetation,source,destination,paint);
             } else {
@@ -212,9 +233,50 @@ public final class IsometricOverworldActivity extends Activity {
         }
         private void drawHero(Canvas c) {
             float px=sx(x,y),py=sy(x,y)-terrain.height((int)Math.floor(x),(int)Math.floor(y))*11f;
+            if (appearance==ElfAppearance.PETITE && bakedElf!=null) {
+                int row=Math.floorMod(facing,4);
+                int frame=Math.min(3,(int)(GaitModel.fractional(idleTime*.6f)*4));
+                source.set(frame*168,row*192,(frame+1)*168,(row+1)*192);
+                float scale=.76f*appearance.heightScale;
+                destination.set(px-84*scale,py-180*scale,px+84*scale,py+12*scale);
+                paint.setColor(Color.WHITE);
+                c.drawBitmap(bakedElf,source,destination,paint);
+                return;
+            }
             character.draw(c,px,py,.75f*appearance.heightScale,facing,walkCycles,
                 blend,idleTime,attackRemaining>0?1-attackRemaining/RigAttackPose.DURATION:0,
                 false,0f);
+        }
+        private void interact() {
+            int px=(int)Math.floor(x),py=(int)Math.floor(y);
+            int closest=0,tx=0,ty=0;
+            for(int dx=-2;dx<=2;dx++)for(int dy=-2;dy<=2;dy++){
+                int xx=px+dx,yy=py+dy;
+                int kind=terrain.landmark(xx,yy);
+                if(kind!=0&&Math.hypot(xx+.5-x,yy+.5-y)<2.2){
+                    closest=kind;tx=xx;ty=yy;
+                }
+            }
+            if(closest==0){
+                if(attackRemaining<=0)attackRemaining=RigAttackPose.DURATION;
+                return;
+            }
+            String key="visited_"+tx+"_"+ty;
+            boolean visited=save.getBoolean(key,false);
+            if(closest==1){
+                health=100;
+                worldMessage="HAMLET · Restored to full health";
+            } else if(closest==2){
+                if(!visited){gold+=25;experience+=40;}
+                worldMessage=visited?"ANCIENT RUINS · Already explored":"ANCIENT RUINS · Found 25 gold and 40 XP";
+            } else {
+                if(!visited){health=Math.max(1,health-12);gold+=8;experience+=20;}
+                worldMessage=visited?"WILDERNESS · Encounter cleared":"WILDERNESS · Enemy defeated · +20 XP";
+                attackRemaining=RigAttackPose.DURATION;
+            }
+            save.edit().putBoolean(key,true).apply();
+            messageRemaining=4f;
+            save();
         }
         private void drawControls(Canvas c) {
             float d=getResources().getDisplayMetrics().density;
@@ -227,10 +289,15 @@ public final class IsometricOverworldActivity extends Activity {
             paint.setColor(0xFFB7D6C7);
             c.drawCircle(joystick.centerX()+stickX*36*d,joystick.centerY()+stickY*36*d,19*d,paint);
             button(c,runButton,running?"RUN ON":"RUN");
-            button(c,attackButton,"ATTACK");
+            button(c,attackButton,"ATTACK / USE");
             button(c,exitButton,"MENU");
             paint.setTextSize(13*d);paint.setColor(0xFFF1D8AA);
             c.drawText("WILDLANDS · FREE ROAM",15*d,32*d,paint);
+            c.drawText("HP "+health+"   XP "+experience+"   GOLD "+gold,15*d,50*d,paint);
+            if(messageRemaining>0){
+                paint.setTextSize(12*d);
+                c.drawText(worldMessage,15*d,72*d,paint);
+            }
             if(paused) {
                 paint.setTextSize(25*d);
                 c.drawText("PAUSED",getWidth()*.38f,getHeight()*.35f,paint);
@@ -273,7 +340,7 @@ public final class IsometricOverworldActivity extends Activity {
                 }
                 if(runButton.contains(px,py)){running=!running;return true;}
                 if(attackButton.contains(px,py)){
-                    if(attackRemaining<=0)attackRemaining=RigAttackPose.DURATION;
+                    interact();
                     return true;
                 }
                 if(joystick.contains(px,py)&&pointer==-1) {
