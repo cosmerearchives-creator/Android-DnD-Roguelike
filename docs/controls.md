@@ -1,0 +1,1 @@
+The overworld joystick already uses floating-point positions and supports continuous free movement. The legacy isometric room uses grid-based tap navigation. Do not mistake the test room for the full overworld. An isometric free-roam world would require a separate camera/rendering integration.
