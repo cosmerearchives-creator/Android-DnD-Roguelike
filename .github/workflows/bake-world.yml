@@ -61,6 +61,7 @@ jobs:
           git add app/src/main/assets/blender_world/
           if ! git diff --cached --quiet; then
             git commit -m "Bake real Blender world and Petite Pale atlases"
+            git pull --rebase origin feature/baked-blender-world-integration
             git push origin HEAD:feature/baked-blender-world-integration
           fi
       - name: Upload source and rendered assets
