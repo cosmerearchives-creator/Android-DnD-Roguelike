@@ -20,14 +20,15 @@ def material(name, color):
     bs.inputs["Roughness"].default_value=.84
     return m
 
-skin=material("Pale elf skin",(.87,.73,.68))
-hair=material("Pale silver-blonde hair",(.73,.70,.60))
-navy=material("Deep blue tunic",(.075,.12,.23))
+classic=(variant=="classic_study")
+skin=material("Elf skin",(.67,.47,.36) if classic else (.87,.73,.68))
+hair=material("Elf hair",(.12,.085,.065) if classic else (.73,.70,.60))
+navy=material("Tunic",(.15,.22,.25) if classic else (.075,.12,.23))
 gold=material("Gold trim",(.72,.45,.14))
 leather=material("Brown leather",(.18,.10,.065))
 eye=material("Eyes",(.08,.14,.17))
 
-root=bpy.data.objects.new("PetitePaleElfRoot",None)
+root=bpy.data.objects.new("ClassicStudyRoot" if classic else "PetitePaleElfRoot",None)
 bpy.context.collection.objects.link(root)
 def uv(name,loc,scale,mat):
     bpy.ops.mesh.primitive_uv_sphere_add(segments=20,ring_count=12,location=loc)
@@ -42,14 +43,14 @@ def link(name,a,b,r,mat):
     return o
 
 uv("Waist",(0,0,1.33),(.205,.155,.25),navy)
-uv("Ribcage",(0,0,1.55),(.29,.19,.28),navy)
+uv("Ribcage",(0,0,1.55),(.27,.19,.28) if classic else (.29,.19,.28),navy)
 uv("Bust left",(-.14,-.125,1.57),(.16,.13,.17),navy)
 uv("Bust right",(.14,-.125,1.57),(.16,.13,.17),navy)
 uv("Pelvis",(0,0,1.09),(.32,.21,.23),navy)
 uv("Hip left",(-.18,0,1.07),(.18,.18,.18),navy)
 uv("Hip right",(.18,0,1.07),(.18,.18,.18),navy)
 uv("Neck",(0,0,1.84),(.105,.105,.15),skin)
-uv("Head",(0,-.015,2.04),(.175,.158,.225),skin)
+uv("Head",(0,-.015,2.04),(.17,.15,.215) if classic else (.175,.158,.225),skin)
 uv("Jaw",(0,-.08,1.92),(.124,.113,.095),skin)
 uv("Nose",(0,-.167,2.015),(.027,.035,.045),skin)
 for side in (-1,1):
@@ -155,7 +156,7 @@ def pose(mode,phase):
         obj.data.update()
 
 # The editable source contains the neutral continuous-mesh figure.
-bpy.ops.wm.save_as_mainfile(filepath=os.path.abspath(os.path.join(out,"petite_pale_elf.blend")))
+bpy.ops.wm.save_as_mainfile(filepath=os.path.abspath(os.path.join(out,variant+".blend")))
 for facing in (0,1,2,3,4):
     root.rotation_euler.z=facing*math.pi/4
     for frame in range(1):
