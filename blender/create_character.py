@@ -138,13 +138,17 @@ world=bpy.context.scene.world
 world.color=(.32,.32,.32)
 bpy.ops.object.light_add(type="AREA",location=(2,-4,6))
 bpy.context.object.data.energy=600;bpy.context.object.data.shape="DISK";bpy.context.object.data.size=5
-bpy.ops.object.camera_add(location=(3.5,-6,3.2))
+# Match Free Roam: screen X is world X + Y and screen Y is world X - Y.
+# The ratio of the diamond half-height to its half-width gives the tilt.
+ground_ratio = 35.83905 / 70.0036
+tilt = math.asin(ground_ratio)
+bpy.ops.object.camera_add(location=(5,-5,1.13 + math.sqrt(50)*math.tan(tilt)))
 camera=bpy.context.object
 direction=Vector((0,0,1.13))-camera.location
 camera.rotation_euler=direction.to_track_quat("-Z","Y").to_euler()
 camera.data.type="ORTHO";camera.data.ortho_scale=2.69
 # Match the renderer's ground anchor at row 160 in each 192-pixel cell.
-camera.data.shift_y = -.05625
+camera.data.shift_y = (160-96)/192 - (1.13-.037)*math.cos(tilt)/2.69
 scene=bpy.context.scene;scene.camera=camera
 # Workbench spatial supersampling uses fresh samples for each still.
 scene.render.engine = "BLENDER_WORKBENCH"
@@ -171,19 +175,30 @@ for obj in bpy.data.objects:
 def unit(value):
     return min(1.0, max(0.0, value))
 
+def walk_foot(phase):
+    """Return fore-aft offset and lift using the game's stance/swing convention."""
+    cycle = (phase / math.tau) % 1.0
+    stance = .64
+    if cycle < stance:
+        return .5 - cycle/stance, 0.0
+    t = (cycle - stance)/(1 - stance)
+    return -.5 + t*t*(3 - 2*t), math.sin(math.pi*t)**2
+
+
 def pose(mode, phase):
     for obj, limb, neutral, inverse in meshes:
         left = "left" in limb
         swing = phase + (math.pi if left else 0.0)
+        along, lift = walk_foot(swing) if mode == "walk" else (0.0, 0.0)
         for vertex, base in zip(obj.data.vertices, neutral):
             point = base.copy()
             if mode == "walk" and limb.startswith("leg"):
                 weight = 1.0 if limb.endswith("boot") else unit((1.04-base.z)/.80)
-                point.y -= .165*math.cos(swing)*weight
-                point.z += .095*max(0.0, math.sin(swing))*weight
+                point.y -= .33*along*weight
+                point.z += .095*lift*weight
             elif mode == "walk" and limb.startswith("arm"):
                 weight = unit((1.69-base.z)/.64)
-                point.y += .095*math.cos(swing)*weight
+                point.y += .19*along*weight
             elif mode == "punch" and limb == "arm_right":
                 reach = math.sin(math.pi*phase)*unit((1.69-base.z)/.64)
                 point.y -= .43*reach
@@ -193,7 +208,9 @@ def pose(mode, phase):
 
 # The editable source contains the neutral continuous-mesh figure.
 bpy.ops.wm.save_as_mainfile(filepath=os.path.abspath(os.path.join(out,variant+".blend")))
-for facing in (0,1,2,3,4):
+# Row zero faces world -Y. Rotation follows N, NE, E, SE, S, SW, W, NW.
+# Render the actual opposite views to preserve anatomy, lighting and punch handedness.
+for facing in range(8):
     root.rotation_euler.z=facing*math.pi/4
     for frame in range(1):
         pose("idle",0)

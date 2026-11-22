@@ -46,7 +46,6 @@ jobs:
           from pathlib import Path
           target=Path('app/src/main/assets/blender_world')
           target.mkdir(parents=True,exist_ok=True)
-          from PIL import ImageOps
           frame_maps={'idle':[0,0,0,0],
                       'walk':[0,1,2,3,4,5,6,7],
                       'punch':[0,1,2,1,0]}
@@ -54,11 +53,9 @@ jobs:
            for motion, frame_map in frame_maps.items():
               sheet=Image.new('RGBA',(len(frame_map)*168,8*192))
               for facing in range(8):
-                  source_facing=facing if facing<=4 else 8-facing
                   for frame,source_frame in enumerate(frame_map):
-                      with Image.open(f'build/character/{folder}/{motion}_f{source_facing}_{source_frame}.png') as rendered:
+                      with Image.open(f'build/character/{folder}/{motion}_f{facing}_{source_frame}.png') as rendered:
                           image=rendered.convert('RGBA')
-                          if facing>4: image=ImageOps.mirror(image)
                           assert image.getchannel('A').getbbox(),(motion,facing,frame)
                           sheet.paste(image,(frame*168,facing*192))
               sheet.save(target/f'{style}_{motion}.png')
