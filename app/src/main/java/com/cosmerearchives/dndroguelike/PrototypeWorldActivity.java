@@ -75,10 +75,15 @@ public final class PrototypeWorldActivity extends Activity {
         private final Bitmap goblinIdle, goblinWalk, goblinAttack;
         private final int playerAttackBonus, playerDamage, playerAc;
         private final java.util.Random combatDice = new java.util.Random();
-        private float goblinX, goblinY, goblinHomeX, goblinHomeY, goblinDistance;
-        private float goblinSwing, goblinRecharge, playerRecharge, punchX, punchY;
-        private int goblinFacing, goblinHp;
-        private boolean goblinMoving, hostile, playerImpact, goblinImpact;
+        private static final int MAX_GOBLINS=5;
+        private static final class Goblin {
+            float x,y,homeX,homeY,walkCycle,swing,recharge;
+            int facing,hp=GOBLIN_HP;
+            boolean moving,impact,aggro,drawn;
+        }
+        private final java.util.ArrayList<Goblin> goblins=new java.util.ArrayList<>();
+        private float spawnCooldown=2f,playerRecharge,punchX,punchY;
+        private boolean hostile,playerImpact;
         private final Bitmap prototypeFloor, prototypeTree, prototypeLedge;
         private final Bitmap prototypeIdle, prototypeWalk, prototypePunch;
         private final boolean bakedEnvironment;
@@ -246,20 +251,30 @@ public final class PrototypeWorldActivity extends Activity {
         }
         private void spawnGoblin() {
             if (goblinIdle==null || goblinWalk==null || goblinAttack==null
-                || save.getBoolean("dagger_goblin_defeated",false)) return;
-            for (int distance=3;distance<=6;distance++) {
-                for (int direction=0;direction<8;direction++) {
-                    double angle=direction*Math.PI/4;
-                    float px=(float)Math.floor(x+Math.sin(angle)*distance)+.5f;
-                    float py=(float)Math.floor(y-Math.cos(angle)*distance)+.5f;
-                    if (!clear(px,py,px,py,.16f)) continue;
-                    goblinHomeX=goblinX=px;
-                    goblinHomeY=goblinY=py;
-                    goblinHp=GOBLIN_HP;
-                    goblinFacing=heading(x-px,y-py);
-                    return;
-                }
+                || goblins.size()>=MAX_GOBLINS) return;
+            // Spawn in an annulus outside immediate melee range, at random
+            // bearings. Each goblin has independent HP, AI and attack timing.
+            for (int attempt=0;attempt<48;attempt++) {
+                double angle=combatDice.nextDouble()*Math.PI*2;
+                float distance=4.5f+combatDice.nextFloat()*5f;
+                float px=x+(float)Math.sin(angle)*distance;
+                float py=y-(float)Math.cos(angle)*distance;
+                if (!clear(px,py,px,py,.19f)) continue;
+                boolean occupied=false;
+                for (Goblin other:goblins)
+                    if (Math.hypot(other.x-px,other.y-py)<1.5f) occupied=true;
+                if (occupied) continue;
+                Goblin goblin=new Goblin();
+                goblin.x=goblin.homeX=px;
+                goblin.y=goblin.homeY=py;
+                goblin.facing=heading(x-px,y-py);
+                goblin.recharge=combatDice.nextFloat()*2f;
+                goblins.add(goblin);
+                return;
             }
+        }
+        private float distanceToGoblin(Goblin goblin) {
+            return (float)Math.hypot(goblin.x-x,goblin.y-y);
         }
         private void combatMessage(String message) {
             worldMessage=message;
@@ -274,120 +289,122 @@ public final class PrototypeWorldActivity extends Activity {
             punchX=x+(float)Math.sin(angle)*MELEE_REACH;
             punchY=y-(float)Math.cos(angle)*MELEE_REACH;
         }
-        private float distanceToGoblin() {
-            return (float)Math.hypot(goblinX-x,goblinY-y);
-        }
         private void resolvePunch() {
-            if (goblinHp<=0) return;
-            float distance=distanceToGoblin();
-            if (distance>MELEE_REACH || (distance>.01f
-                && heading(goblinX-x,goblinY-y)!=facing)) {
+            Goblin target=null;
+            float nearest=MELEE_REACH+.001f;
+            for (Goblin goblin:goblins) {
+                float distance=distanceToGoblin(goblin);
+                if (distance>nearest || (distance>.01f &&
+                    heading(goblin.x-x,goblin.y-y)!=facing)) continue;
+                target=goblin;nearest=distance;
+            }
+            if (target==null) {
                 if (hostile) combatMessage("Punch out of reach");
                 return;
             }
-            hostile=true;
-            running=false;
-            if (combatDice.nextInt(20)+1+playerAttackBonus < GOBLIN_AC) {
-                combatMessage("Punch missed");
-                return;
+            hostile=true;running=false;
+            if (combatDice.nextInt(20)+1+playerAttackBonus<GOBLIN_AC) {
+                combatMessage("Punch missed");return;
             }
-            goblinHp=Math.max(0,goblinHp-playerDamage);
-            if (goblinHp>0) {
-                combatMessage("Goblin hit · "+playerDamage+" damage");
-                return;
+            target.hp=Math.max(0,target.hp-playerDamage);
+            if (target.hp>0) {
+                combatMessage("Goblin hit · "+playerDamage+" damage");return;
+            }
+            goblins.remove(target);
+            experience+=25;
+            save();
+            combatMessage("Goblin defeated · +25 XP");
+        }
+        private void updateGoblins(float dt) {
+            spawnCooldown-=dt;
+            if (spawnCooldown<=0f) {
+                spawnCooldown=5f+combatDice.nextFloat()*5f;
+                spawnGoblin();
             }
             hostile=false;
-            goblinSwing=0;
-            experience+=25;
-            save.edit().putBoolean("dagger_goblin_defeated",true)
-                .putInt("hero_experience",experience).apply();
-            save();
-            combatMessage("Dagger goblin defeated · +25 XP");
-        }
-        private void updateGoblin(float dt) {
-            goblinMoving=false;
-            if (goblinHp<=0) return;
-            float distance=distanceToGoblin();
-            hostile=distance<=(hostile ? COMBAT_LEASH : COMBAT_NOTICE);
-            if (!hostile) {
-                goblinSwing=0;
-                return;
-            }
-            running=false;
-            goblinRecharge=Math.max(0f,goblinRecharge-dt);
-            if (goblinSwing>0) {
-                goblinSwing=Math.max(0f,goblinSwing-dt);
-                if (goblinImpact && goblinSwing<=IMPACT_TIME) {
-                    goblinImpact=false;
-                    if (distance>MELEE_REACH) combatMessage("You evaded the dagger");
-                    else if (combatDice.nextInt(20)+5 < playerAc) combatMessage("Goblin missed");
-                    else {
-                        int damage=combatDice.nextInt(4)+3;
-                        health=Math.max(0,health-damage);
-                        combatMessage("Goblin dagger · "+damage+" damage");
-                        if (health==0) {
-                            health=100;
-                            retreatFromGoblin();
-                            goblinHp=GOBLIN_HP;
-                            goblinX=goblinHomeX;
-                            goblinY=goblinHomeY;
-                            hostile=false;
-                            goblinSwing=0;
-                            combatMessage("Goblin defeated you · Returned to safety");
+            for (Goblin goblin:goblins) {
+                goblin.moving=false;
+                float distance=distanceToGoblin(goblin);
+                goblin.aggro=distance<=(goblin.aggro?COMBAT_LEASH:COMBAT_NOTICE);
+                if (!goblin.aggro) {
+                    goblin.swing=0f;
+                    continue;
+                }
+                hostile=true;running=false;
+                goblin.recharge=Math.max(0f,goblin.recharge-dt);
+                if (goblin.swing>0) {
+                    goblin.swing=Math.max(0f,goblin.swing-dt);
+                    if (goblin.impact && goblin.swing<=IMPACT_TIME) {
+                        goblin.impact=false;
+                        if (distance>MELEE_REACH) combatMessage("You evaded the dagger");
+                        else if (combatDice.nextInt(20)+5<playerAc) combatMessage("Goblin missed");
+                        else {
+                            int damage=combatDice.nextInt(4)+3;
+                            health=Math.max(0,health-damage);
+                            combatMessage("Goblin dagger · "+damage+" damage");
+                            if (health==0) {
+                                health=100;
+                                retreatFromGoblin(goblin);
+                                for (Goblin other:goblins) {
+                                    other.x=other.homeX;other.y=other.homeY;
+                                    other.aggro=false;other.swing=0f;
+                                }
+                                hostile=false;
+                                combatMessage("Goblin pack defeated you · Returned to safety");
+                            }
+                            save();
                         }
-                        save();
                     }
+                    continue;
                 }
-                return;
-            }
-            goblinFacing=heading(x-goblinX,y-goblinY);
-            if (distance<=MELEE_REACH*.86f) {
-                if (goblinRecharge==0f) {
-                    goblinSwing=RigAttackPose.DURATION;
-                    goblinRecharge=ATTACK_PERIOD;
-                    goblinImpact=true;
+                goblin.facing=heading(x-goblin.x,y-goblin.y);
+                if (distance<=MELEE_REACH*.86f) {
+                    if (goblin.recharge==0f) {
+                        goblin.swing=RigAttackPose.DURATION;
+                        goblin.recharge=ATTACK_PERIOD;
+                        goblin.impact=true;
+                    }
+                    continue;
                 }
-                return;
-            }
-            float delta=Math.min(distance-.83f,dt*WALK_SPEED);
-            float nextX=goblinX+(x-goblinX)*delta/distance;
-            float nextY=goblinY+(y-goblinY)*delta/distance;
-            float oldX=goblinX,oldY=goblinY;
-            if (clear(goblinX,goblinY,nextX,goblinY,.16f)) goblinX=nextX;
-            if (clear(goblinX,goblinY,goblinX,nextY,.16f)) goblinY=nextY;
-            float moved=(float)Math.hypot(goblinX-oldX,goblinY-oldY);
-            goblinMoving=moved>.00001f;
-            if (goblinMoving) {
-                goblinDistance=GaitModel.fractional(goblinDistance+moved/GaitModel.CYCLE_TILES);
-                goblinFacing=heading(goblinX-oldX,goblinY-oldY);
+                float delta=Math.min(distance-.83f,dt*WALK_SPEED);
+                float nextX=goblin.x+(x-goblin.x)*delta/distance;
+                float nextY=goblin.y+(y-goblin.y)*delta/distance;
+                float oldX=goblin.x,oldY=goblin.y;
+                if (clear(goblin.x,goblin.y,nextX,goblin.y,.16f)) goblin.x=nextX;
+                if (clear(goblin.x,goblin.y,goblin.x,nextY,.16f)) goblin.y=nextY;
+                float moved=(float)Math.hypot(goblin.x-oldX,goblin.y-oldY);
+                goblin.moving=moved>.00001f;
+                if (goblin.moving) {
+                    goblin.walkCycle=GaitModel.fractional(goblin.walkCycle+moved/GaitModel.CYCLE_TILES);
+                    goblin.facing=heading(goblin.x-oldX,goblin.y-oldY);
+                }
             }
         }
-        private void retreatFromGoblin() {
+        private void retreatFromGoblin(Goblin goblin) {
             for (int direction=0;direction<8;direction++) {
                 double angle=direction*Math.PI/4;
-                float px=goblinHomeX+(float)Math.sin(angle)*(COMBAT_LEASH+1);
-                float py=goblinHomeY-(float)Math.cos(angle)*(COMBAT_LEASH+1);
+                float px=goblin.homeX+(float)Math.sin(angle)*(COMBAT_LEASH+1);
+                float py=goblin.homeY-(float)Math.cos(angle)*(COMBAT_LEASH+1);
                 if (clear(px,py,px,py,PLAYER_RADIUS)) {
-                    x=px;
-                    y=py;
-                    return;
+                    x=px;y=py;return;
                 }
             }
         }
-        private void drawGoblin(Canvas c) {
-            Bitmap sheet=goblinSwing>0 ? goblinAttack : goblinMoving ? goblinWalk : goblinIdle;
-            int frame=goblinSwing>0 ? Math.min(4,(int)(5*(1-goblinSwing/RigAttackPose.DURATION)))
-                : goblinMoving ? (int)(8*goblinDistance) : 0;
-            float px=sx(goblinX,goblinY),py=sy(goblinX,goblinY);
-            source.set(frame*168,goblinFacing*192,(frame+1)*168,(goblinFacing+1)*192);
+        private void drawGoblin(Canvas c,Goblin goblin) {
+            Bitmap sheet=goblin.swing>0 ? goblinAttack : goblin.moving ? goblinWalk : goblinIdle;
+            if (sheet==null) return;
+            int frame=goblin.swing>0 ? Math.min(4,(int)(5*(1-goblin.swing/RigAttackPose.DURATION)))
+                : goblin.moving ? (int)(8*goblin.walkCycle) : 0;
+            float px=sx(goblin.x,goblin.y),py=sy(goblin.x,goblin.y);
+            source.set(frame*168,goblin.facing*192,(frame+1)*168,(goblin.facing+1)*192);
             destination.set(px-84,py-160,px+84,py+32);
             paint.setColor(Color.WHITE);
             c.drawBitmap(sheet,source,destination,paint);
-            if (hostile) {
+            if (goblin.aggro) {
                 paint.setColor(0xFF322A2B);
                 c.drawRect(px-18,py-111,px+18,py-107,paint);
                 paint.setColor(0xFFD27060);
-                c.drawRect(px-18,py-111,px-18+36f*goblinHp/GOBLIN_HP,py-107,paint);
+                c.drawRect(px-18,py-111,px-18+36f*goblin.hp/GOBLIN_HP,py-107,paint);
             }
         }
         private float elevation(float wx,float wy) {
@@ -406,7 +423,7 @@ public final class PrototypeWorldActivity extends Activity {
                     resolvePunch();
                 }
             }
-            updateGoblin(dt);
+            updateGoblins(dt);
             float magnitude=(float)Math.hypot(stickX,stickY);
             boolean moving=false;
             if (magnitude>.08f && attackRemaining==0) {
@@ -600,31 +617,33 @@ public final class PrototypeWorldActivity extends Activity {
                 c.drawOval(markerX-17f,markerY-8f,markerX+17f,markerY+8f,paint);
             }
             float heroDepth=x-y;
-            boolean actorDrawn=false, goblinDrawn=goblinHp<=0;
-            float goblinDepth=goblinX-goblinY;
+            boolean actorDrawn=false;
+            for (Goblin goblin:goblins) goblin.drawn=false;
             for(int depth=-VISIBLE_RADIUS*2;depth<=VISIBLE_RADIUS*2;depth++){
                 for(int xx=-VISIBLE_RADIUS;xx<=VISIBLE_RADIUS;xx++){
                     int yy=xx-depth;
                     if(Math.abs(yy)>VISIBLE_RADIUS)continue;
                     int tx=cx+xx,ty=cy+yy;
                     float propDepth=tx-ty;
-                    if (!goblinDrawn && goblinDepth<=heroDepth && propDepth>goblinDepth) {
-                        drawGoblin(c);goblinDrawn=true;
+                    for (Goblin goblin:goblins) {
+                        if (!goblin.drawn && goblin.x-goblin.y<=propDepth
+                            && (actorDrawn || goblin.x-goblin.y<=heroDepth)) {
+                            drawGoblin(c,goblin);goblin.drawn=true;
+                        }
                     }
                     if (!actorDrawn && propDepth>heroDepth) {
                         drawHero(c);actorDrawn=true;
                     }
-                    if (!goblinDrawn && propDepth>goblinDepth) {
-                        drawGoblin(c);goblinDrawn=true;
-                    }
                     prop(c,tx,ty);
                 }
             }
-            if (!goblinDrawn && goblinDepth<=heroDepth) {
-                drawGoblin(c);goblinDrawn=true;
-            }
+            for (Goblin goblin:goblins)
+                if (!goblin.drawn && goblin.x-goblin.y<=heroDepth) {
+                    drawGoblin(c,goblin);goblin.drawn=true;
+                }
             if(!actorDrawn)drawHero(c);
-            if(!goblinDrawn)drawGoblin(c);
+            for (Goblin goblin:goblins)
+                if(!goblin.drawn)drawGoblin(c,goblin);
             c.restore();
             drawControls(c);
             postInvalidateOnAnimation();
@@ -676,7 +695,7 @@ public final class PrototypeWorldActivity extends Activity {
                 false,0f);
         }
         private void interact() {
-            if (hostile || (goblinHp>0 && distanceToGoblin()<=MELEE_REACH)) {
+            if (hostile || !goblins.isEmpty()) {
                 beginPunch();
                 return;
             }
