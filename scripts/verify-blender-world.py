@@ -3,7 +3,9 @@ from pathlib import Path
 from PIL import Image
 base=Path("app/src/main/assets/blender_world")
 for name,cell,cols,rows in (
-    ("petite_idle.png",(168,192),4,4),
+    ("petite_idle.png",(168,192),4,8),
+    ("petite_walk.png",(168,192),8,8),
+    ("petite_punch.png",(168,192),5,8),
     ("terrain.png",(256,256),4,4),
     ("props.png",(256,256),5,1),
 ):
