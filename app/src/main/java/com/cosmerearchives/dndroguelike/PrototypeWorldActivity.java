@@ -79,7 +79,8 @@ public final class PrototypeWorldActivity extends Activity {
         private float messageRemaining;
         private long lastFrame;
         private final RectF joystick = new RectF(), runButton = new RectF(), attackButton = new RectF();
-        private final RectF exitButton = new RectF();
+        private final RectF exitButton = new RectF(), styleButton = new RectF();
+        private boolean petiteStyle;
         private float zoom = 1f;
 
         World(Context context, PlayerCharacter hero) {
@@ -94,6 +95,7 @@ public final class PrototypeWorldActivity extends Activity {
             experience=save.getInt("hero_experience",0);
             gold=save.getInt("hero_gold",0);
             appearance = hero == null ? ElfAppearance.COILED : hero.appearance;
+            petiteStyle=save.getBoolean("petite_style",appearance==ElfAppearance.PETITE);
             character = new RiggedElf(context, appearance);
             movementFactor = hero == null ? 1f : hero.loadout().movementFactor();
             Bitmap bakedTerrain = load(context, "blender_world/terrain.png");
@@ -224,7 +226,12 @@ public final class PrototypeWorldActivity extends Activity {
                 drawTree(c,px+HALF_W,py,2.35f,tx*17+ty*31);
                 return;
             }
+            int variety=terrain.decoration(tx,ty);
             if(kind==0) {
+                c.save();
+                c.translate(px,py);
+                c.scale(.7f+(variety%7)*.11f,.72f+((variety>>>3)%6)*.12f);
+                px=0;py=0;
                 // Low, rounded rock with ground shadow instead of a raised square platform.
                 paint.setColor(0x66302224);
                 c.drawOval(px-25,py-7,px+26,py+13,paint);
@@ -232,6 +239,8 @@ public final class PrototypeWorldActivity extends Activity {
                 c.drawOval(px-19,py-16,px+19,py+8,paint);
                 paint.setColor(0xFF849083);
                 c.drawOval(px-14,py-17,px+13,py-5,paint);
+                if((variety&2)!=0){paint.setColor(0xFF74876D);c.drawOval(px-12,py-15,px+4,py-9,paint);}
+                c.restore();
                 return;
             }
             if(kind==3) {
@@ -245,6 +254,10 @@ public final class PrototypeWorldActivity extends Activity {
                 return;
             }
             if(kind==2) {
+                c.save();
+                c.translate(px,py);
+                c.scale(.7f+(variety%8)*.11f,.65f+((variety>>>4)%8)*.12f);
+                px=0;py=0;
                 paint.setColor(0xAA2A4734);
                 c.drawOval(px-22,py-8,px+22,py+8,paint);
                 paint.setColor(0xFF53764A);
@@ -252,6 +265,8 @@ public final class PrototypeWorldActivity extends Activity {
                 c.drawCircle(px+8,py-12,18,paint);
                 paint.setColor(0xFF6F955B);
                 c.drawCircle(px+1,py-19,13,paint);
+                if((variety&4)!=0){paint.setColor(0xFF9B9872);c.drawCircle(px+9,py-16,3,paint);}
+                c.restore();
                 return;
             }
             // A typical tree is substantially taller than the player; deterministic
@@ -314,7 +329,7 @@ public final class PrototypeWorldActivity extends Activity {
             float px=sx(x,y),py=sy(x,y)-elevation(x,y);
             // The original approved test-room character and its real walk/punch
             // frames take priority over the later mismatched Blender prototype.
-            if (bakedElf!=null && bakedWalk!=null && bakedPunch!=null) {
+            if (petiteStyle && bakedElf!=null && bakedWalk!=null && bakedPunch!=null) {
                 Bitmap sheet=bakedElf;
                 int frame=Math.floorMod((int)(idleTime*4f),4);
                 if (attackRemaining>0 && bakedPunch!=null) {
@@ -390,6 +405,7 @@ public final class PrototypeWorldActivity extends Activity {
             runButton.set(getWidth()-125*d,bottom-111*d,getWidth()-18*d,bottom-70*d);
             attackButton.set(getWidth()-125*d,bottom-59*d,getWidth()-18*d,bottom);
             exitButton.set(getWidth()-94*d,18*d,getWidth()-12*d,54*d);
+            styleButton.set(getWidth()-153*d,62*d,getWidth()-12*d,100*d);
             if (!stickActive) {stickCenterX=joystick.centerX();stickCenterY=joystick.centerY();}
             paint.setColor(0x99354B52);c.drawCircle(stickCenterX,stickCenterY,55*d,paint);
             paint.setColor(0xFFB7D6C7);
@@ -397,6 +413,7 @@ public final class PrototypeWorldActivity extends Activity {
             button(c,runButton,running?"RUN ON":"RUN");
             button(c,attackButton,"ATTACK / USE");
             button(c,exitButton,"MENU");
+            button(c,styleButton,petiteStyle?"STYLE: PETITE":"STYLE: CLASSIC");
             paint.setTextSize(13*d);paint.setColor(0xFFF1D8AA);
             c.drawText("WILDLANDS · FREE ROAM",15*d,32*d,paint);
             c.drawText("HP "+health+"   XP "+experience+"   GOLD "+gold,15*d,50*d,paint);
@@ -455,6 +472,11 @@ public final class PrototypeWorldActivity extends Activity {
                 if(exitButton.contains(px,py)) {
                     save();getContext().startActivity(new Intent(getContext(),MainActivity.class));
                     ((Activity)getContext()).finish();return true;
+                }
+                if(styleButton.contains(px,py)){
+                    petiteStyle=!petiteStyle;
+                    save.edit().putBoolean("petite_style",petiteStyle).apply();
+                    return true;
                 }
                 if(runButton.contains(px,py)){running=!running;return true;}
                 if(attackButton.contains(px,py)){
