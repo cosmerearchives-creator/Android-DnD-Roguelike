@@ -32,8 +32,8 @@ jobs:
           target=Path('app/src/main/assets/blender_world')
           target.mkdir(parents=True,exist_ok=True)
           for motion, frames in (('idle',4),('walk',8),('punch',5)):
-              sheet=Image.new('RGBA',(frames*168,4*192))
-              for facing in range(4):
+              sheet=Image.new('RGBA',(frames*168,8*192))
+              for facing in range(8):
                   for frame in range(frames):
                       with Image.open(f'build/character/{motion}_f{facing}_{frame}.png') as image:
                           assert image.getchannel('A').getbbox(),(motion,facing,frame)
