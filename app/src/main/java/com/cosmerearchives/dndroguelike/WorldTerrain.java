@@ -66,7 +66,11 @@ final class WorldTerrain {
         if(Math.abs(x)<7&&Math.abs(y)<7||road(x,y)||river(x,y))return -1;
         long seed=hash(x,y,83);
         int kind=biome(x,y);
-        if((seed&15)==4&&(kind==1||kind==2))return (seed&64)==0?1:2;
+        // Denser woodland: approximately one tree in four forest tiles,
+        // and one in eight temperate grassland tiles. Preserve clear roads,
+        // rivers and the starting area for movement.
+        if((kind==1||kind==2) && (seed&3)==0)return (seed&64)==0?1:2;
+        if(kind==0 && (seed&7)==4)return (seed&64)==0?1:2;
         if((seed&31)==15&&height(x,y)>0)return 3;
         if((seed&31)==22&&kind<=2)return 4;
         return -1;
