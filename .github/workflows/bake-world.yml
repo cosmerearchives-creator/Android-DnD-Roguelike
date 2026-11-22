@@ -21,11 +21,10 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y blender libegl1 libgl1 libgl1-mesa-dri xvfb
           python3 -m pip install --quiet --break-system-packages Pillow
-      - name: Bake elf and environment
+      - name: Bake improved Petite Pale character
         run: |
           xvfb-run -a blender --background --threads 2 --python blender/create_character.py -- --output build/character
-          xvfb-run -a blender --background --threads 2 --python blender/create_world.py -- --output build/world
-      - name: Assemble and verify real Blender atlases
+      - name: Assemble and verify new character atlas
         run: |
           python3 - <<'PY'
           from PIL import Image
@@ -39,18 +38,6 @@ jobs:
                       assert frame.getchannel('A').getbbox(),(f,n)
                       char.paste(frame,(n*168,f*192))
           char.save(target/'petite_idle.png')
-          tiles=Image.new('RGBA',(4*256,4*256))
-          for n in range(16):
-              with Image.open(f'build/world/terrain_{n:02d}.png') as tile:
-                  assert tile.getchannel('A').getbbox(),n
-                  tiles.paste(tile,((n%4)*256,(n//4)*256))
-          tiles.save(target/'terrain.png')
-          props=Image.new('RGBA',(5*256,256))
-          for n in range(5):
-              with Image.open(f'build/world/prop_{n:02d}.png') as prop:
-                  assert prop.getchannel('A').getbbox(),n
-                  props.paste(prop,(n*256,0))
-          props.save(target/'props.png')
           for p in target.glob('*.png'):
               print('BLENDER_ASSET_VERIFIED',p,p.stat().st_size)
           PY
