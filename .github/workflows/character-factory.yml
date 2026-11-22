@@ -1,0 +1,53 @@
+name: Experimental Blender Character Factory
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/character-factory.yml'
+permissions:
+  contents: read
+jobs:
+  render:
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        variant: [petite_pale, classic_study]
+    runs-on: ubuntu-latest
+    timeout-minutes: 110
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Blender and Pillow
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y blender xvfb
+          python3 -m pip install --quiet --break-system-packages Pillow
+      - name: Render isolated character study
+        run: |
+          xvfb-run -a blender --background --threads 3 --python blender/create_character.py -- --variant ${{ matrix.variant }} --output build/character-study/${{ matrix.variant }}
+      - name: Validate renders and create animation contact sheets
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          from PIL import Image,ImageDraw
+          root=Path('build/character-study/${{ matrix.variant }}')
+          for motion,frames in (('idle',1),('walk',8),('punch',3)):
+              canvas=Image.new('RGBA',(168*frames,192*5),(0,0,0,0))
+              for facing in range(5):
+                  for frame in range(frames):
+                      p=root/f'{motion}_f{facing}_{frame}.png'
+                      assert p.exists(),p
+                      with Image.open(p) as im:
+                          assert im.size==(168,192) and im.mode=='RGBA',p
+                          assert im.getchannel('A').getbbox(),p
+                          canvas.paste(im,(frame*168,facing*192))
+              canvas.save(root/f'preview_{motion}.png')
+          assert (root/'${{ matrix.variant }}.blend').exists()
+          print('CHARACTER_STUDY_VALIDATED',root)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: character-study-${{ matrix.variant }}-${{ github.run_number }}
+          path: build/character-study/${{ matrix.variant }}/
+          retention-days: 30
