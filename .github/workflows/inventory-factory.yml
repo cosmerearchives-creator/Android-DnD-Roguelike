@@ -1,0 +1,61 @@
+name: Experimental Inventory Art Factory
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/inventory-factory.yml'
+permissions:
+  contents: read
+jobs:
+  inventory-art:
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        group: [weapons, inventory]
+    runs-on: ubuntu-latest
+    timeout-minutes: 110
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Blender and Pillow
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y blender xvfb
+          python3 -m pip install --quiet --break-system-packages Pillow
+      - name: Extract exact game item catalog
+        run: python3 scripts/extract_inventory_catalog.py
+      - name: Render experimental item artwork
+        run: |
+          xvfb-run -a blender --background --threads 3 --python blender/inventory_factory.py -- --group ${{ matrix.group }} --catalog build/inventory-factory/catalog.json --output build/inventory-factory/${{ matrix.group }}
+      - name: Validate and make review contact sheets
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          from PIL import Image,ImageDraw
+          import json
+          root=Path('build/inventory-factory/${{ matrix.group }}')
+          catalog=json.loads(Path('build/inventory-factory/catalog.json').read_text())
+          expected=[x for x in catalog if (x['category']=='weapon')==('${{ matrix.group }}'=='weapons')]
+          assert len(list(root.glob('*.png')))==len(expected),(root,len(expected))
+          for offset in range(0,len(expected),24):
+              batch=expected[offset:offset+24]
+              sheet=Image.new('RGB',(256*6,284*4),(38,42,46))
+              draw=ImageDraw.Draw(sheet)
+              for i,item in enumerate(batch):
+                  p=root/(item['id']+'.png')
+                  with Image.open(p) as im:
+                      assert im.mode=='RGBA' and im.size==(256,256) and im.getchannel('A').getbbox(),p
+                      x=i%6*256;y=i//6*284
+                      sheet.paste(im,(x,y),im)
+                      draw.text((x+5,y+260),item['name'][:32],fill='white')
+              sheet.save(root/('contact_%02d.jpg'%(offset//24)),quality=88)
+          print('INVENTORY_ART_VALIDATED',len(expected))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: inventory-study-${{ matrix.group }}-${{ github.run_number }}
+          path: |
+            build/inventory-factory/${{ matrix.group }}/
+            build/inventory-factory/catalog.json
+          retention-days: 30
