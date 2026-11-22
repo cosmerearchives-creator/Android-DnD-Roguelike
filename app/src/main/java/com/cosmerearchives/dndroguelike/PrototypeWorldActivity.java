@@ -158,8 +158,10 @@ public final class PrototypeWorldActivity extends Activity {
                 if (moving) {
                     // Prototype directions: 0 north (-Y), 1 east (+X),
                     // 2 south (+Y), 3 west (-X). Do not reverse north/south.
-                    facing=Math.abs(actualX)>Math.abs(actualY)
-                        ? (actualX>0?1:3) : (actualY>0?2:0);
+                    // Eight directions, ordered N, NE, E, SE, S, SW, W, NW.
+                    // The Blender atlas contains all eight orientations.
+                    float heading=(float)Math.atan2(actualX,-actualY);
+                    facing=Math.floorMod(Math.round(heading/(float)(Math.PI/4)),8);
                     gait.advance(travelled);
                     walkCycles=gait.cycles();
                 }
@@ -259,13 +261,14 @@ public final class PrototypeWorldActivity extends Activity {
                     sheet=prototypeWalk;
                     frame=Math.floorMod((int)(walkCycles*8),8);
                 }
-                source.set(frame*144,facing*160,(frame+1)*144,(facing+1)*160);
+                int cardinal=(facing+1)/2%4;
+                source.set(frame*144,cardinal*160,(frame+1)*144,(cardinal+1)*160);
                 destination.set(px-72,py-135.303f,px+72,py+24.697f);
                 paint.setColor(Color.WHITE);
                 c.drawBitmap(sheet,source,destination,paint);
                 return;
             }
-            character.draw(c,px,py,.75f*appearance.heightScale,facing,walkCycles,
+            character.draw(c,px,py,.75f*appearance.heightScale,(facing+1)/2%4,walkCycles,
                 blend,idleTime,attackRemaining>0?1-attackRemaining/RigAttackPose.DURATION:0,
                 false,0f);
         }
