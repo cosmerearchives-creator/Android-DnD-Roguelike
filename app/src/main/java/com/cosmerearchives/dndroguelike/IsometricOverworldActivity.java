@@ -68,6 +68,9 @@ public final class IsometricOverworldActivity extends Activity {
         private float idleTime, walkCycles, attackRemaining, blend;
         private int facing, pointer = -1;
         private boolean running, paused;
+        private int health, experience, gold;
+        private String worldMessage="";
+        private float messageRemaining;
         private long lastFrame;
         private final RectF joystick = new RectF(), runButton = new RectF(), attackButton = new RectF();
         private final RectF exitButton = new RectF();
@@ -81,6 +84,9 @@ public final class IsometricOverworldActivity extends Activity {
             if (!Float.isFinite(x) || !Float.isFinite(y) || Math.abs(x) > 1000000
                     || Math.abs(y) > 1000000) { x=.5f; y=.5f; }
             cameraX = x; cameraY = y;
+            health=save.getInt("hero_health",100);
+            experience=save.getInt("hero_experience",0);
+            gold=save.getInt("hero_gold",0);
             appearance = hero == null ? ElfAppearance.COILED : hero.appearance;
             character = new RiggedElf(context, appearance);
             movementFactor = hero == null ? 1f : hero.loadout().movementFactor();
@@ -98,7 +104,9 @@ public final class IsometricOverworldActivity extends Activity {
             } catch (IOException e) { return null; }
         }
         void save() {
-            save.edit().putFloat("player_x", x).putFloat("player_y", y).apply();
+            save.edit().putFloat("player_x", x).putFloat("player_y", y)
+                .putInt("hero_health",health).putInt("hero_experience",experience)
+                .putInt("hero_gold",gold).apply();
         }
         private float sx(float wx, float wy) { return (wx - cameraX + wy - cameraY) * HALF_W; }
         private float sy(float wx, float wy) { return (wx - cameraX - (wy - cameraY)) * HALF_H; }
@@ -114,6 +122,7 @@ public final class IsometricOverworldActivity extends Activity {
         private void update(float dt) {
             if (paused) return;
             idleTime+=dt;
+            messageRemaining=Math.max(0,messageRemaining-dt);
             if (attackRemaining>0) attackRemaining=Math.max(0,attackRemaining-dt);
             float magnitude=(float)Math.hypot(stickX,stickY);
             boolean moving=false;
@@ -238,6 +247,37 @@ public final class IsometricOverworldActivity extends Activity {
                 blend,idleTime,attackRemaining>0?1-attackRemaining/RigAttackPose.DURATION:0,
                 false,0f);
         }
+        private void interact() {
+            int px=(int)Math.floor(x),py=(int)Math.floor(y);
+            int closest=0,tx=0,ty=0;
+            for(int dx=-2;dx<=2;dx++)for(int dy=-2;dy<=2;dy++){
+                int xx=px+dx,yy=py+dy;
+                int kind=terrain.landmark(xx,yy);
+                if(kind!=0&&Math.hypot(xx+.5-x,yy+.5-y)<2.2){
+                    closest=kind;tx=xx;ty=yy;
+                }
+            }
+            if(closest==0){
+                if(attackRemaining<=0)attackRemaining=RigAttackPose.DURATION;
+                return;
+            }
+            String key="visited_"+tx+"_"+ty;
+            boolean visited=save.getBoolean(key,false);
+            if(closest==1){
+                health=100;
+                worldMessage="HAMLET · Restored to full health";
+            } else if(closest==2){
+                if(!visited){gold+=25;experience+=40;}
+                worldMessage=visited?"ANCIENT RUINS · Already explored":"ANCIENT RUINS · Found 25 gold and 40 XP";
+            } else {
+                if(!visited){health=Math.max(1,health-12);gold+=8;experience+=20;}
+                worldMessage=visited?"WILDERNESS · Encounter cleared":"WILDERNESS · Enemy defeated · +20 XP";
+                attackRemaining=RigAttackPose.DURATION;
+            }
+            save.edit().putBoolean(key,true).apply();
+            messageRemaining=4f;
+            save();
+        }
         private void drawControls(Canvas c) {
             float d=getResources().getDisplayMetrics().density;
             float bottom=getHeight()-18*d;
@@ -249,10 +289,15 @@ public final class IsometricOverworldActivity extends Activity {
             paint.setColor(0xFFB7D6C7);
             c.drawCircle(joystick.centerX()+stickX*36*d,joystick.centerY()+stickY*36*d,19*d,paint);
             button(c,runButton,running?"RUN ON":"RUN");
-            button(c,attackButton,"ATTACK");
+            button(c,attackButton,"ATTACK / USE");
             button(c,exitButton,"MENU");
             paint.setTextSize(13*d);paint.setColor(0xFFF1D8AA);
             c.drawText("WILDLANDS · FREE ROAM",15*d,32*d,paint);
+            c.drawText("HP "+health+"   XP "+experience+"   GOLD "+gold,15*d,50*d,paint);
+            if(messageRemaining>0){
+                paint.setTextSize(12*d);
+                c.drawText(worldMessage,15*d,72*d,paint);
+            }
             if(paused) {
                 paint.setTextSize(25*d);
                 c.drawText("PAUSED",getWidth()*.38f,getHeight()*.35f,paint);
@@ -295,7 +340,7 @@ public final class IsometricOverworldActivity extends Activity {
                 }
                 if(runButton.contains(px,py)){running=!running;return true;}
                 if(attackButton.contains(px,py)){
-                    if(attackRemaining<=0)attackRemaining=RigAttackPose.DURATION;
+                    interact();
                     return true;
                 }
                 if(joystick.contains(px,py)&&pointer==-1) {
