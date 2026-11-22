@@ -49,13 +49,13 @@ uv("Pelvis",(0,0,1.09),(.32,.21,.23),navy)
 uv("Hip left",(-.18,0,1.07),(.18,.18,.18),navy)
 uv("Hip right",(.18,0,1.07),(.18,.18,.18),navy)
 uv("Neck",(0,0,1.84),(.105,.105,.15),skin)
-uv("Head",(0,-.015,2.04),(.205,.18,.265),skin)
-uv("Jaw",(0,-.08,1.92),(.15,.14,.12),skin)
-uv("Nose",(0,-.215,2.025),(.055,.065,.07),skin)
+uv("Head",(0,-.015,2.04),(.185,.165,.255),skin)
+uv("Jaw",(0,-.08,1.92),(.135,.125,.11),skin)
+uv("Nose",(0,-.167,2.015),(.032,.035,.055),skin)
 for side in (-1,1):
     x=side
-    uv("Pointed ear "+str(x),(.25*x,0,2.05),(.17,.065,.07),skin)
-    uv("Eye "+str(x),(.09*x,-.194,2.09),(.034,.019,.028),eye)
+    uv("Pointed ear "+str(x),(.195*x,0,2.05),(.075,.045,.045),skin)
+    uv("Eye "+str(x),(.075*x,-.163,2.085),(.022,.012,.018),eye)
     link("Upper arm "+str(x),(.29*x,0,1.72),(.41*x,0,1.35),.105,skin)
     link("Sleeve "+str(x),(.29*x,0,1.72),(.34*x,0,1.55),.125,navy)
     link("Forearm "+str(x),(.41*x,0,1.35),(.40*x,-.035,1.05),.078,skin)
@@ -70,8 +70,11 @@ uv("Belt",(0,-.01,1.13),(.31,.195,.065),leather)
 uv("Buckle",(0,-.205,1.13),(.07,.025,.055),gold)
 for i in range(12):
     angle=2*math.pi*i/12
-    uv("Hair curl %02d"%i,(.17*math.cos(angle),.12*math.sin(angle)+.02,2.27),(.083,.083,.10),hair)
-uv("Hair crown",(0,.055,2.30),(.215,.19,.13),hair)
+    uv("Hair strand %02d"%i,(.16*math.cos(angle),.115*math.sin(angle)+.025,2.245),(.072,.065,.12),hair)
+uv("Hair crown",(0,.045,2.29),(.195,.18,.105),hair)
+for side in (-1,1):
+    uv("Side hair "+str(side),(.17*side,.045,1.99),(.07,.10,.29),hair)
+uv("Back hair",(0,.12,1.96),(.18,.09,.34),hair)
 # Smooth the intersecting primitive silhouette into a continuous surface.
 # Keep materials grouped so clothing, skin and hair remain independently shaded.
 for material_group in (navy, skin, leather):
