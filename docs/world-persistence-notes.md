@@ -1,0 +1,1 @@
+Player world coordinates are persisted under SharedPreferences `wildlands_world`, keys `player_x` and `player_y`. The values update on entry to a new tile, not every animation frame. This avoids excessive writes and may restore to the tile entry point after abrupt process termination.
