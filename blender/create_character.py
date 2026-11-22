@@ -108,12 +108,66 @@ scene.render.engine="BLENDER_EEVEE"
 scene.render.resolution_x=168;scene.render.resolution_y=192;scene.render.resolution_percentage=100
 scene.render.image_settings.file_format="PNG";scene.render.film_transparent=True
 scene.view_settings.view_transform="Standard"
-# Save the editable source before rendering.
+# Cache mesh vertices in root coordinates so the entire connected mesh can
+# deform smoothly at hip, knee, ankle, shoulder and elbow while baking.
+meshes=[]
+for obj in bpy.data.objects:
+    if obj.type!="MESH":continue
+    to_root=obj.matrix_local.copy()
+    from_root=to_root.inverted()
+    points=[to_root @ v.co for v in obj.data.vertices]
+    meshes.append((obj,points,from_root))
+
+def pose(mode,phase):
+    stride=math.sin(phase)
+    punch=max(0.0,math.sin(math.pi*phase))
+    for obj,original,inverse in meshes:
+        for vertex,base in zip(obj.data.vertices,original):
+            p=base.copy()
+            x,y,z=base.x,base.y,base.z
+            if mode=="walk" and z<1.12 and abs(x)>.08:
+                side=1 if x>0 else -1
+                swing=math.sin(phase+(0 if side>0 else math.pi))
+                lift=max(0.0,swing)
+                # The knee travels forward and upward during the swing phase.
+                # The shin folds underneath it; the ankle then extends forward.
+                if z>.55:
+                    t=min(1.,max(0.,(1.10-z)/.53))
+                    p.y-=.23*swing*t
+                    p.z+=.055*lift*t
+                else:
+                    t=min(1.,max(0.,(.57-z)/.50))
+                    p.y-=.23*swing+(.16*lift*t)
+                    p.z+=.075*lift+(.15*lift*t)
+            elif mode=="walk" and z>1.13 and z<1.85 and abs(x)>.27:
+                side=1 if x>0 else -1
+                p.y+=.11*math.sin(phase+(0 if side>0 else math.pi))
+            elif mode=="punch" and x>.29 and .94<z<1.80:
+                weight=min(1.,max(0.,(x-.29)/.13))
+                p.y-=.63*punch*weight
+                p.z+=.26*punch*weight
+                p.x+=.055*punch*weight
+            vertex.co=inverse @ p
+        obj.data.update()
+
+# The editable source contains the neutral continuous-mesh figure.
 bpy.ops.wm.save_as_mainfile(filepath=os.path.abspath(os.path.join(out,"petite_pale_elf.blend")))
 for facing in range(4):
     root.rotation_euler.z=facing*math.pi/2
     for frame in range(4):
+        pose("idle",0)
         root.location.z=.012*math.sin(frame*math.pi/2)
         scene.render.filepath=os.path.abspath(os.path.join(out,"idle_f%d_%d.png"%(facing,frame)))
         bpy.ops.render.render(write_still=True)
-print("BLENDER_CHARACTER_PIPELINE_OK",out)
+    for frame in range(8):
+        phase=frame*math.tau/8
+        pose("walk",phase)
+        root.location.z=.025*abs(math.sin(phase))
+        scene.render.filepath=os.path.abspath(os.path.join(out,"walk_f%d_%d.png"%(facing,frame)))
+        bpy.ops.render.render(write_still=True)
+    for frame in range(5):
+        pose("punch",frame/4)
+        root.location.z=0
+        scene.render.filepath=os.path.abspath(os.path.join(out,"punch_f%d_%d.png"%(facing,frame)))
+        bpy.ops.render.render(write_still=True)
+print("BLENDER_CHARACTER_IDLE_WALK_KNEE_PUNCH_OK",out)
