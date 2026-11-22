@@ -68,6 +68,10 @@ public class MainActivity extends Activity {
         explore.setOnClickListener(v -> startActivity(new Intent(this, OutdoorActivity.class)
             .putExtra(OutdoorActivity.EXTRA_FREE_EXPLORE, true)));
         root.addView(explore);
+        Button isometricRoom = new Button(this);
+        isometricRoom.setText("Isometric Test Room");
+        isometricRoom.setOnClickListener(v -> startActivity(new Intent(this, IsometricRoomActivity.class)));
+        root.addView(isometricRoom);
         check = new Button(this);
         check.setText("Check for updates");
         check.setOnClickListener(v -> checkUpdates());
