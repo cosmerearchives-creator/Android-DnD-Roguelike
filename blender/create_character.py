@@ -74,7 +74,7 @@ direction=Vector((0,0,1.15))-camera.location
 camera.rotation_euler=direction.to_track_quat("-Z","Y").to_euler()
 camera.data.type="ORTHO";camera.data.ortho_scale=2.85
 scene=bpy.context.scene;scene.camera=camera
-scene.render.engine="BLENDER_EEVEE_NEXT"
+scene.render.engine="BLENDER_EEVEE_NEXT" if bpy.app.version >= (4,2,0) else "BLENDER_EEVEE"
 scene.render.resolution_x=168;scene.render.resolution_y=192;scene.render.resolution_percentage=100
 scene.render.image_settings.file_format="PNG";scene.render.film_transparent=True
 scene.view_settings.view_transform="Standard"
