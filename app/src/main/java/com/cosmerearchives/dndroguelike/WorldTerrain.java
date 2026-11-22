@@ -46,12 +46,13 @@ final class WorldTerrain {
         return temp>.55f?0:1;
     }
     int prop(int x,int y) {
-        if(road(x,y)||river(x,y)||Math.abs(x)<6&&Math.abs(y)<6)return -1;
+        if((x==13&&y==-11)||(x==-19&&y==12)||(x==30&&y==25))return 0;
+        if(Math.abs(x)<7&&Math.abs(y)<7||road(x,y)||river(x,y))return -1;
         long seed=hash(x,y,83);
         int kind=biome(x,y);
-        if((seed&31)==4&&(kind==1||kind==2))return kind==1?0:1;
-        if((seed&63)==15&&height(x,y)>0)return 2;
-        if((seed&127)==21)return 3;
+        if((seed&15)==4&&(kind==1||kind==2))return (seed&64)==0?1:2;
+        if((seed&31)==15&&height(x,y)>0)return 3;
+        if((seed&31)==22&&kind<=2)return 4;
         return -1;
     }
     boolean blocked(int x,int y) {
