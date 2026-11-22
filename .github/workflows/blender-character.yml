@@ -21,12 +21,12 @@ jobs:
       - name: Install Blender and Pillow
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y blender
+          sudo apt-get install -y blender libegl1 libgl1 libgl1-mesa-dri xvfb
           python3 -m pip install --quiet --break-system-packages Pillow
       - name: Render editable model and 16 directional preview frames
         run: |
           blender --version
-          blender --background --threads 2 --python blender/create_character.py -- --output build/blender-preview
+          xvfb-run -a blender --background --threads 2 --python blender/create_character.py -- --output build/blender-preview
       - name: Assemble and validate 4x4 idle atlas
         run: |
           python3 - <<'PY'
