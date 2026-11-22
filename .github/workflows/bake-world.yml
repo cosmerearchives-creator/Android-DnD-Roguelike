@@ -93,10 +93,6 @@ jobs:
             if [ "$attempt" -eq 3 ]; then exit 1; fi
             sleep 5
           done
-      - name: Trigger Android release for newly baked styles
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh workflow run android.yml --ref main
       - name: Upload source and rendered assets
         uses: actions/upload-artifact@v4
         with:
