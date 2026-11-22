@@ -1,7 +1,4 @@
-"""Blender smoke test: editable stylized High Elf model and four-direction idle bake.
-Run: blender -b -t 2 --python blender/create_character.py -- --output build/blender-preview
-No existing game artwork is overwritten.
-"""
+"""Bake the Classic Ranger or Petite Scout for the Android isometric renderer."""
 import bpy, math, sys, os
 from mathutils import Vector
 
@@ -20,115 +17,122 @@ def material(name, color):
     bs.inputs["Roughness"].default_value=.84
     return m
 
-classic=(variant=="classic_study")
-skin=material("Elf skin",(.67,.47,.36) if classic else (.87,.73,.68))
-hair=material("Elf hair",(.12,.085,.065) if classic else (.73,.70,.60))
-navy=material("Tunic",(.15,.22,.25) if classic else (.075,.12,.23))
-gold=material("Gold trim",(.72,.45,.14))
-leather=material("Brown leather",(.18,.10,.065))
-eye=material("Eyes",(.08,.14,.17))
+classic = variant == "classic_study"
+skin = material("Skin", (.65,.39,.26) if classic else (.88,.73,.70))
+hair = material("Hair", (.075,.043,.023) if classic else (.032,.026,.041))
+highlight = material("Hair ribbons", (.14,.075,.039) if classic else (.070,.049,.085))
+navy = material("Fitted tunic", (.09,.18,.164) if classic else (.105,.083,.235))
+cloth = material("Cape and panels", (.072,.22,.16) if classic else (.26,.092,.29))
+metal = material("Armor", (.36,.43,.41) if classic else (.49,.36,.60))
+gold = material("Gold trim", (.69,.42,.15))
+leather = material("Leather", (.20,.097,.060) if classic else (.11,.079,.13))
+eye = material("Eyes", (.08,.14,.14))
+lips = material("Lips", (.34,.13,.12) if classic else (.45,.20,.23))
 
-root=bpy.data.objects.new("ClassicStudyRoot" if classic else "PetitePaleElfRoot",None)
+root = bpy.data.objects.new("Classic Ranger" if classic else "Petite Scout", None)
 bpy.context.collection.objects.link(root)
-def uv(name,loc,scale,mat):
-    bpy.ops.mesh.primitive_uv_sphere_add(segments=20,ring_count=12,location=loc)
-    o=bpy.context.object;o.name=name;o.scale=scale;o.data.materials.append(mat)
-    o.parent=root
-    return o
-def link(name,a,b,r,mat):
-    mid=(Vector(a)+Vector(b))/2;d=Vector(b)-Vector(a)
-    bpy.ops.mesh.primitive_cylinder_add(vertices=16,radius=r,depth=d.length,location=mid)
-    o=bpy.context.object;o.name=name;o.rotation_euler=d.to_track_quat("Z","Y").to_euler()
-    o.data.materials.append(mat);o.parent=root
-    return o
 
-uv("Waist",(0,0,1.33),(.235,.16,.27) if classic else (.19,.145,.22),navy)
-uv("Ribcage",(0,0,1.55),(.32,.215,.31) if classic else (.255,.17,.26),navy)
-uv("Bust left",(-.13,-.125,1.57),(.13,.115,.14),navy)
-uv("Bust right",(.13,-.125,1.57),(.13,.115,.14),navy)
-uv("Pelvis",(0,0,1.09),(.30,.20,.22) if classic else (.255,.185,.20),navy)
-uv("Hip left",(-.18,0,1.07),(.18,.18,.18),navy)
-uv("Hip right",(.18,0,1.07),(.18,.18,.18),navy)
-uv("Neck",(0,0,1.84),(.105,.105,.15),skin)
-uv("Head",(0,-.015,2.04),(.155,.145,.205) if classic else (.16,.15,.215),skin)
-uv("Jaw",(0,-.08,1.92),(.124,.113,.095),skin)
-uv("Nose",(0,-.167,2.015),(.027,.035,.045),skin)
+def finish(obj, name, mat, limb):
+    obj.name = name
+    obj.data.materials.append(mat)
+    obj.parent = root
+    if limb:
+        obj["limb"] = limb
+    for polygon in obj.data.polygons:
+        polygon.use_smooth = True
+    return obj
+
+def uv(name, loc, scale, mat, limb=""):
+    bpy.ops.mesh.primitive_uv_sphere_add(segments=20, ring_count=12, location=loc)
+    obj = bpy.context.object
+    obj.scale = scale
+    return finish(obj, name, mat, limb)
+
+def surface(name, rings, mat, limb=""):
+    """Build a smooth surface from ascending cross sections."""
+    count = 24
+    vertices = [(x + rx*math.cos(i*math.tau/count), y + ry*math.sin(i*math.tau/count), z)
+                for x,y,z,rx,ry in rings for i in range(count)]
+    faces = [tuple(reversed(range(count)))]
+    for j in range(len(rings)-1):
+        for i in range(count):
+            a, b = j*count+i, j*count+(i+1)%count
+            faces.append((a,b,b+count,a+count))
+    faces.append(tuple(range(len(vertices)-count,len(vertices))))
+    mesh = bpy.data.meshes.new(name)
+    mesh.from_pydata(vertices, [], faces)
+    mesh.update()
+    obj = bpy.data.objects.new(name, mesh)
+    bpy.context.collection.objects.link(obj)
+    subdivision = obj.modifiers.new("Smooth cross sections", "SUBSURF")
+    subdivision.levels = subdivision.render_levels = 1
+    return finish(obj, name, mat, limb)
+
+w = 1.0 if classic else .88
+hip = .279 if classic else .238
+surface("Shaped tunic", [(0,0,z,rx,ry) for z,rx,ry in [
+    (.98,hip*.89,.14),(1.09,hip,.173),(1.20,hip*.91,.165),
+    (1.33,.174*w,.127),(1.44,.199*w,.147),(1.56,.251*w,.178),
+    (1.68,.246*w,.151),(1.76,.208*w,.125),(1.81,.100,.087)]], navy)
+surface("Waist belt", [(0,0,1.26,.189*w,.140),(0,0,1.28,.186*w,.143),
+    (0,0,1.32,.183*w,.138),(0,0,1.34,.180*w,.136)], leather)
+uv("Belt clasp", (0,-.141,1.30), (.044,.022,.034), gold)
+uv("Neck", (0,0,1.83), (.079,.074,.139), skin)
+surface("Face and jaw", [(0,y,z,rx,ry) for z,y,rx,ry in [
+    (1.856,-.046,.041,.058),(1.884,-.038,.073,.075),(1.927,-.020,.102,.094),
+    (1.987,-.013,.125 if classic else .116,.109),(2.058,-.002,.130 if classic else .119,.110),
+    (2.118,.010,.121,.099),(2.163,.022,.086,.078),(2.186,.024,.046,.041)]], skin)
+uv("Nose", (0,-.119,1.988), (.020,.029,.030), skin)
+uv("Mouth", (0,-.115,1.938), (.037,.011,.009), lips)
+uv("Hair cap", (0,.043,2.110), (.146,.127,.132), hair)
 for side in (-1,1):
-    x=side
-    uv("Pointed ear "+str(x),(.195*x,0,2.05),(.075,.045,.045),skin)
-    uv("Eye "+str(x),(.075*x,-.163,2.085),(.016,.011,.014),eye)
-    uv("Brow "+str(x),(.076*x,-.161,2.125),(.046,.012,.012),hair)
-    link("Upper arm "+str(x),(.29*x,0,1.72),(.41*x,0,1.35),.105,skin)
-    link("Sleeve "+str(x),(.29*x,0,1.72),(.34*x,0,1.55),.125,navy)
-    link("Forearm "+str(x),(.41*x,0,1.35),(.40*x,-.035,1.05),.078,skin)
-    uv("Hand "+str(x),(.40*x,-.035,1.015),(.083,.065,.11),skin)
-    link("Thigh "+str(x),(.17*x,0,1.04),(.18*x,0,.57),.145,leather)
-    uv("Upper leg contour "+str(x),(.17*x,0,.83),(.145,.14,.25),leather)
-    link("Shin "+str(x),(.18*x,0,.56),(.18*x,-.01,.16),.105,skin)
-    uv("Calf contour "+str(x),(.18*x,-.01,.37),(.108,.108,.21),skin)
-    uv("Boot "+str(x),(.18*x,-.065,.14),(.125,.20,.15),leather)
-    uv("Shoulder trim "+str(x),(.28*x,-.02,1.71),(.045,.17,.035),gold)
-# Distinct silhouette and readable costume design at Android sprite resolution.
-# Classic is an armored ranger with broad pauldrons, cape and bracers;
-# Petite is a slender arcane scout with a fitted tunic, mantle and sash.
-cloth=material("Cape fabric",(.12,.17,.16) if classic else (.23,.16,.32))
-metal=material("Armor steel",(.34,.40,.42) if classic else (.54,.47,.35))
-accent=material("Cloth highlights",(.26,.38,.31) if classic else (.41,.29,.52))
-for side in (-1,1):
-    x=side
+    arm = "arm_left" if side < 0 else "arm_right"
+    leg = "leg_left" if side < 0 else "leg_right"
+    uv("Eye", (.053*side,-.107,2.035), (.023,.013,.010), eye)
+    uv("Brow", (.056*side,-.108,2.062), (.026,.013,.006), highlight)
+    ear = uv("Pointed ear", (.145*side,.011,2.042), (.061,.025,.021), skin)
+    ear.rotation_euler.y = -.42*side
+    shoulder = .235*w*side
+    wrist = .339*w*side
+    surface("Continuous arm", [
+        (wrist,-.031,1.056,.040,.034),(wrist,-.027,1.159,.045,.043),
+        (.314*w*side,-.008,1.25,.061,.053),(.294*w*side,.007,1.340,.050,.049),
+        (.269*w*side,.008,1.49,.062,.056),(shoulder,0,1.603,.078,.073),
+        (shoulder,0,1.685,.060,.060),(.211*w*side,0,1.711,.021,.039)], skin, arm)
+    uv("Glove", (wrist,-.038,1.037), (.043,.037,.066), leather, arm)
+    uv("Bracer", (.322*w*side,-.024,1.151), (.053,.050,.070), metal, arm)
+    uv("Shoulder armor" if classic else "Mantle clasp", (shoulder,.012,1.662),
+       (.108,.110,.061) if classic else (.073,.079,.040), metal if classic else cloth, arm)
+    leg_x = .133*w*side
+    surface("Continuous trouser leg", [
+        (leg_x,.019,.17,.049,.051),(leg_x,.017,.254,.055,.060),
+        (leg_x,.026,.368,.076,.075),(leg_x,-.015,.541,.062,.065),
+        (leg_x,-.018,.62,.070,.070),(leg_x,.001,.78,.089,.094),
+        (leg_x,.008,.92,.109,.107),(leg_x,.011,1.05,.107,.106)], leather, leg)
+    uv("Boot", (leg_x,-.043,.107), (.066,.123,.070), leather, leg+"_boot")
+    uv("Boot cuff", (leg_x,.014,.211), (.058,.060,.033), metal if classic else cloth, leg+"_boot")
     if classic:
-        uv("Ranger pauldron "+str(side),(.335*x,.005,1.72),(.185,.20,.12),metal)
-        uv("Steel vambrace "+str(side),(.40*x,-.03,1.19),(.095,.11,.17),metal)
-        uv("Ranger knee guard "+str(side),(.18*x,-.14,.57),(.145,.08,.12),metal)
-        uv("Ranger boot cuff "+str(side),(.18*x,-.07,.27),(.135,.16,.09),metal)
+        uv("Small knee plate", (leg_x,-.072,.556), (.062,.028,.066), metal, leg)
     else:
-        uv("Scout shoulder mantle "+str(side),(.29*x,.02,1.73),(.14,.15,.085),cloth)
-        uv("Arcane wrist band "+str(side),(.40*x,-.06,1.14),(.09,.10,.07),gold)
-        uv("Scout boot cuff "+str(side),(.18*x,-.04,.32),(.115,.12,.075),accent)
-    uv("Collar embroidery "+str(side),(.13*x,-.15,1.79),(.07,.035,.065),gold)
+        uv("Long side hair", (.114*side,.059,1.94), (.037,.051,.176), hair)
 if classic:
-    uv("Ranger cape back",(0,.16,1.27),(.35,.075,.66),cloth)
-    uv("Breastplate",(0,-.18,1.55),(.255,.055,.27),metal)
-    uv("Breastplate central engraving",(0,-.239,1.55),(.028,.015,.21),gold)
-    for side in (-1,1):
-        uv("Ranger leather skirt "+str(side),(.18*side,.035,.93),(.14,.17,.25),leather)
+    uv("Shaped cuirass", (0,-.127,1.565), (.203,.070,.164), metal)
+    uv("Breastplate ridge", (0,-.193,1.553), (.013,.013,.118), gold)
+    uv("Short ranger cape", (0,.136,1.465), (.225,.039,.341), cloth)
+    uv("Tied hair bun", (0,.145,2.129), (.086,.077,.073), highlight)
+    for i in range(5):
+        lock = uv("Swept hair lock", (-.103+i*.041,-.049,2.142+i*.007),
+                  (.045,.071,.055), hair if i%2 else highlight)
+        lock.rotation_euler.y = -.43
 else:
-    uv("Scout cape back",(0,.17,1.37),(.28,.065,.53),cloth)
-    uv("Tunic central panel",(0,-.18,1.44),(.16,.05,.29),accent)
-    uv("Tunic lower panel",(0,-.11,1.01),(.22,.12,.26),navy)
-    uv("Sash knot",(.19,-.20,1.17),(.09,.07,.10),gold)
-    uv("Sash trailing end",(.21,-.13,.94),(.075,.06,.20),cloth)
-# Facial features with visible depth rather than plain spheres.
-uv("Lower lip",(0,-.179,1.954),(.072,.018,.022),skin)
-uv("Cheekbone left",(-.115,-.106,2.012),(.058,.042,.048),skin)
-uv("Cheekbone right",(.115,-.106,2.012),(.058,.042,.048),skin)
-uv("Belt",(0,-.01,1.13),(.31,.195,.065),leather)
-uv("Buckle",(0,-.205,1.13),(.07,.025,.055),gold)
-for i in range(12):
-    angle=2*math.pi*i/12
-    uv("Hair strand %02d"%i,(.16*math.cos(angle),.115*math.sin(angle)+.025,2.245),(.072,.065,.12),hair)
-uv("Hair crown",(0,.045,2.29),(.195,.18,.105),hair)
-for side in (-1,1):
-    uv("Side hair "+str(side),(.17*side,.045,1.99),(.07,.10,.29),hair)
-uv("Back hair",(0,.12,1.96),(.18,.09,.34),hair)
-# Smooth the intersecting primitive silhouette into a continuous surface.
-# Keep materials grouped so clothing, skin and hair remain independently shaded.
-for material_group in (navy, skin, leather):
-    parts=[o for o in bpy.data.objects if o.type=="MESH" and o.data.materials and o.data.materials[0]==material_group]
-    if len(parts)<2: continue
-    bpy.ops.object.select_all(action="DESELECT")
-    for o in parts:o.select_set(True)
-    bpy.context.view_layer.objects.active=parts[0]
-    bpy.ops.object.join()
-    joined=bpy.context.object
-    joined.name="Continuous "+material_group.name
-    remesh=joined.modifiers.new("Blend overlapping anatomy","REMESH")
-    remesh.mode="VOXEL";remesh.voxel_size=.032
-    bpy.ops.object.modifier_apply(modifier=remesh.name)
-    smooth=joined.modifiers.new("Soft organic silhouette","SMOOTH")
-    smooth.factor=1.2;smooth.iterations=4
-    bpy.ops.object.modifier_apply(modifier=smooth.name)
-    for polygon in joined.data.polygons:polygon.use_smooth=True
+    uv("Scout front panel", (0,-.121,1.49), (.099,.065,.244), cloth)
+    uv("Sash knot", (.121,-.144,1.29), (.055,.027,.045), gold)
+    uv("Straight hair back", (0,.125,1.923), (.136,.057,.251), hair)
+    for side in (-1,1):
+        swept = uv("Parted fringe", (.055*side,-.040,2.131), (.080,.067,.063), hair)
+        swept.rotation_euler.y = .53*side
+    for i in range(5):
+        uv("Hair sheen", ((i-2)*.042,.168,1.901), (.010,.014,.176), highlight)
 
 world=bpy.context.scene.world
 world.color=(.32,.32,.32)
@@ -136,57 +140,55 @@ bpy.ops.object.light_add(type="AREA",location=(2,-4,6))
 bpy.context.object.data.energy=600;bpy.context.object.data.shape="DISK";bpy.context.object.data.size=5
 bpy.ops.object.camera_add(location=(3.5,-6,3.2))
 camera=bpy.context.object
-direction=Vector((0,0,1.15))-camera.location
+direction=Vector((0,0,1.13))-camera.location
 camera.rotation_euler=direction.to_track_quat("-Z","Y").to_euler()
-camera.data.type="ORTHO";camera.data.ortho_scale=2.85
+camera.data.type="ORTHO";camera.data.ortho_scale=2.69
+# Match the renderer's ground anchor at row 160 in each 192-pixel cell.
+camera.data.shift_y = -.05625
 scene=bpy.context.scene;scene.camera=camera
-scene.render.engine="BLENDER_EEVEE"
+# Workbench spatial supersampling uses fresh samples for each still.
+scene.render.engine = "BLENDER_WORKBENCH"
+scene.display.render_aa = "16"
+scene.display.shading.light = "STUDIO"
+scene.display.shading.color_type = "MATERIAL"
+scene.display.shading.show_cavity = True
+scene.display.shading.cavity_type = "WORLD"
+scene.render.image_settings.color_mode = "RGBA"
 scene.render.resolution_x=168;scene.render.resolution_y=192;scene.render.resolution_percentage=100
 scene.render.image_settings.file_format="PNG";scene.render.film_transparent=True
 scene.view_settings.view_transform="Standard"
-# Cache mesh vertices in root coordinates so the entire connected mesh can
-# deform smoothly at hip, knee, ankle, shoulder and elbow while baking.
-meshes=[]
+# Bake each pose from neutral coordinates. Every boot vertex shares a
+# single transform; the neighboring leg uses a continuous displacement.
+bpy.context.view_layer.update()
+meshes = []
 for obj in bpy.data.objects:
-    if obj.type!="MESH":continue
-    to_root=obj.matrix_local.copy()
-    from_root=to_root.inverted()
-    points=[to_root @ v.co for v in obj.data.vertices]
-    meshes.append((obj,points,from_root))
+    limb = obj.get("limb")
+    if obj.type == "MESH" and limb:
+        transform = obj.matrix_local.copy()
+        meshes.append((obj, limb, [transform @ v.co for v in obj.data.vertices],
+                       transform.inverted()))
 
-def pose(mode,phase):
-    stride=math.sin(phase)
-    counter=math.cos(phase)
-    punch=max(0.0,math.sin(math.pi*phase))
-    for obj,original,inverse in meshes:
-        for vertex,base in zip(obj.data.vertices,original):
-            p=base.copy()
-            x,y,z=base.x,base.y,base.z
-            if mode=="walk" and z<1.12 and abs(x)>.08:
-                side=1 if x>0 else -1
-                swing=math.sin(phase+(0 if side>0 else math.pi))
-                lift=max(0.0,swing)
-                stance=max(0.0,-swing)
-                # The knee travels forward and upward during the swing phase.
-                # The shin folds underneath it; the ankle then extends forward.
-                if z>.55:
-                    t=min(1.,max(0.,(1.10-z)/.53))
-                    p.y-=.28*swing*t
-                    p.z+=.065*lift*t-.022*stance*t
-                else:
-                    t=min(1.,max(0.,(.57-z)/.50))
-                    p.y-=.28*swing+(.18*lift*t)
-                    p.z+=.10*lift+(.17*lift*t)-.025*stance
-            elif mode=="walk" and z>1.13 and z<1.85 and abs(x)>.27:
-                side=1 if x>0 else -1
-                p.y+=.17*math.sin(phase+(math.pi if side>0 else 0))
-                p.z+=.018*math.cos(phase+(0 if side>0 else math.pi))
-            elif mode=="punch" and x>.29 and .94<z<1.80:
-                weight=min(1.,max(0.,(x-.29)/.13))
-                p.y-=.63*punch*weight
-                p.z+=.26*punch*weight
-                p.x+=.055*punch*weight
-            vertex.co=inverse @ p
+def unit(value):
+    return min(1.0, max(0.0, value))
+
+def pose(mode, phase):
+    for obj, limb, neutral, inverse in meshes:
+        left = "left" in limb
+        swing = phase + (math.pi if left else 0.0)
+        for vertex, base in zip(obj.data.vertices, neutral):
+            point = base.copy()
+            if mode == "walk" and limb.startswith("leg"):
+                weight = 1.0 if limb.endswith("boot") else unit((1.04-base.z)/.80)
+                point.y -= .165*math.cos(swing)*weight
+                point.z += .095*max(0.0, math.sin(swing))*weight
+            elif mode == "walk" and limb.startswith("arm"):
+                weight = unit((1.69-base.z)/.64)
+                point.y += .095*math.cos(swing)*weight
+            elif mode == "punch" and limb == "arm_right":
+                reach = math.sin(math.pi*phase)*unit((1.69-base.z)/.64)
+                point.y -= .43*reach
+                point.z += .33*reach
+            vertex.co = inverse @ point
         obj.data.update()
 
 # The editable source contains the neutral continuous-mesh figure.
@@ -201,7 +203,7 @@ for facing in (0,1,2,3,4):
     for frame in range(8):
         phase=frame*math.tau/8
         pose("walk",phase)
-        root.location.z=.025*abs(math.sin(phase))
+        root.location.z=0
         scene.render.filepath=os.path.abspath(os.path.join(out,"walk_f%d_%d.png"%(facing,frame)))
         bpy.ops.render.render(write_still=True)
     for frame in range(3):

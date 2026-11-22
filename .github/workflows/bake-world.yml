@@ -19,16 +19,27 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: true
+      - name: Check whether main already includes this bake
+        id: bake
+        run: |
+          if [ "${{ github.event_name }}" = workflow_dispatch ] || ! sha256sum -c <(
+            printf '%s  blender/create_character.py\n' "$(cat app/src/main/assets/blender_world/character_source.sha256)"
+          ); then
+            echo "required=true" >> "$GITHUB_OUTPUT"
+          fi
       - name: Install Blender and Pillow
+        if: steps.bake.outputs.required == 'true'
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y blender libegl1 libgl1 libgl1-mesa-dri xvfb
           python3 -m pip install --quiet --break-system-packages Pillow
       - name: Bake both redesigned characters
+        if: steps.bake.outputs.required == 'true'
         run: |
           xvfb-run -a blender --background --threads 4 --python blender/create_character.py -- --variant petite_pale --output build/character/petite
           xvfb-run -a blender --background --threads 4 --python blender/create_character.py -- --variant classic_study --output build/character/classic
       - name: Assemble and verify new character atlas
+        if: steps.bake.outputs.required == 'true'
         run: |
           python3 - <<'PY'
           from PIL import Image
@@ -58,6 +69,7 @@ jobs:
               print('BLENDER_ASSET_VERIFIED',p,p.stat().st_size)
           PY
       - name: Commit generated atlases against latest main without binary rebase
+        if: steps.bake.outputs.required == 'true'
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
@@ -94,6 +106,7 @@ jobs:
             sleep 5
           done
       - name: Upload source and rendered assets
+        if: steps.bake.outputs.required == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: blender-world-source-and-atlases
