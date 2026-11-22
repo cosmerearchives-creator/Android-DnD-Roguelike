@@ -228,6 +228,14 @@ public final class PrototypeWorldActivity extends Activity {
             float px=sx(x,y),py=sy(x,y)-elevation(x,y);
             // The original approved test-room character and its real walk/punch
             // frames take priority over the later mismatched Blender prototype.
+            if (appearance==ElfAppearance.PETITE && bakedElf!=null) {
+                int frame=Math.floorMod((int)(idleTime*4f),4);
+                source.set(frame*168,facing*192,(frame+1)*168,(facing+1)*192);
+                destination.set(px-84,py-160,px+84,py+32);
+                paint.setColor(Color.WHITE);
+                c.drawBitmap(bakedElf,source,destination,paint);
+                return;
+            }
             if (prototypeIdle!=null
                     && prototypeWalk!=null && prototypePunch!=null) {
                 Bitmap sheet=prototypeIdle;
