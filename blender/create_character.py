@@ -42,15 +42,15 @@ def link(name,a,b,r,mat):
     o.data.materials.append(mat);o.parent=root
     return o
 
-uv("Waist",(0,0,1.33),(.205,.155,.25),navy)
-uv("Ribcage",(0,0,1.55),(.27,.19,.28) if classic else (.29,.19,.28),navy)
-uv("Bust left",(-.14,-.125,1.57),(.16,.13,.17),navy)
-uv("Bust right",(.14,-.125,1.57),(.16,.13,.17),navy)
-uv("Pelvis",(0,0,1.09),(.32,.21,.23),navy)
+uv("Waist",(0,0,1.33),(.235,.16,.27) if classic else (.19,.145,.22),navy)
+uv("Ribcage",(0,0,1.55),(.32,.215,.31) if classic else (.255,.17,.26),navy)
+uv("Bust left",(-.13,-.125,1.57),(.13,.115,.14),navy)
+uv("Bust right",(.13,-.125,1.57),(.13,.115,.14),navy)
+uv("Pelvis",(0,0,1.09),(.30,.20,.22) if classic else (.255,.185,.20),navy)
 uv("Hip left",(-.18,0,1.07),(.18,.18,.18),navy)
 uv("Hip right",(.18,0,1.07),(.18,.18,.18),navy)
 uv("Neck",(0,0,1.84),(.105,.105,.15),skin)
-uv("Head",(0,-.015,2.04),(.17,.15,.215) if classic else (.175,.158,.225),skin)
+uv("Head",(0,-.015,2.04),(.155,.145,.205) if classic else (.16,.15,.215),skin)
 uv("Jaw",(0,-.08,1.92),(.124,.113,.095),skin)
 uv("Nose",(0,-.167,2.015),(.027,.035,.045),skin)
 for side in (-1,1):
@@ -68,6 +68,40 @@ for side in (-1,1):
     uv("Calf contour "+str(x),(.18*x,-.01,.37),(.108,.108,.21),skin)
     uv("Boot "+str(x),(.18*x,-.065,.14),(.125,.20,.15),leather)
     uv("Shoulder trim "+str(x),(.28*x,-.02,1.71),(.045,.17,.035),gold)
+# Distinct silhouette and readable costume design at Android sprite resolution.
+# Classic is an armored ranger with broad pauldrons, cape and bracers;
+# Petite is a slender arcane scout with a fitted tunic, mantle and sash.
+cloth=material("Cape fabric",(.12,.17,.16) if classic else (.23,.16,.32))
+metal=material("Armor steel",(.34,.40,.42) if classic else (.54,.47,.35))
+accent=material("Cloth highlights",(.26,.38,.31) if classic else (.41,.29,.52))
+for side in (-1,1):
+    x=side
+    if classic:
+        uv("Ranger pauldron "+str(side),(.335*x,.005,1.72),(.185,.20,.12),metal)
+        uv("Steel vambrace "+str(side),(.40*x,-.03,1.19),(.095,.11,.17),metal)
+        uv("Ranger knee guard "+str(side),(.18*x,-.14,.57),(.145,.08,.12),metal)
+        uv("Ranger boot cuff "+str(side),(.18*x,-.07,.27),(.135,.16,.09),metal)
+    else:
+        uv("Scout shoulder mantle "+str(side),(.29*x,.02,1.73),(.14,.15,.085),cloth)
+        uv("Arcane wrist band "+str(side),(.40*x,-.06,1.14),(.09,.10,.07),gold)
+        uv("Scout boot cuff "+str(side),(.18*x,-.04,.32),(.115,.12,.075),accent)
+    uv("Collar embroidery "+str(side),(.13*x,-.15,1.79),(.07,.035,.065),gold)
+if classic:
+    uv("Ranger cape back",(0,.16,1.27),(.35,.075,.66),cloth)
+    uv("Breastplate",(0,-.18,1.55),(.255,.055,.27),metal)
+    uv("Breastplate central engraving",(0,-.239,1.55),(.028,.015,.21),gold)
+    for side in (-1,1):
+        uv("Ranger leather skirt "+str(side),(.18*side,.035,.93),(.14,.17,.25),leather)
+else:
+    uv("Scout cape back",(0,.17,1.37),(.28,.065,.53),cloth)
+    uv("Tunic central panel",(0,-.18,1.44),(.16,.05,.29),accent)
+    uv("Tunic lower panel",(0,-.11,1.01),(.22,.12,.26),navy)
+    uv("Sash knot",(.19,-.20,1.17),(.09,.07,.10),gold)
+    uv("Sash trailing end",(.21,-.13,.94),(.075,.06,.20),cloth)
+# Facial features with visible depth rather than plain spheres.
+uv("Lower lip",(0,-.179,1.954),(.072,.018,.022),skin)
+uv("Cheekbone left",(-.115,-.106,2.012),(.058,.042,.048),skin)
+uv("Cheekbone right",(.115,-.106,2.012),(.058,.042,.048),skin)
 uv("Belt",(0,-.01,1.13),(.31,.195,.065),leather)
 uv("Buckle",(0,-.205,1.13),(.07,.025,.055),gold)
 for i in range(12):
