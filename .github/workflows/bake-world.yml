@@ -49,8 +49,8 @@ jobs:
           git add app/src/main/assets/blender_world/
           if ! git diff --cached --quiet; then
             git commit -m "Bake real Blender world and Petite Pale atlases"
-            git pull --rebase origin feature/controls-forest-feminine-model
-            git push origin HEAD:feature/controls-forest-feminine-model
+            git pull --rebase origin feature/knee-walk-joystick-punch-v0375
+            git push origin HEAD:feature/knee-walk-joystick-punch-v0375
           fi
       - name: Upload source and rendered assets
         uses: actions/upload-artifact@v4
