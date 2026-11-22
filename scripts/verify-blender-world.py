@@ -14,6 +14,9 @@ for name,cell,cols,rows in (
     ("classic_idle.png",(168,192),4,8),
     ("classic_walk.png",(168,192),8,8),
     ("classic_punch.png",(168,192),5,8),
+    ("goblin_idle.png",(168,192),4,8),
+    ("goblin_walk.png",(168,192),8,8),
+    ("goblin_punch.png",(168,192),5,8),
     ("terrain.png",(256,256),4,4),
     ("props.png",(256,256),5,1),
 ):

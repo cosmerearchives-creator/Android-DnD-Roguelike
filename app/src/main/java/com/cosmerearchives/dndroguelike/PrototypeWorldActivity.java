@@ -51,6 +51,12 @@ public final class PrototypeWorldActivity extends Activity {
         private static final float PLATFORM_RISE = 28.7339f;
         private static final float WALK_SPEED = 1.75f;
         private static final float PLAYER_RADIUS = .20f;
+        private static final float MELEE_REACH = 1f;
+        private static final float COMBAT_NOTICE = 3.5f;
+        private static final float COMBAT_LEASH = 7f;
+        private static final int GOBLIN_HP = 7, GOBLIN_AC = 12;
+        private static final float ATTACK_PERIOD = 6f;
+        private static final float IMPACT_TIME = RigAttackPose.DURATION * .5f;
         private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
         private final Path diamond = new Path();
         private final Rect source = new Rect();
@@ -59,9 +65,18 @@ public final class PrototypeWorldActivity extends Activity {
         private final SharedPreferences save;
         private final Bitmap atlas;
         private final Bitmap vegetation;
+        private final float[] trunkCenter = {.5f,.5f,.5f,.5f};
+        private final float[] trunkWidth = {.15f,.15f,.15f,.15f};
         private final Bitmap[][] factoryProps = new Bitmap[4][4];
         private final Bitmap bakedElf, bakedWalk, bakedPunch;
         private final Bitmap classicElf, classicWalk, classicPunch;
+        private final Bitmap goblinIdle, goblinWalk, goblinAttack;
+        private final int playerAttackBonus, playerDamage, playerAc;
+        private final java.util.Random combatDice = new java.util.Random();
+        private float goblinX, goblinY, goblinHomeX, goblinHomeY, goblinDistance;
+        private float goblinSwing, goblinRecharge, playerRecharge, punchX, punchY;
+        private int goblinFacing, goblinHp;
+        private boolean goblinMoving, hostile, playerImpact, goblinImpact;
         private final Bitmap prototypeFloor, prototypeTree, prototypeLedge;
         private final Bitmap prototypeIdle, prototypeWalk, prototypePunch;
         private final boolean bakedEnvironment;
@@ -100,6 +115,9 @@ public final class PrototypeWorldActivity extends Activity {
             petiteStyle=save.getBoolean("petite_style",appearance==ElfAppearance.PETITE);
             character = new RiggedElf(context, appearance);
             movementFactor = hero == null ? 1f : hero.loadout().movementFactor();
+            playerAttackBonus = hero == null ? 2 : hero.attackBonus();
+            playerDamage = hero == null ? 1 : Math.max(1, 1 + PlayerCharacter.modifier(hero.score(0)));
+            playerAc = hero == null ? 10 : hero.loadout().armorClass();
             Bitmap bakedTerrain = load(context, "blender_world/terrain.png");
             Bitmap bakedProps = load(context, "blender_world/props.png");
             bakedEnvironment = bakedTerrain != null && bakedProps != null;
@@ -112,6 +130,11 @@ public final class PrototypeWorldActivity extends Activity {
                         "factory_world/%s_%02d.png",groups[group],variant)));
                 }
             }
+            for (int i=0;i<trunkCenter.length;i++) measureTrunk(factoryProps[1][i],i);
+            goblinIdle = load(context, "blender_world/goblin_idle.png");
+            goblinWalk = load(context, "blender_world/goblin_walk.png");
+            goblinAttack = load(context, "blender_world/goblin_punch.png");
+            spawnGoblin();
             bakedElf = load(context, "blender_world/petite_idle.png");
             bakedWalk = load(context, "blender_world/petite_walk.png");
             bakedPunch = load(context, "blender_world/petite_punch.png");
@@ -158,16 +181,206 @@ public final class PrototypeWorldActivity extends Activity {
         }
         private float sx(float wx, float wy) { return (wx - cameraX + wy - cameraY) * HALF_W; }
         private float sy(float wx, float wy) { return (wx - cameraX - (wy - cameraY)) * HALF_H; }
-        private boolean clear(float wx, float wy) {
-            int minX=(int)Math.floor(wx-PLAYER_RADIUS), maxX=(int)Math.floor(wx+PLAYER_RADIUS);
-            int minY=(int)Math.floor(wy-PLAYER_RADIUS), maxY=(int)Math.floor(wy+PLAYER_RADIUS);
-
+        private void measureTrunk(Bitmap tree,int variant) {
+            if (tree == null) return;
+            int width=tree.getWidth(), height=tree.getHeight();
+            int left=width,right=-1;
+            int bottomBand=Math.max(2,height/24);
+            for (int row=Math.max(0,height-bottomBand);row<height;row++) {
+                for (int col=0;col<width;col++) {
+                    if ((tree.getPixel(col,row) >>> 24) < 64) continue;
+                    left=Math.min(left,col);
+                    right=Math.max(right,col);
+                }
+            }
+            if (right>=left) {
+                trunkCenter[variant]=(left+right+1)*.5f/width;
+                trunkWidth[variant]=(right-left+1f)/width;
+            }
+        }
+        private static float anchorOffset(int kind) { return kind==4 ? 1f : .5f; }
+        private static float treeScale(int kind,int seed) {
+            return kind==4 ? 1.85f + Math.floorMod(seed,5)*.14f
+                           : .72f + Math.floorMod(seed,7)*.155f;
+        }
+        private boolean clear(float fromX,float fromY,float wx,float wy,float radius) {
+            int minX=(int)Math.floor(wx-radius), maxX=(int)Math.floor(wx+radius);
+            int minY=(int)Math.floor(wy-radius), maxY=(int)Math.floor(wy+radius);
             for (int tx=minX;tx<=maxX;tx++) for (int ty=minY;ty<=maxY;ty++) {
-                if (isTree(tx,ty) || terrain.ancientFootprint(tx,ty)) return false;
+                if (terrain.wildernessProp(tx,ty)==3) return false;
+            }
+            // A corner trunk can overlap the tiles beside the tile that owns it.
+            float searchRadius=radius+.30f;
+            for (int tx=(int)Math.floor(wx-searchRadius)-1;tx<=(int)Math.floor(wx+searchRadius);tx++) {
+                for (int ty=(int)Math.floor(wy-searchRadius)-1;ty<=(int)Math.floor(wy+searchRadius);ty++) {
+                    int kind=terrain.wildernessProp(tx,ty);
+                    if (kind!=1 && kind!=4) continue;
+                    int seed=terrain.decoration(tx,ty);
+                    float width=trunkWidth[Math.floorMod(seed,4)];
+                    float trunkRadius=Math.min(.30f,Math.max(.06f,
+                        width*125f*treeScale(kind,seed)/(2f*(float)Math.sqrt(2)*HALF_W)));
+                    float anchorX=tx+anchorOffset(kind), anchorY=ty+anchorOffset(kind);
+                    float separation=radius+trunkRadius;
+                    float distanceSquared=squaredDistance(wx,wy,anchorX,anchorY);
+                    if (distanceSquared<separation*separation
+                        && distanceSquared<=squaredDistance(fromX,fromY,anchorX,anchorY)) return false;
+                }
             }
             return true;
         }
-        private boolean isTree(int tx,int ty) { int kind=terrain.wildernessProp(tx,ty); return kind==1||kind==3||kind==4; }
+        private static float squaredDistance(float ax,float ay,float bx,float by) {
+            float dx=ax-bx,dy=ay-by;
+            return dx*dx+dy*dy;
+        }
+        private static int heading(float dx,float dy) {
+            return Math.floorMod((int)Math.round(Math.atan2(dx,-dy)/(Math.PI/4)),8);
+        }
+        private void spawnGoblin() {
+            if (goblinIdle==null || goblinWalk==null || goblinAttack==null
+                || save.getBoolean("dagger_goblin_defeated",false)) return;
+            for (int distance=3;distance<=6;distance++) {
+                for (int direction=0;direction<8;direction++) {
+                    double angle=direction*Math.PI/4;
+                    float px=(float)Math.floor(x+Math.sin(angle)*distance)+.5f;
+                    float py=(float)Math.floor(y-Math.cos(angle)*distance)+.5f;
+                    if (!clear(px,py,px,py,.16f)) continue;
+                    goblinHomeX=goblinX=px;
+                    goblinHomeY=goblinY=py;
+                    goblinHp=GOBLIN_HP;
+                    goblinFacing=heading(x-px,y-py);
+                    return;
+                }
+            }
+        }
+        private void combatMessage(String message) {
+            worldMessage=message;
+            messageRemaining=3f;
+        }
+        private void beginPunch() {
+            if (attackRemaining>0 || playerRecharge>0) return;
+            attackRemaining=RigAttackPose.DURATION;
+            playerRecharge=ATTACK_PERIOD;
+            playerImpact=true;
+            double angle=facing*Math.PI/4;
+            punchX=x+(float)Math.sin(angle)*MELEE_REACH;
+            punchY=y-(float)Math.cos(angle)*MELEE_REACH;
+        }
+        private float distanceToGoblin() {
+            return (float)Math.hypot(goblinX-x,goblinY-y);
+        }
+        private void resolvePunch() {
+            if (goblinHp<=0) return;
+            float distance=distanceToGoblin();
+            if (distance>MELEE_REACH || (distance>.01f
+                && heading(goblinX-x,goblinY-y)!=facing)) {
+                if (hostile) combatMessage("Punch out of reach");
+                return;
+            }
+            hostile=true;
+            running=false;
+            if (combatDice.nextInt(20)+1+playerAttackBonus < GOBLIN_AC) {
+                combatMessage("Punch missed");
+                return;
+            }
+            goblinHp=Math.max(0,goblinHp-playerDamage);
+            if (goblinHp>0) {
+                combatMessage("Goblin hit · "+playerDamage+" damage");
+                return;
+            }
+            hostile=false;
+            goblinSwing=0;
+            experience+=25;
+            save.edit().putBoolean("dagger_goblin_defeated",true)
+                .putInt("hero_experience",experience).apply();
+            save();
+            combatMessage("Dagger goblin defeated · +25 XP");
+        }
+        private void updateGoblin(float dt) {
+            goblinMoving=false;
+            if (goblinHp<=0) return;
+            float distance=distanceToGoblin();
+            hostile=distance<=(hostile ? COMBAT_LEASH : COMBAT_NOTICE);
+            if (!hostile) {
+                goblinSwing=0;
+                return;
+            }
+            running=false;
+            goblinRecharge=Math.max(0f,goblinRecharge-dt);
+            if (goblinSwing>0) {
+                goblinSwing=Math.max(0f,goblinSwing-dt);
+                if (goblinImpact && goblinSwing<=IMPACT_TIME) {
+                    goblinImpact=false;
+                    if (distance>MELEE_REACH) combatMessage("You evaded the dagger");
+                    else if (combatDice.nextInt(20)+5 < playerAc) combatMessage("Goblin missed");
+                    else {
+                        int damage=combatDice.nextInt(4)+3;
+                        health=Math.max(0,health-damage);
+                        combatMessage("Goblin dagger · "+damage+" damage");
+                        if (health==0) {
+                            health=100;
+                            retreatFromGoblin();
+                            goblinHp=GOBLIN_HP;
+                            goblinX=goblinHomeX;
+                            goblinY=goblinHomeY;
+                            hostile=false;
+                            goblinSwing=0;
+                            combatMessage("Goblin defeated you · Returned to safety");
+                        }
+                        save();
+                    }
+                }
+                return;
+            }
+            goblinFacing=heading(x-goblinX,y-goblinY);
+            if (distance<=MELEE_REACH*.86f) {
+                if (goblinRecharge==0f) {
+                    goblinSwing=RigAttackPose.DURATION;
+                    goblinRecharge=ATTACK_PERIOD;
+                    goblinImpact=true;
+                }
+                return;
+            }
+            float delta=Math.min(distance-.83f,dt*WALK_SPEED);
+            float nextX=goblinX+(x-goblinX)*delta/distance;
+            float nextY=goblinY+(y-goblinY)*delta/distance;
+            float oldX=goblinX,oldY=goblinY;
+            if (clear(goblinX,goblinY,nextX,goblinY,.16f)) goblinX=nextX;
+            if (clear(goblinX,goblinY,goblinX,nextY,.16f)) goblinY=nextY;
+            float moved=(float)Math.hypot(goblinX-oldX,goblinY-oldY);
+            goblinMoving=moved>.00001f;
+            if (goblinMoving) {
+                goblinDistance=GaitModel.fractional(goblinDistance+moved/GaitModel.CYCLE_TILES);
+                goblinFacing=heading(goblinX-oldX,goblinY-oldY);
+            }
+        }
+        private void retreatFromGoblin() {
+            for (int direction=0;direction<8;direction++) {
+                double angle=direction*Math.PI/4;
+                float px=goblinHomeX+(float)Math.sin(angle)*(COMBAT_LEASH+1);
+                float py=goblinHomeY-(float)Math.cos(angle)*(COMBAT_LEASH+1);
+                if (clear(px,py,px,py,PLAYER_RADIUS)) {
+                    x=px;
+                    y=py;
+                    return;
+                }
+            }
+        }
+        private void drawGoblin(Canvas c) {
+            Bitmap sheet=goblinSwing>0 ? goblinAttack : goblinMoving ? goblinWalk : goblinIdle;
+            int frame=goblinSwing>0 ? Math.min(4,(int)(5*(1-goblinSwing/RigAttackPose.DURATION)))
+                : goblinMoving ? (int)(8*goblinDistance) : 0;
+            float px=sx(goblinX,goblinY),py=sy(goblinX,goblinY);
+            source.set(frame*168,goblinFacing*192,(frame+1)*168,(goblinFacing+1)*192);
+            destination.set(px-84,py-160,px+84,py+32);
+            paint.setColor(Color.WHITE);
+            c.drawBitmap(sheet,source,destination,paint);
+            if (hostile) {
+                paint.setColor(0xFF322A2B);
+                c.drawRect(px-18,py-111,px+18,py-107,paint);
+                paint.setColor(0xFFD27060);
+                c.drawRect(px-18,py-111,px-18+36f*goblinHp/GOBLIN_HP,py-107,paint);
+            }
+        }
         private float elevation(float wx,float wy) {
             int tx=Math.round(wx),ty=Math.round(wy);
             return 0f;
@@ -176,25 +389,28 @@ public final class PrototypeWorldActivity extends Activity {
             if (paused) return;
             idleTime+=dt;
             messageRemaining=Math.max(0,messageRemaining-dt);
-            if (attackRemaining>0) attackRemaining=Math.max(0,attackRemaining-dt);
+            playerRecharge=Math.max(0,playerRecharge-dt);
+            if (attackRemaining>0) {
+                attackRemaining=Math.max(0,attackRemaining-dt);
+                if (playerImpact && attackRemaining<=IMPACT_TIME) {
+                    playerImpact=false;
+                    resolvePunch();
+                }
+            }
+            updateGoblin(dt);
             float magnitude=(float)Math.hypot(stickX,stickY);
             boolean moving=false;
             if (magnitude>.08f && attackRemaining==0) {
                 float speed=WALK_SPEED*movementFactor*(running?1.8f:1f);
                 float dx=stickX*speed*dt, dy=stickY*speed*dt;
                 float oldX=x,oldY=y;
-                if (clear(x+dx,y)) x+=dx;
-                if (clear(x,y+dy)) y+=dy;
+                if (clear(x,y,x+dx,y,PLAYER_RADIUS)) x+=dx;
+                if (clear(x,y,x,y+dy,PLAYER_RADIUS)) y+=dy;
                 float actualX=x-oldX,actualY=y-oldY;
                 float travelled=(float)Math.hypot(actualX,actualY);
                 moving=travelled>0.00001f;
                 if (moving) {
-                    // Prototype directions: 0 north (-Y), 1 east (+X),
-                    // 2 south (+Y), 3 west (-X). Do not reverse north/south.
-                    // Eight directions, ordered N, NE, E, SE, S, SW, W, NW.
-                    // The Blender atlas contains all eight orientations.
-                    float heading=(float)Math.atan2(actualX,-actualY);
-                    facing=Math.floorMod(Math.round(heading/(float)(Math.PI/4)),8);
+                    facing=heading(actualX,actualY);
                     gait.advance(travelled);
                     walkCycles=gait.cycles();
                 }
@@ -265,8 +481,7 @@ public final class PrototypeWorldActivity extends Activity {
                 if (group==1) {
                     // Four model variants x seven deterministic scale tiers.
                     // Kind 4 remains a landmark-sized tree, not an ordinary sapling.
-                    scale = kind==4 ? 1.85f + Math.floorMod(seed,5)*.14f
-                                    : .72f + Math.floorMod(seed,7)*.155f;
+                    scale = treeScale(kind,seed);
                 } else if (group==2) {
                     scale = .70f + Math.floorMod(seed,8)*.105f;
                 } else if (group==0) {
@@ -277,10 +492,11 @@ public final class PrototypeWorldActivity extends Activity {
                 float width = (group==1 ? 125f : group==3 ? 100f : 83f)*scale;
                 float height = (group==1 ? 165f : group==3 ? 100f : 79f)*scale;
                 // Keep the sprite's feet on the same tile anchor at every size.
-                float anchorX = kind==4 ? px+HALF_W : px;
+                float anchorX = sx(tx+anchorOffset(kind),ty+anchorOffset(kind));
+                float horizontalAnchor=group==1 ? trunkCenter[variation] : .5f;
+                float left=anchorX-width*horizontalAnchor;
                 paint.setColor(Color.WHITE);
-                destination.set(anchorX-width*.5f,py-height+3f,
-                                anchorX+width*.5f,py+3f);
+                destination.set(left,py-height+3f,left+width,py+3f);
                 c.drawBitmap(rendered,null,destination,paint);
                 return;
             }
@@ -369,20 +585,37 @@ public final class PrototypeWorldActivity extends Activity {
             c.save();c.translate(centerX,centerY);c.scale(zoom,zoom);
             int cx=(int)Math.floor(cameraX),cy=(int)Math.floor(cameraY);
             ground(c);
+            if (attackRemaining>0f) {
+                float markerX=sx(punchX,punchY),markerY=sy(punchX,punchY);
+                paint.setColor(0x98F2C774);
+                c.drawOval(markerX-17f,markerY-8f,markerX+17f,markerY+8f,paint);
+            }
             float heroDepth=x-y;
-            boolean actorDrawn=false;
+            boolean actorDrawn=false, goblinDrawn=goblinHp<=0;
+            float goblinDepth=goblinX-goblinY;
             for(int depth=-VISIBLE_RADIUS*2;depth<=VISIBLE_RADIUS*2;depth++){
                 for(int xx=-VISIBLE_RADIUS;xx<=VISIBLE_RADIUS;xx++){
                     int yy=xx-depth;
                     if(Math.abs(yy)>VISIBLE_RADIUS)continue;
                     int tx=cx+xx,ty=cy+yy;
-                    if(!actorDrawn && tx-ty>heroDepth) {
+                    float propDepth=tx-ty;
+                    if (!goblinDrawn && goblinDepth<=heroDepth && propDepth>goblinDepth) {
+                        drawGoblin(c);goblinDrawn=true;
+                    }
+                    if (!actorDrawn && propDepth>heroDepth) {
                         drawHero(c);actorDrawn=true;
+                    }
+                    if (!goblinDrawn && propDepth>goblinDepth) {
+                        drawGoblin(c);goblinDrawn=true;
                     }
                     prop(c,tx,ty);
                 }
             }
+            if (!goblinDrawn && goblinDepth<=heroDepth) {
+                drawGoblin(c);goblinDrawn=true;
+            }
             if(!actorDrawn)drawHero(c);
+            if(!goblinDrawn)drawGoblin(c);
             c.restore();
             drawControls(c);
             postInvalidateOnAnimation();
@@ -434,17 +667,21 @@ public final class PrototypeWorldActivity extends Activity {
                 false,0f);
         }
         private void interact() {
+            if (hostile || (goblinHp>0 && distanceToGoblin()<=MELEE_REACH)) {
+                beginPunch();
+                return;
+            }
             int px=(int)Math.floor(x),py=(int)Math.floor(y);
             int closest=0,tx=0,ty=0;
             for(int dx=-2;dx<=2;dx++)for(int dy=-2;dy<=2;dy++){
                 int xx=px+dx,yy=py+dy;
                 int kind=terrain.landmark(xx,yy);
-                if(kind!=0&&Math.hypot(xx+.5-x,yy+.5-y)<2.2){
+                if((kind==1 || kind==2)&&Math.hypot(xx+.5-x,yy+.5-y)<2.2){
                     closest=kind;tx=xx;ty=yy;
                 }
             }
             if(closest==0){
-                if(attackRemaining<=0)attackRemaining=RigAttackPose.DURATION;
+                beginPunch();
                 return;
             }
             String key="visited_"+tx+"_"+ty;
@@ -452,13 +689,9 @@ public final class PrototypeWorldActivity extends Activity {
             if(closest==1){
                 health=100;
                 worldMessage="HAMLET · Restored to full health";
-            } else if(closest==2){
+            } else {
                 if(!visited){gold+=25;experience+=40;}
                 worldMessage=visited?"ANCIENT RUINS · Already explored":"ANCIENT RUINS · Found 25 gold and 40 XP";
-            } else {
-                if(!visited){health=Math.max(1,health-12);gold+=8;experience+=20;}
-                worldMessage=visited?"WILDERNESS · Encounter cleared":"WILDERNESS · Enemy defeated · +20 XP";
-                attackRemaining=RigAttackPose.DURATION;
             }
             save.edit().putBoolean(key,true).apply();
             messageRemaining=4f;
@@ -476,8 +709,16 @@ public final class PrototypeWorldActivity extends Activity {
             paint.setColor(0x99354B52);c.drawCircle(stickCenterX,stickCenterY,55*d,paint);
             paint.setColor(0xFFB7D6C7);
             c.drawCircle(stickCenterX+screenStickX*36*d,stickCenterY+screenStickY*36*d,19*d,paint);
-            button(c,runButton,running?"RUN ON":"RUN");
-            button(c,attackButton,"ATTACK / USE");
+            button(c,runButton,hostile?"IN COMBAT":running?"RUN ON":"RUN");
+            button(c,attackButton,hostile?"PUNCH":"ATTACK / USE");
+            paint.setColor(0xFFF1D8AA);
+            if (playerRecharge>0) {
+                paint.setStyle(Paint.Style.STROKE);
+                c.drawCircle(attackButton.right-12*d,attackButton.centerY(),4*d,paint);
+                paint.setStyle(Paint.Style.FILL);
+            } else {
+                c.drawCircle(attackButton.right-12*d,attackButton.centerY(),4*d,paint);
+            }
             button(c,exitButton,"MENU");
             button(c,styleButton,petiteStyle?"STYLE: PETITE":"STYLE: CLASSIC");
             paint.setTextSize(13*d);paint.setColor(0xFFF1D8AA);
@@ -544,7 +785,7 @@ public final class PrototypeWorldActivity extends Activity {
                     save.edit().putBoolean("petite_style",petiteStyle).apply();
                     return true;
                 }
-                if(runButton.contains(px,py)){running=!running;return true;}
+                if(runButton.contains(px,py)){if(!hostile)running=!running;return true;}
                 if(attackButton.contains(px,py)){
                     interact();
                     return true;
