@@ -49,13 +49,14 @@ uv("Pelvis",(0,0,1.09),(.32,.21,.23),navy)
 uv("Hip left",(-.18,0,1.07),(.18,.18,.18),navy)
 uv("Hip right",(.18,0,1.07),(.18,.18,.18),navy)
 uv("Neck",(0,0,1.84),(.105,.105,.15),skin)
-uv("Head",(0,-.015,2.04),(.185,.165,.255),skin)
-uv("Jaw",(0,-.08,1.92),(.135,.125,.11),skin)
-uv("Nose",(0,-.167,2.015),(.032,.035,.055),skin)
+uv("Head",(0,-.015,2.04),(.175,.158,.225),skin)
+uv("Jaw",(0,-.08,1.92),(.124,.113,.095),skin)
+uv("Nose",(0,-.167,2.015),(.027,.035,.045),skin)
 for side in (-1,1):
     x=side
     uv("Pointed ear "+str(x),(.195*x,0,2.05),(.075,.045,.045),skin)
-    uv("Eye "+str(x),(.075*x,-.163,2.085),(.022,.012,.018),eye)
+    uv("Eye "+str(x),(.075*x,-.163,2.085),(.016,.011,.014),eye)
+    uv("Brow "+str(x),(.076*x,-.161,2.125),(.046,.012,.012),hair)
     link("Upper arm "+str(x),(.29*x,0,1.72),(.41*x,0,1.35),.105,skin)
     link("Sleeve "+str(x),(.29*x,0,1.72),(.34*x,0,1.55),.125,navy)
     link("Forearm "+str(x),(.41*x,0,1.35),(.40*x,-.035,1.05),.078,skin)
@@ -120,6 +121,7 @@ for obj in bpy.data.objects:
 
 def pose(mode,phase):
     stride=math.sin(phase)
+    counter=math.cos(phase)
     punch=max(0.0,math.sin(math.pi*phase))
     for obj,original,inverse in meshes:
         for vertex,base in zip(obj.data.vertices,original):
@@ -129,19 +131,21 @@ def pose(mode,phase):
                 side=1 if x>0 else -1
                 swing=math.sin(phase+(0 if side>0 else math.pi))
                 lift=max(0.0,swing)
+                stance=max(0.0,-swing)
                 # The knee travels forward and upward during the swing phase.
                 # The shin folds underneath it; the ankle then extends forward.
                 if z>.55:
                     t=min(1.,max(0.,(1.10-z)/.53))
-                    p.y-=.23*swing*t
-                    p.z+=.055*lift*t
+                    p.y-=.28*swing*t
+                    p.z+=.065*lift*t-.022*stance*t
                 else:
                     t=min(1.,max(0.,(.57-z)/.50))
-                    p.y-=.23*swing+(.16*lift*t)
-                    p.z+=.075*lift+(.15*lift*t)
+                    p.y-=.28*swing+(.18*lift*t)
+                    p.z+=.10*lift+(.17*lift*t)-.025*stance
             elif mode=="walk" and z>1.13 and z<1.85 and abs(x)>.27:
                 side=1 if x>0 else -1
-                p.y+=.11*math.sin(phase+(0 if side>0 else math.pi))
+                p.y+=.17*math.sin(phase+(math.pi if side>0 else 0))
+                p.z+=.018*math.cos(phase+(0 if side>0 else math.pi))
             elif mode=="punch" and x>.29 and .94<z<1.80:
                 weight=min(1.,max(0.,(x-.29)/.13))
                 p.y-=.63*punch*weight
@@ -159,7 +163,7 @@ for facing in (0,1,2,3,4):
         root.location.z=.012*math.sin(frame*math.pi/2)
         scene.render.filepath=os.path.abspath(os.path.join(out,"idle_f%d_%d.png"%(facing,frame)))
         bpy.ops.render.render(write_still=True)
-    for frame in range(4):
+    for frame in range(8):
         phase=frame*math.tau/8
         pose("walk",phase)
         root.location.z=.025*abs(math.sin(phase))
