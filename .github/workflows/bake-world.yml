@@ -33,7 +33,7 @@ jobs:
           target.mkdir(parents=True,exist_ok=True)
           from PIL import ImageOps
           frame_maps={'idle':[0,0,0,0],
-                      'walk':[0,1,2,3,2,1,0,1],
+                      'walk':[0,1,2,3,4,5,6,7],
                       'punch':[0,1,2,1,0]}
           for motion, frame_map in frame_maps.items():
               sheet=Image.new('RGBA',(len(frame_map)*168,8*192))
