@@ -70,6 +70,8 @@ public final class PrototypeWorldActivity extends Activity {
         private final Bitmap[][] factoryProps = new Bitmap[4][4];
         private final Bitmap bakedElf, bakedWalk, bakedPunch;
         private final Bitmap classicElf, classicWalk, classicPunch;
+        private final Bitmap[] maleClassic = new Bitmap[3], malePetite = new Bitmap[3];
+        private int styleIndex;
         private final Bitmap goblinIdle, goblinWalk, goblinAttack;
         private final int playerAttackBonus, playerDamage, playerAc;
         private final java.util.Random combatDice = new java.util.Random();
@@ -112,7 +114,9 @@ public final class PrototypeWorldActivity extends Activity {
             experience=save.getInt("hero_experience",0);
             gold=save.getInt("hero_gold",0);
             appearance = hero == null ? ElfAppearance.COILED : hero.appearance;
-            petiteStyle=save.getBoolean("petite_style",appearance==ElfAppearance.PETITE);
+            styleIndex=Math.floorMod(save.getInt("hero_style_index",
+                save.getBoolean("petite_style",appearance==ElfAppearance.PETITE)?1:0),4);
+            petiteStyle=(styleIndex%2)==1;
             character = new RiggedElf(context, appearance);
             movementFactor = hero == null ? 1f : hero.loadout().movementFactor();
             playerAttackBonus = hero == null ? 2 : hero.attackBonus();
@@ -141,6 +145,11 @@ public final class PrototypeWorldActivity extends Activity {
             classicElf = load(context, "blender_world/classic_idle.png");
             classicWalk = load(context, "blender_world/classic_walk.png");
             classicPunch = load(context, "blender_world/classic_punch.png");
+            String[] animations={"idle","walk","punch"};
+            for (int i=0;i<animations.length;i++) {
+                maleClassic[i]=load(context,"blender_world/classic_male_"+animations[i]+".png");
+                malePetite[i]=load(context,"blender_world/petite_male_"+animations[i]+".png");
+            }
             prototypeFloor = load(context,"isometric_lab/floor.png");
             prototypeTree = load(context,"isometric_lab/tree.png");
             prototypeLedge = load(context,"isometric_lab/ledge.png");
@@ -624,9 +633,9 @@ public final class PrototypeWorldActivity extends Activity {
             float px=sx(x,y),py=sy(x,y)-elevation(x,y);
             // Both selectable styles use their own Blender-baked 8-direction
             // character; never silently substitute the old Coiled Puff prototype.
-            Bitmap idle = petiteStyle ? bakedElf : classicElf;
-            Bitmap walk = petiteStyle ? bakedWalk : classicWalk;
-            Bitmap punch = petiteStyle ? bakedPunch : classicPunch;
+            Bitmap idle = styleIndex==3 ? malePetite[0] : styleIndex==2 ? maleClassic[0] : petiteStyle ? bakedElf : classicElf;
+            Bitmap walk = styleIndex==3 ? malePetite[1] : styleIndex==2 ? maleClassic[1] : petiteStyle ? bakedWalk : classicWalk;
+            Bitmap punch = styleIndex==3 ? malePetite[2] : styleIndex==2 ? maleClassic[2] : petiteStyle ? bakedPunch : classicPunch;
             if (idle!=null && walk!=null && punch!=null) {
                 Bitmap sheet=idle;
                 int frame=0;
@@ -720,7 +729,7 @@ public final class PrototypeWorldActivity extends Activity {
                 c.drawCircle(attackButton.right-12*d,attackButton.centerY(),4*d,paint);
             }
             button(c,exitButton,"MENU");
-            button(c,styleButton,petiteStyle?"STYLE: PETITE":"STYLE: CLASSIC");
+            button(c,styleButton,new String[]{"F: CLASSIC","F: PETITE","M: CLASSIC","M: PETITE"}[styleIndex]);
             paint.setTextSize(13*d);paint.setColor(0xFFF1D8AA);
             c.drawText("WILDLANDS · FREE ROAM",15*d,32*d,paint);
             c.drawText("HP "+health+"   XP "+experience+"   GOLD "+gold,15*d,50*d,paint);
@@ -781,8 +790,10 @@ public final class PrototypeWorldActivity extends Activity {
                     ((Activity)getContext()).finish();return true;
                 }
                 if(styleButton.contains(px,py)){
-                    petiteStyle=!petiteStyle;
-                    save.edit().putBoolean("petite_style",petiteStyle).apply();
+                    styleIndex=(styleIndex+1)%4;
+                    petiteStyle=(styleIndex%2)==1;
+                    save.edit().putInt("hero_style_index",styleIndex)
+                        .putBoolean("petite_style",petiteStyle).apply();
                     return true;
                 }
                 if(runButton.contains(px,py)){if(!hostile)running=!running;return true;}
