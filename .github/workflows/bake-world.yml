@@ -2,7 +2,7 @@ name: Bake Blender World Assets
 on:
   workflow_dispatch:
   push:
-    branches: [feature/knee-walk-joystick-punch-v0375]
+    branches: [main]
     paths:
       - 'blender/**'
       - '.github/workflows/bake-world.yml'
@@ -49,8 +49,8 @@ jobs:
           git add app/src/main/assets/blender_world/
           if ! git diff --cached --quiet; then
             git commit -m "Bake real Blender world and Petite Pale atlases"
-            git pull --rebase origin feature/knee-walk-joystick-punch-v0375
-            git push origin HEAD:feature/knee-walk-joystick-punch-v0375
+            git pull --rebase origin main
+            git push origin HEAD:main
           fi
       - name: Upload source and rendered assets
         uses: actions/upload-artifact@v4
