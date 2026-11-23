@@ -67,6 +67,11 @@ final class WeaponTrials {
 
     boolean draw(Canvas canvas, Paint paint, int style, Motion motion, String weapon,
                  int facing, float progress, float x, float y, float scale) {
+        return draw(canvas,paint,style,motion,weapon,facing,progress,x,y,scale,false);
+    }
+
+    boolean draw(Canvas canvas, Paint paint, int style, Motion motion, String weapon,
+                 int facing, float progress, float x, float y, float scale, boolean idleHeld) {
         String sheetName=style+"_"+motion.asset;
         int frame=Math.max(0,Math.min(FRAMES-1,Math.round(progress*(FRAMES-1))));
         String bitmapName=sheetName;
@@ -85,12 +90,12 @@ final class WeaponTrials {
         source.set(frame*WIDTH,facing*HEIGHT,(frame+1)*WIDTH,(facing+1)*HEIGHT);
         destination.set(left,top,left+WIDTH*scale,top+HEIGHT*scale);
         canvas.drawBitmap(sheet,source,destination,paint);
-        drawHeld(canvas,paint,sheetName,weapon,facing,progress<0 ? 0 : frame,left,top,scale);
+        drawHeld(canvas,paint,sheetName,weapon,facing,progress<0 ? 0 : frame,left,top,scale,idleHeld);
         return true;
     }
 
     private void drawHeld(Canvas canvas, Paint paint, String sheet, String weapon, int facing,
-                          int frame,float left,float top,float scale) {
+                          int frame,float left,float top,float scale,boolean idleHeld) {
         if (weapon.isEmpty()) return;
         if (!grips.containsKey(sheet)) grips.put(sheet,read(sheet+".txt",8*FRAMES*3));
         if (!icons.containsKey(weapon)) icons.put(weapon,load(weapon+".webp"));
@@ -101,8 +106,17 @@ final class WeaponTrials {
         int anchor=(facing*FRAMES+frame)*3;
         float size=iconAnchor[2]*scale;
         canvas.save();
-        canvas.translate(left+anchors[anchor]*scale,top+anchors[anchor+1]*scale);
-        canvas.rotate(anchors[anchor+2]-27f);
+        if (idleHeld) {
+            // Relaxed, lowered right-hand grip beside the hip. The weapon
+            // points down instead of hovering across the shoulder/face.
+            float handX=left+(WIDTH*.5f+((facing>=2 && facing<=5)?24f:-24f))*scale;
+            float handY=top+112f*scale;
+            canvas.translate(handX,handY);
+            canvas.rotate(facing>=2 && facing<=5 ? 164f : -164f);
+        } else {
+            canvas.translate(left+anchors[anchor]*scale,top+anchors[anchor+1]*scale);
+            canvas.rotate(anchors[anchor+2]-27f);
+        }
         float factor=size/Math.max(icon.getWidth(),icon.getHeight());
         float l=-iconAnchor[0]*factor, t=-iconAnchor[1]*factor;
         destination.set(l,t,l+icon.getWidth()*factor,t+icon.getHeight()*factor);
