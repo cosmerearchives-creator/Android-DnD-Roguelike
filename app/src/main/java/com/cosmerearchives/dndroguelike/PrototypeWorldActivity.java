@@ -55,7 +55,8 @@ public final class PrototypeWorldActivity extends Activity {
         private static final float COMBAT_NOTICE = 3.5f;
         private static final float COMBAT_LEASH = 7f;
         private static final int GOBLIN_HP = 7, GOBLIN_AC = 12;
-        private static final float ATTACK_PERIOD = 6f;
+        private static final float PLAYER_ACTION_REFILL = 1f;
+        private static final float GOBLIN_ATTACK_PERIOD = 6f;
         private static final float IMPACT_TIME = RigAttackPose.DURATION * .5f;
         private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
         private final Path diamond = new Path();
@@ -73,12 +74,23 @@ public final class PrototypeWorldActivity extends Activity {
         private final Bitmap[] maleClassic = new Bitmap[3], malePetite = new Bitmap[3];
         private int styleIndex;
         private final Bitmap goblinIdle, goblinWalk, goblinAttack;
+        private final WeaponTrials weaponTrials;
+        private final WeaponTrials.Motion[] motions=WeaponTrials.Motion.values();
+        private final int[] selectedWeapons=new int[motions.length];
+        private int motionIndex;
+        private final int dexterityModifier, strengthModifier;
+        private WeaponTrials.Motion activeMotion=WeaponTrials.Motion.UNARMED;
+        private String activeWeapon="";
+        private float arrowTime,arrowX,arrowY,arrowEndX,arrowEndY;
+        private final RectF motionButton=new RectF(), weaponButton=new RectF();
         private final int playerAttackBonus, playerDamage, playerAc;
         private final java.util.Random combatDice = new java.util.Random();
         private static final int MAX_GOBLINS=5;
         private static final class Goblin {
             float x,y,homeX,homeY,walkCycle,swing,recharge;
             int facing,hp=GOBLIN_HP;
+            WeaponTrials.Motion motion=WeaponTrials.Motion.THRUST;
+            String weapon="dagger";
             boolean moving,impact,aggro,drawn;
         }
         private final java.util.ArrayList<Goblin> goblins=new java.util.ArrayList<>();
@@ -109,6 +121,9 @@ public final class PrototypeWorldActivity extends Activity {
 
         World(Context context, PlayerCharacter hero) {
             super(context);
+            weaponTrials=new WeaponTrials(context);
+            dexterityModifier=hero==null ? 0 : PlayerCharacter.modifier(hero.score(1));
+            strengthModifier=hero==null ? 0 : PlayerCharacter.modifier(hero.score(0));
             save = context.getSharedPreferences("wildlands_world", Context.MODE_PRIVATE);
             x = save.getFloat("player_x", .5f);
             y = save.getFloat("player_y", .5f);
@@ -265,6 +280,16 @@ public final class PrototypeWorldActivity extends Activity {
                     if (Math.hypot(other.x-px,other.y-py)<1.5f) occupied=true;
                 if (occupied) continue;
                 Goblin goblin=new Goblin();
+                int variant=combatDice.nextInt(3);
+                if (variant==1) {
+                    goblin.motion=WeaponTrials.Motion.SWING;
+                    goblin.weapon="scimitar";
+                    goblin.hp=10;
+                } else if (variant==2) {
+                    goblin.motion=WeaponTrials.Motion.BOW;
+                    goblin.weapon="shortbow";
+                    goblin.hp=10;
+                }
                 goblin.x=goblin.homeX=px;
                 goblin.y=goblin.homeY=py;
                 goblin.facing=heading(x-px,y-py);
@@ -280,40 +305,79 @@ public final class PrototypeWorldActivity extends Activity {
             worldMessage=message;
             messageRemaining=3f;
         }
+        private String selectedWeapon() { return motions[motionIndex].weapons[selectedWeapons[motionIndex]]; }
+        private float reach(WeaponTrials.Motion motion,String weapon) {
+            if (motion!=WeaponTrials.Motion.BOW) return MELEE_REACH;
+            // Limit the test shot to distances readable on the current camera.
+            return weapon.equals("longbow") ? 6f : 4f;
+        }
+        private boolean shotClear(float ax,float ay,float bx,float by) {
+            int samples=(int)Math.ceil(Math.hypot(bx-ax,by-ay)*8);
+            for (int i=1;i<samples;i++) {
+                float t=(float)i/samples;
+                float xx=ax+(bx-ax)*t, yy=ay+(by-ay)*t;
+                if (!clear(xx,yy,xx,yy,.035f)) return false;
+            }
+            return true;
+        }
         private void beginPunch() {
             if (attackRemaining>0 || playerRecharge>0) return;
+            activeMotion=motions[motionIndex];
+            activeWeapon=selectedWeapon();
             attackRemaining=RigAttackPose.DURATION;
-            playerRecharge=ATTACK_PERIOD;
+            playerRecharge=PLAYER_ACTION_REFILL;
             playerImpact=true;
             double angle=facing*Math.PI/4;
-            punchX=x+(float)Math.sin(angle)*MELEE_REACH;
-            punchY=y-(float)Math.cos(angle)*MELEE_REACH;
+            float range=reach(activeMotion,activeWeapon);
+            punchX=x+(float)Math.sin(angle)*range;
+            punchY=y-(float)Math.cos(angle)*range;
+        }
+        private void fireArrow(float ax,float ay,float bx,float by) {
+            arrowX=ax; arrowY=ay; arrowEndX=bx; arrowEndY=by;
+            arrowTime=.19f;
+        }
+        private int rollDamage(Equipment.Item weapon,int ability) {
+            String[] dice=weapon.damage.split("d",2);
+            int count=Integer.parseInt(dice[0]), sides=Integer.parseInt(dice[1]);
+            int damage=ability;
+            for (int i=0;i<count;i++) damage+=combatDice.nextInt(sides)+1;
+            return Math.max(1,damage);
         }
         private void resolvePunch() {
             Goblin target=null;
-            float nearest=MELEE_REACH+.001f;
+            boolean ranged=activeMotion==WeaponTrials.Motion.BOW;
+            float nearest=reach(activeMotion,activeWeapon)+.001f;
             for (Goblin goblin:goblins) {
                 float distance=distanceToGoblin(goblin);
                 if (distance>nearest || (distance>.01f &&
                     heading(goblin.x-x,goblin.y-y)!=facing)) continue;
+                if (ranged && !shotClear(x,y,goblin.x,goblin.y)) continue;
                 target=goblin;nearest=distance;
             }
+            if (ranged) fireArrow(x,y,target==null?punchX:target.x,target==null?punchY:target.y);
             if (target==null) {
-                if (hostile) combatMessage("Punch out of reach");
+                if (hostile) combatMessage("No enemy in reach");
                 return;
             }
             hostile=true;running=false;
-            if (combatDice.nextInt(20)+1+playerAttackBonus<GOBLIN_AC) {
-                combatMessage("Punch missed");return;
+            Equipment.Item item=Equipment.get(activeWeapon);
+            int ability=ranged ? dexterityModifier : item!=null && item.finesse
+                ? Math.max(strengthModifier,dexterityModifier) : strengthModifier;
+            int bonus=playerAttackBonus-strengthModifier+ability;
+            int armor=target.motion==WeaponTrials.Motion.THRUST ? GOBLIN_AC : 13;
+            if (combatDice.nextInt(20)+1+bonus<armor) {
+                combatMessage("Attack missed");return;
             }
-            target.hp=Math.max(0,target.hp-playerDamage);
+            int damage=item==null ? playerDamage : rollDamage(item,ability);
+            target.hp=Math.max(0,target.hp-damage);
             if (target.hp>0) {
-                combatMessage("Goblin hit · "+playerDamage+" damage");return;
+                combatMessage("Goblin hit · "+damage+" damage");return;
             }
             goblins.remove(target);
-            experience+=25;
+            int reward=target.motion==WeaponTrials.Motion.THRUST ? 25 : 50;
+            experience+=reward;
             save();
-            combatMessage("Goblin defeated · +25 XP");
+            combatMessage("Goblin defeated · +"+reward+" XP");
         }
         private void updateGoblins(float dt) {
             spawnCooldown-=dt;
@@ -332,16 +396,20 @@ public final class PrototypeWorldActivity extends Activity {
                 }
                 hostile=true;running=false;
                 goblin.recharge=Math.max(0f,goblin.recharge-dt);
+                float range=reach(goblin.motion,goblin.weapon);
+                boolean canHit=distance<=range && (goblin.motion!=WeaponTrials.Motion.BOW
+                    || shotClear(goblin.x,goblin.y,x,y));
                 if (goblin.swing>0) {
                     goblin.swing=Math.max(0f,goblin.swing-dt);
                     if (goblin.impact && goblin.swing<=IMPACT_TIME) {
                         goblin.impact=false;
-                        if (distance>MELEE_REACH) combatMessage("You evaded the dagger");
+                        if (goblin.motion==WeaponTrials.Motion.BOW && canHit) fireArrow(goblin.x,goblin.y,x,y);
+                        if (!canHit) combatMessage("You evaded the goblin");
                         else if (combatDice.nextInt(20)+5<playerAc) combatMessage("Goblin missed");
                         else {
-                            int damage=combatDice.nextInt(4)+3;
+                            int damage=rollDamage(Equipment.get(goblin.weapon),2);
                             health=Math.max(0,health-damage);
-                            combatMessage("Goblin dagger · "+damage+" damage");
+                            combatMessage("Goblin "+goblin.weapon+" · "+damage+" damage");
                             if (health==0) {
                                 health=100;
                                 retreatFromGoblin(goblin);
@@ -358,15 +426,15 @@ public final class PrototypeWorldActivity extends Activity {
                     continue;
                 }
                 goblin.facing=heading(x-goblin.x,y-goblin.y);
-                if (distance<=MELEE_REACH*.86f) {
+                if (canHit && distance<=range*.90f) {
                     if (goblin.recharge==0f) {
                         goblin.swing=RigAttackPose.DURATION;
-                        goblin.recharge=ATTACK_PERIOD;
+                        goblin.recharge=GOBLIN_ATTACK_PERIOD;
                         goblin.impact=true;
                     }
                     continue;
                 }
-                float delta=Math.min(distance-.83f,dt*WALK_SPEED);
+                float delta=Math.max(0f,Math.min(distance-.83f,dt*WALK_SPEED));
                 float nextX=goblin.x+(x-goblin.x)*delta/distance;
                 float nextY=goblin.y+(y-goblin.y)*delta/distance;
                 float oldX=goblin.x,oldY=goblin.y;
@@ -399,12 +467,16 @@ public final class PrototypeWorldActivity extends Activity {
             source.set(frame*168,goblin.facing*192,(frame+1)*168,(goblin.facing+1)*192);
             destination.set(px-84,py-160,px+84,py+32);
             paint.setColor(Color.WHITE);
-            c.drawBitmap(sheet,source,destination,paint);
+            float progress=goblin.swing>0 ? 1-goblin.swing/RigAttackPose.DURATION
+                : goblin.moving ? -1f-goblin.walkCycle : -1f;
+            if (goblin.motion==WeaponTrials.Motion.THRUST
+                || !weaponTrials.draw(c,paint,4,goblin.motion,goblin.weapon,goblin.facing,
+                    progress,px,py,192f/164f)) c.drawBitmap(sheet,source,destination,paint);
             if (goblin.aggro) {
                 paint.setColor(0xFF322A2B);
                 c.drawRect(px-18,py-111,px+18,py-107,paint);
                 paint.setColor(0xFFD27060);
-                c.drawRect(px-18,py-111,px-18+36f*goblin.hp/GOBLIN_HP,py-107,paint);
+                c.drawRect(px-18,py-111,px-18+36f*goblin.hp/(goblin.motion==WeaponTrials.Motion.THRUST ? GOBLIN_HP : 10),py-107,paint);
             }
         }
         private float elevation(float wx,float wy) {
@@ -416,6 +488,7 @@ public final class PrototypeWorldActivity extends Activity {
             idleTime+=dt;
             messageRemaining=Math.max(0,messageRemaining-dt);
             playerRecharge=Math.max(0,playerRecharge-dt);
+            arrowTime=Math.max(0,arrowTime-dt);
             if (attackRemaining>0) {
                 attackRemaining=Math.max(0,attackRemaining-dt);
                 if (playerImpact && attackRemaining<=IMPACT_TIME) {
@@ -644,9 +717,21 @@ public final class PrototypeWorldActivity extends Activity {
             if(!actorDrawn)drawHero(c);
             for (Goblin goblin:goblins)
                 if(!goblin.drawn)drawGoblin(c,goblin);
+            if (arrowTime>0f) drawArrow(c);
             c.restore();
             drawControls(c);
             postInvalidateOnAnimation();
+        }
+        private void drawArrow(Canvas c) {
+            float progress=1f-arrowTime/.19f;
+            float tail=Math.max(0f,progress-.12f);
+            float startX=sx(arrowX,arrowY), endX=sx(arrowEndX,arrowEndY);
+            float startY=sy(arrowX,arrowY)-83f, endY=sy(arrowEndX,arrowEndY)-56f;
+            paint.setColor(0xFFE6CB8C);
+            paint.setStrokeWidth(2.5f);
+            c.drawLine(startX+(endX-startX)*tail,startY+(endY-startY)*tail,
+                startX+(endX-startX)*progress,startY+(endY-startY)*progress,paint);
+            paint.setStrokeWidth(1f);
         }
         private void drawHero(Canvas c) {
             float px=sx(x,y),py=sy(x,y)-elevation(x,y);
@@ -655,6 +740,14 @@ public final class PrototypeWorldActivity extends Activity {
             Bitmap idle = styleIndex==3 ? malePetite[0] : styleIndex==2 ? maleClassic[0] : petiteStyle ? bakedElf : classicElf;
             Bitmap walk = styleIndex==3 ? malePetite[1] : styleIndex==2 ? maleClassic[1] : petiteStyle ? bakedWalk : classicWalk;
             Bitmap punch = styleIndex==3 ? malePetite[2] : styleIndex==2 ? maleClassic[2] : petiteStyle ? bakedPunch : classicPunch;
+            WeaponTrials.Motion motion=attackRemaining>0 ? activeMotion : motions[motionIndex];
+            String weapon=attackRemaining>0 ? activeWeapon : selectedWeapon();
+            if (motion!=WeaponTrials.Motion.UNARMED && (attackRemaining>0 || blend<=.15f)) {
+                float progress=attackRemaining>0 ? 1-attackRemaining/RigAttackPose.DURATION : 0f;
+                paint.setColor(Color.WHITE);
+                if (weaponTrials.draw(c,paint,styleIndex,motion,weapon,facing,progress,px,py,
+                    (petiteStyle ? 1f : 1.12f)*192f/164f)) return;
+            }
             if (idle!=null && walk!=null && punch!=null) {
                 Bitmap sheet=idle;
                 int frame=0;
@@ -695,7 +788,7 @@ public final class PrototypeWorldActivity extends Activity {
                 false,0f);
         }
         private void interact() {
-            if (hostile || !goblins.isEmpty()) {
+            if (motions[motionIndex]!=WeaponTrials.Motion.UNARMED || hostile || !goblins.isEmpty()) {
                 beginPunch();
                 return;
             }
@@ -733,12 +826,14 @@ public final class PrototypeWorldActivity extends Activity {
             attackButton.set(getWidth()-125*d,bottom-59*d,getWidth()-18*d,bottom);
             exitButton.set(getWidth()-94*d,18*d,getWidth()-12*d,54*d);
             styleButton.set(getWidth()-153*d,62*d,getWidth()-12*d,100*d);
+            motionButton.set(getWidth()-175*d,106*d,getWidth()-12*d,141*d);
+            weaponButton.set(getWidth()-175*d,146*d,getWidth()-12*d,181*d);
             if (!stickActive) {stickCenterX=joystick.centerX();stickCenterY=joystick.centerY();}
             paint.setColor(0x99354B52);c.drawCircle(stickCenterX,stickCenterY,55*d,paint);
             paint.setColor(0xFFB7D6C7);
             c.drawCircle(stickCenterX+screenStickX*36*d,stickCenterY+screenStickY*36*d,19*d,paint);
             button(c,runButton,hostile?"IN COMBAT":running?"RUN ON":"RUN");
-            button(c,attackButton,hostile?"PUNCH":"ATTACK / USE");
+            button(c,attackButton,hostile || motionIndex!=0?"ATTACK":"ATTACK / USE");
             paint.setColor(0xFFF1D8AA);
             if (playerRecharge>0) {
                 paint.setStyle(Paint.Style.STROKE);
@@ -749,6 +844,9 @@ public final class PrototypeWorldActivity extends Activity {
             }
             button(c,exitButton,"MENU");
             button(c,styleButton,new String[]{"F: CLASSIC","F: PETITE","M: CLASSIC","M: PETITE"}[styleIndex]);
+            button(c,motionButton,motions[motionIndex].title+" ›");
+            Equipment.Item selection=Equipment.get(selectedWeapon());
+            button(c,weaponButton,selection==null ? "Bare hands" : selection.name+" ›");
             paint.setTextSize(13*d);paint.setColor(0xFFF1D8AA);
             c.drawText("WILDLANDS · FREE ROAM",15*d,32*d,paint);
             c.drawText("HP "+health+"   XP "+experience+"   GOLD "+gold,15*d,50*d,paint);
@@ -807,6 +905,14 @@ public final class PrototypeWorldActivity extends Activity {
                 if(exitButton.contains(px,py)) {
                     save();getContext().startActivity(new Intent(getContext(),MainActivity.class));
                     ((Activity)getContext()).finish();return true;
+                }
+                if (motionButton.contains(px,py)) {
+                    motionIndex=(motionIndex+1)%motions.length;
+                    return true;
+                }
+                if (weaponButton.contains(px,py)) {
+                    selectedWeapons[motionIndex]=(selectedWeapons[motionIndex]+1)%motions[motionIndex].weapons.length;
+                    return true;
                 }
                 if(styleButton.contains(px,py)){
                     styleIndex=(styleIndex+1)%4;
