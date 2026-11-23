@@ -55,13 +55,18 @@ final class OriginCreatorView extends FrameLayout {
         LinearLayout layout=column();
         layout.setPadding(dp(8),dp(18),dp(8),dp(9));
         addView(layout,new FrameLayout.LayoutParams(-1,-1));
+        TextView crest=text("────── ✦ ⚜ ✦ ──────",15,true);
+        crest.setGravity(Gravity.CENTER);
+        crest.setTextColor(GOLD);
+        layout.addView(crest,new LinearLayout.LayoutParams(-1,dp(25)));
         TextView heading=text("Character Creation",25,true);
         heading.setGravity(Gravity.CENTER);
         heading.setTextSize(27);
         layout.addView(heading,new LinearLayout.LayoutParams(-1,dp(47)));
         TextView subtitle=text("Create your adventurer",13,false);
         subtitle.setGravity(Gravity.CENTER);
-        subtitle.setTextColor(MUTED);
+        subtitle.setTextColor(INK);
+        subtitle.setTypeface(Typeface.create("serif",Typeface.NORMAL));
         layout.addView(subtitle,new LinearLayout.LayoutParams(-1,dp(34)));
         View titleRule=new View(context);
         titleRule.setBackgroundColor(GOLD);
@@ -78,7 +83,7 @@ final class OriginCreatorView extends FrameLayout {
         for(int i=0;i<STEPS.length;i++){
             TextView label=text(STEP_ICONS[i]+"  "+STEPS[i],i==5?11:13,true);
             label.setGravity(Gravity.CENTER);
-            label.setBackground(ornate(i==0?0xF03D4C49:PANEL,i==0?0xFFFFD88C:0xFF577074,1));
+            label.setBackground(ornate(i==0?0xF03D4C49:PANEL,i==0?0xFFFFD88C:0xFF577074,i==0?3:1));
             label.setSelected(i==0);
             stepViews[i]=label;
             LinearLayout.LayoutParams size=new LinearLayout.LayoutParams(-1,dp(35));
@@ -115,11 +120,15 @@ final class OriginCreatorView extends FrameLayout {
         LinearLayout.LayoutParams panel=new LinearLayout.LayoutParams(0,-1,1.65f);
         panel.setMargins(dp(3),dp(23),0,dp(70));
         body.addView(options,panel);
-        TextView panelTitle=text("Origin                         ⚄",19,true);
-        panelTitle.setSingleLine(true);
-        panelTitle.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        LinearLayout panelHeader=new LinearLayout(context);
+        panelHeader.setGravity(Gravity.CENTER_VERTICAL);
+        TextView panelTitle=text("Origin",19,true);
         panelTitle.setPadding(dp(5),0,0,dp(8));
-        options.addView(panelTitle);
+        panelHeader.addView(panelTitle,new LinearLayout.LayoutParams(0,-2,1));
+        TextView dice=text("⚄",20,true);
+        dice.setGravity(Gravity.CENTER);
+        panelHeader.addView(dice,new LinearLayout.LayoutParams(dp(29),dp(30)));
+        options.addView(panelHeader);
         View separator=new View(context);separator.setBackgroundColor(0x997F8C80);
         options.addView(separator,new LinearLayout.LayoutParams(-1,dp(1)));
         if (hero.background==null) hero.background=PlayerCharacter.BACKGROUNDS[0];
@@ -136,23 +145,23 @@ final class OriginCreatorView extends FrameLayout {
             LinearLayout item=new LinearLayout(context);
             item.setGravity(Gravity.CENTER_VERTICAL);
             item.setOrientation(LinearLayout.HORIZONTAL);
-            item.setPadding(dp(7),dp(5),dp(6),dp(5));
+            item.setPadding(dp(6),dp(4),dp(5),dp(4));
             TextView icon=text(CARD_ICONS[i],23,true);
             icon.setGravity(Gravity.CENTER);
             icon.setTextColor(GOLD);
-            item.addView(icon,new LinearLayout.LayoutParams(dp(35),-1));
+            item.addView(icon,new LinearLayout.LayoutParams(dp(32),-1));
             LinearLayout copy=column();
-            TextView name=text(PlayerCharacter.BACKGROUNDS[i],13,true);
+            TextView name=text(PlayerCharacter.BACKGROUNDS[i],12,true);
             name.setTypeface(Typeface.create("serif",Typeface.BOLD));
-            name.setSingleLine(true);
-            name.setEllipsize(android.text.TextUtils.TruncateAt.END);
+            name.setMaxLines(2);
+            name.setEllipsize(null);
             copy.addView(name);
-            TextView description=text(DESCRIPTIONS[i],11,false);
+            TextView description=text(DESCRIPTIONS[i],10,false);
             description.setTextColor(INK);
             description.setMaxLines(3);
             copy.addView(description);
             item.addView(copy,new LinearLayout.LayoutParams(0,-2,1));
-            item.setMinimumHeight(dp(53));
+            item.setMinimumHeight(dp(48));
             item.setOnClickListener(view->{
                 hero.background=PlayerCharacter.BACKGROUNDS[index];
                 refresh();
@@ -166,7 +175,7 @@ final class OriginCreatorView extends FrameLayout {
         LinearLayout featureBox=column();
         featureBox.setPadding(dp(8),dp(6),dp(8),dp(8));
         featureBox.setBackground(ornate(CARD,0xFF668183,2));
-        TextView featureHeading=text("Background Feature",14,true);
+        TextView featureHeading=text("Background Feature",13,true);
         featureBox.addView(featureHeading);
         View featureRule=new View(context);
         featureRule.setBackgroundColor(0x776F8B85);
@@ -207,7 +216,7 @@ final class OriginCreatorView extends FrameLayout {
             cards[i].setBackground(ornate(selected?0xFF454C43:CARD,
                 selected?0xFFFFD68A:0xFF4E6C70,selected?3:2));
         }
-        feature.setText("✦  "+hero.background+"\n     "+String.join(" and ",hero.backgroundSkills()));
+        feature.setText("⚔  "+hero.background+"\n     "+String.join(" and ",hero.backgroundSkills()));
     }
 
     private int dp(float value) {
@@ -241,9 +250,9 @@ final class OriginCreatorView extends FrameLayout {
             @Override public void draw(Canvas canvas) {
                 Rect b=getBounds();
                 float l=b.left+dp(1),t=b.top+dp(1),r=b.right-dp(1),bottom=b.bottom-dp(1);
-                float cut=Math.min(dp(shape==1?12:9),(bottom-t)*.24f);
+                float cut=Math.min(dp(shape==1||shape==3?12:9),(bottom-t)*.24f);
                 outline.reset();
-                if(shape==1){
+                if(shape==1 || (shape==3 && (bottom-t)>dp(30) && (r-l)>dp(85))){
                     outline.moveTo(l+cut,t);outline.lineTo(r-cut,t);
                     outline.lineTo(r,bottom-(bottom-t)*.5f);
                     outline.lineTo(r-cut,bottom);outline.lineTo(l+cut,bottom);
@@ -256,7 +265,12 @@ final class OriginCreatorView extends FrameLayout {
                 }
                 brush.setStyle(Paint.Style.FILL);brush.setColor(fill);canvas.drawPath(outline,brush);
                 brush.setStyle(Paint.Style.STROKE);
-                brush.setStrokeWidth(dp(shape==3?2.2f:1.2f));brush.setColor(edge);
+                if(shape==3){
+                    brush.setStyle(Paint.Style.STROKE);
+                    brush.setStrokeWidth(dp(5));brush.setColor(0x66FFD278);
+                    canvas.drawPath(outline,brush);
+                }
+                brush.setStrokeWidth(dp(shape==3?2:1.2f));brush.setColor(edge);
                 canvas.drawPath(outline,brush);brush.setStyle(Paint.Style.FILL);
             }
             @Override public void setAlpha(int alpha) {}
