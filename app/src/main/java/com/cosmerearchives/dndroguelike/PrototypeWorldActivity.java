@@ -24,6 +24,7 @@ import java.io.InputStream;
  * of the tile art. No fixed room bounds or pre-generated world bitmap.
  */
 public final class PrototypeWorldActivity extends Activity {
+    static final String EXTRA_TOWN="wildlands_town";
     private World view;
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
@@ -33,7 +34,7 @@ public final class PrototypeWorldActivity extends Activity {
             finish();
             return;
         }
-        view = new World(this, hero);
+        view = new World(this, hero,getIntent().getBooleanExtra(EXTRA_TOWN,false));
         setContentView(view);
         getWindow().getDecorView().setSystemUiVisibility(5894 | 1024 | 512);
     }
@@ -64,6 +65,11 @@ public final class PrototypeWorldActivity extends Activity {
         private final RectF destination = new RectF();
         private final WorldTerrain terrain = new WorldTerrain();
         private final SharedPreferences save;
+        private final TownHub town;
+        private boolean onQuest;
+        private int questKills, dummyHp=20;
+        private final TownHub.Actor townHero=this::drawHero;
+        private final TownHub.Person townPerson=this::drawTownPerson;
         private final Bitmap atlas;
         private final Bitmap vegetation;
         private final float[] trunkCenter = {.5f,.5f,.5f,.5f};
@@ -122,14 +128,22 @@ public final class PrototypeWorldActivity extends Activity {
         private boolean petiteStyle;
         private float zoom = 1f;
 
-        World(Context context, PlayerCharacter hero) {
+        World(Context context, PlayerCharacter hero,boolean townSession) {
             super(context);
             weaponTrials=new WeaponTrials(context);
             dexterityModifier=hero==null ? 0 : PlayerCharacter.modifier(hero.score(1));
             strengthModifier=hero==null ? 0 : PlayerCharacter.modifier(hero.score(0));
             save = context.getSharedPreferences("wildlands_world", Context.MODE_PRIVATE);
-            x = save.getFloat("player_x", .5f);
-            y = save.getFloat("player_y", .5f);
+            town=townSession ? new TownHub(context) : null;
+            onQuest=townSession && save.getBoolean("town_quest_active",false);
+            questKills=onQuest ? Math.max(0,Math.min(TownHub.GOAL-1,save.getInt("town_quest_kills",0))) : 0;
+            String position=positionPrefix();
+            x=save.getFloat(position+"_x",inTown()?TownHub.SPAWN_X:.5f);
+            y=save.getFloat(position+"_y",inTown()?TownHub.SPAWN_Y:.5f);
+            if (inTown() && !town.clear(x,y,PLAYER_RADIUS)) {
+                x=TownHub.SPAWN_X;
+                y=TownHub.SPAWN_Y;
+            }
             if (!Float.isFinite(x) || !Float.isFinite(y) || Math.abs(x) > 1000000
                     || Math.abs(y) > 1000000) { x=.5f; y=.5f; }
             cameraX = x; cameraY = y;
@@ -206,10 +220,80 @@ public final class PrototypeWorldActivity extends Activity {
                 return BitmapFactory.decodeStream(in);
             } catch (IOException e) { return null; }
         }
+        private boolean inTown() { return town!=null && !onQuest; }
+        private String positionPrefix() {
+            return town==null ? "player" : onQuest ? "town_quest_player" : "town_player";
+        }
         void save() {
-            save.edit().putFloat("player_x", x).putFloat("player_y", y)
-                .putInt("hero_health",health).putInt("hero_experience",experience)
-                .putInt("hero_gold",gold).apply();
+            String position=positionPrefix();
+            float savedX=inTown() && town.isInside() ? 6f : x;
+            float savedY=inTown() && town.isInside() ? 1.8f : y;
+            SharedPreferences.Editor editor=save.edit()
+                .putFloat(position+"_x",savedX).putFloat(position+"_y",savedY)
+                .putInt("hero_health",health).putInt("hero_experience",experience).putInt("hero_gold",gold);
+            if (town!=null) editor.putBoolean("town_quest_active",onQuest).putInt("town_quest_kills",questKills);
+            editor.apply();
+        }
+        private void moveTo(float wx,float wy) {
+            x=cameraX=wx;
+            y=cameraY=wy;
+            releaseStick();
+            running=false;
+            hostile=false;
+            attackRemaining=0f;
+            playerImpact=false;
+            arrowTime=0f;
+            weaponDrawn=false;
+            weaponQuietSeconds=0f;
+            blend=0f;
+        }
+        private void startTownQuest() {
+            if (!inTown() || !town.atBoard(x,y)) return;
+            questKills=0;
+            onQuest=true;
+            goblins.clear();
+            spawnCooldown=.7f;
+            moveTo(.5f,.5f);
+            save();
+            combatMessage("Quest started · Defeat 10 goblins");
+        }
+        private void returnToTown() {
+            onQuest=false;
+            goblins.clear();
+            town.setInside(false);
+            moveTo(TownHub.SPAWN_X,TownHub.SPAWN_Y);
+            save();
+            combatMessage("Quest complete · 10 goblins defeated");
+        }
+        private void interactInTown() {
+            if (town.training(x,y)) {
+                beginPunch();
+            } else if (town.atBoard(x,y)) {
+                releaseStick();
+                new android.app.AlertDialog.Builder(getContext())
+                    .setTitle("Defeat 10 goblins")
+                    .setMessage("Travel to the Wildlands. Defeat ten goblins to return to the quest board.")
+                    .setNegativeButton("Not now",null)
+                    .setPositiveButton("Accept",(dialog,which)->startTownQuest())
+                    .show();
+            } else if (town.atTavern(x,y)) {
+                town.setInside(true);
+                moveTo(3f,1.35f);
+                combatMessage("Tavern");
+            } else if (town.atExit(x,y)) {
+                town.setInside(false);
+                moveTo(6f,1.8f);
+            } else if (town.atGate(x,y)) {
+                combatMessage("The town gates are closed");
+            }
+        }
+        private void drawTownPerson(Canvas c,float px,float py,int style) {
+            Bitmap npc=style==0 ? classicElf : style==1 ? bakedElf : style==2 ? maleClassic[0] : malePetite[0];
+            if (npc==null) return;
+            source.set(0,192,168,384);
+            destination.set(px-67.2f,py-128f,px+67.2f,py+25.6f);
+            paint.setColor(Color.WHITE);
+            c.drawBitmap(npc,source,destination,paint);
         }
         private float sx(float wx, float wy) { return (wx - cameraX + wy - cameraY) * HALF_W; }
         private float sy(float wx, float wy) { return (wx - cameraX - (wy - cameraY)) * HALF_H; }
@@ -236,6 +320,7 @@ public final class PrototypeWorldActivity extends Activity {
                            : .72f + Math.floorMod(seed,7)*.155f;
         }
         private boolean clear(float fromX,float fromY,float wx,float wy,float radius) {
+            if (inTown()) return town.clear(wx,wy,radius);
             int minX=(int)Math.floor(wx-radius), maxX=(int)Math.floor(wx+radius);
             int minY=(int)Math.floor(wy-radius), maxY=(int)Math.floor(wy+radius);
             for (int tx=minX;tx<=maxX;tx++) for (int ty=minY;ty<=maxY;ty++) {
@@ -351,6 +436,25 @@ public final class PrototypeWorldActivity extends Activity {
             return Math.max(1,damage);
         }
         private void resolvePunch() {
+            if (inTown()) {
+                if (!town.training(x,y)) return;
+                float dx=TownHub.DUMMY_X-x,dy=TownHub.DUMMY_Y-y;
+                float range=reach(activeMotion,activeWeapon);
+                if (Math.hypot(dx,dy)>range || heading(dx,dy)!=facing) {
+                    combatMessage("Face the dummy within attack range");
+                    return;
+                }
+                if (activeMotion==WeaponTrials.Motion.BOW) fireArrow(x,y,TownHub.DUMMY_X,TownHub.DUMMY_Y);
+                Equipment.Item weapon=Equipment.get(activeWeapon);
+                int damage=weapon==null ? playerDamage : rollDamage(weapon,
+                    activeMotion==WeaponTrials.Motion.BOW ? dexterityModifier : strengthModifier);
+                dummyHp-=damage;
+                if (dummyHp<=0) {
+                    dummyHp=20;
+                    combatMessage("Dummy hit · "+damage+" damage · Reset");
+                } else combatMessage("Dummy hit · "+damage+" damage · "+dummyHp+"/20");
+                return;
+            }
             Goblin target=null;
             boolean ranged=activeMotion==WeaponTrials.Motion.BOW;
             float nearest=reach(activeMotion,activeWeapon)+.001f;
@@ -383,6 +487,10 @@ public final class PrototypeWorldActivity extends Activity {
             goblins.remove(target);
             int reward=target.motion==WeaponTrials.Motion.THRUST ? 25 : 50;
             experience+=reward;
+            if (onQuest && ++questKills>=TownHub.GOAL) {
+                returnToTown();
+                return;
+            }
             save();
             combatMessage("Goblin defeated · +"+reward+" XP");
         }
@@ -503,7 +611,7 @@ public final class PrototypeWorldActivity extends Activity {
                     resolvePunch();
                 }
             }
-            updateGoblins(dt);
+            if (!inTown()) updateGoblins(dt);
             // Combat keeps the weapon ready. After six peaceful seconds
             // following the last attack, the sheathed state is just idle art.
             if (hostile || attackRemaining>0f) {
@@ -698,13 +806,22 @@ public final class PrototypeWorldActivity extends Activity {
             zoom=Math.max(.65f,Math.min(1.15f,getWidth()/768f));
             c.save();c.translate(centerX,centerY);c.scale(zoom,zoom);
             int cx=(int)Math.floor(cameraX),cy=(int)Math.floor(cameraY);
-            ground(c);
+            if (inTown()) town.ground(c,cameraX,cameraY);
+            else ground(c);
             if (attackRemaining>0f) {
                 float markerX=sx(punchX,punchY),markerY=sy(punchX,punchY);
                 paint.setColor(0x98F2C774);
                 c.drawOval(markerX-17f,markerY-8f,markerX+17f,markerY+8f,paint);
             }
             float heroDepth=x-y;
+            if (inTown()) {
+                town.props(c,cameraX,cameraY,heroDepth,townHero,townPerson);
+                if (arrowTime>0f) drawArrow(c);
+                c.restore();
+                drawControls(c);
+                postInvalidateOnAnimation();
+                return;
+            }
             boolean actorDrawn=false;
             for (Goblin goblin:goblins) goblin.drawn=false;
             for(int depth=-VISIBLE_RADIUS*2;depth<=VISIBLE_RADIUS*2;depth++){
@@ -803,6 +920,10 @@ public final class PrototypeWorldActivity extends Activity {
                 false,0f);
         }
         private void interact() {
+            if (inTown()) {
+                interactInTown();
+                return;
+            }
             if (motions[motionIndex]!=WeaponTrials.Motion.UNARMED || hostile || !goblins.isEmpty()) {
                 beginPunch();
                 return;
@@ -848,13 +969,15 @@ public final class PrototypeWorldActivity extends Activity {
             paint.setColor(0xFFB7D6C7);
             c.drawCircle(stickCenterX+screenStickX*36*d,stickCenterY+screenStickY*36*d,19*d,paint);
             button(c,runButton,hostile?"IN COMBAT":running?"RUN ON":"RUN");
-            button(c,attackButton,hostile || motionIndex!=0?"ATTACK":"ATTACK / USE");
+            boolean training=inTown() && town.training(x,y);
+            button(c,attackButton,inTown() ? training ? "ATTACK" : "INTERACT"
+                : hostile || onQuest || motionIndex!=0 ? "ATTACK" : "ATTACK / USE");
             paint.setColor(0xFFF1D8AA);
-            if (playerRecharge>0) {
+            if ((!inTown() || training) && playerRecharge>0) {
                 paint.setStyle(Paint.Style.STROKE);
                 c.drawCircle(attackButton.right-12*d,attackButton.centerY(),4*d,paint);
                 paint.setStyle(Paint.Style.FILL);
-            } else {
+            } else if (!inTown() || training) {
                 c.drawCircle(attackButton.right-12*d,attackButton.centerY(),4*d,paint);
             }
             button(c,exitButton,"MENU");
@@ -863,11 +986,13 @@ public final class PrototypeWorldActivity extends Activity {
             Equipment.Item selection=Equipment.get(selectedWeapon());
             button(c,weaponButton,selection==null ? "Bare hands" : selection.name+" ›");
             paint.setTextSize(13*d);paint.setColor(0xFFF1D8AA);
-            c.drawText("WILDLANDS · FREE ROAM",15*d,32*d,paint);
+            c.drawText(inTown() ? town.isInside() ? "WILDLANDS · TAVERN" : "WILDLANDS · TOWN"
+                : "WILDLANDS · FREE ROAM",15*d,32*d,paint);
             c.drawText("HP "+health+"   XP "+experience+"   GOLD "+gold,15*d,50*d,paint);
+            if (onQuest) c.drawText("Goblins "+questKills+"/"+TownHub.GOAL,15*d,69*d,paint);
             if(messageRemaining>0){
                 paint.setTextSize(12*d);
-                c.drawText(worldMessage,15*d,72*d,paint);
+                c.drawText(worldMessage,15*d,(onQuest?86:72)*d,paint);
             }
             if(paused) {
                 paint.setTextSize(25*d);

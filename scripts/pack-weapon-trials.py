@@ -34,7 +34,7 @@ for style, variant in enumerate(styles):
         atlas.save(out / f"{name}.webp", lossless=True)
         if count == 5:
             anchors = json.loads((root / f"{motion}.json").read_text())
-            assert len(anchors) == 40 and all(len(a) == 3 and 0 < a[0] < width and 0 < a[1] < height for a in anchors)
+            assert len(anchors) == 40 and all(len(a) == 5 and 0 < a[0] < width and 0 < a[1] < height for a in anchors)
             (out / f"{name}.txt").write_text("".join(" ".join(map(str,a))+"\n" for a in anchors))
 
 # Local grip coordinates in the approved inventory models, followed by their

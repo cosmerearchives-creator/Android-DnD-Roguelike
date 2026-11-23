@@ -68,6 +68,12 @@ public class MainActivity extends Activity {
         explore.setOnClickListener(v -> startActivity(new Intent(this, PrototypeWorldActivity.class)
             .putExtra(OutdoorActivity.EXTRA_FREE_EXPLORE, true)));
         root.addView(explore);
+        Button town = new Button(this);
+        town.setText("Town Hub");
+        town.setOnClickListener(v -> startActivity(new Intent(this, PrototypeWorldActivity.class)
+            .putExtra(OutdoorActivity.EXTRA_FREE_EXPLORE, true)
+            .putExtra(PrototypeWorldActivity.EXTRA_TOWN, true)));
+        root.addView(town);
         Button isometricRoom = new Button(this);
         isometricRoom.setText("Isometric Test Room");
         isometricRoom.setOnClickListener(v -> startActivity(new Intent(this, IsometricRoomActivity.class)));

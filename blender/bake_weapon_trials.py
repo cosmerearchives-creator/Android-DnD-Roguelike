@@ -1,6 +1,7 @@
 """Bake Free Roam weapon test poses and their screen-space grip registrations."""
 import json
 import math
+import sys
 from pathlib import Path
 
 import bpy
@@ -13,6 +14,8 @@ namespace = {"__file__": str(source)}
 exec(compile(source.read_text().split("# The editable source", 1)[0], str(source), "exec"), namespace)
 scene, camera, root = (namespace[k] for k in ("scene", "camera", "root"))
 output = Path(namespace["out"])
+anchors_only = "--anchors-only" in sys.argv
+view_depth = Vector((camera.location.x, camera.location.y, 0)).normalized()
 scene.display.render_aa = "8"
 scene.render.resolution_x = 144
 scene.render.resolution_y = 164
@@ -76,22 +79,31 @@ for mode in selected_modes:
     for facing in range(8):
         root.rotation_euler.z=facing*math.pi/4
         for i in range(5):
-            for obj,limb,neutral,inverse in namespace["meshes"]:
-                for vertex,base in zip(obj.data.vertices,neutral):
-                    vertex.co=inverse @ transform(base,limb,mode,i)
-                obj.data.update()
+            if not anchors_only:
+                for obj,limb,neutral,inverse in namespace["meshes"]:
+                    for vertex,base in zip(obj.data.vertices,neutral):
+                        vertex.co=inverse @ transform(base,limb,mode,i)
+                    obj.data.update()
             bpy.context.view_layer.update()
             limb, rest = ("arm_left",left_hand) if mode=="bow" else ("arm_right",right_hand)
             hand=transform(rest,limb,mode,i)
             grip=pixel(hand)
-            tip=pixel(hand+Vector(weapon_vectors[mode][i]))
+            direction=Vector(weapon_vectors[mode][i])
+            tip=pixel(hand+direction)
             degrees=math.degrees(math.atan2(tip[0]-grip[0],grip[1]-tip[1]))
-            registered.append([*grip,round(degrees,2)])
-            scene.render.filepath=str((output/f"{mode}_{facing}_{i}.png").resolve())
-            bpy.ops.render.render(write_still=True)
+            world_hand=root.matrix_world @ hand
+            depth=world_hand.dot(view_depth)
+            # Weapon runs along the projected grip-to-tip axis. Store depth
+            # at the grip and change in depth per pixel along that axis.
+            projected_length=max(1.0,math.hypot(tip[0]-grip[0],tip[1]-grip[1]))
+            slope=(root.matrix_world.to_3x3() @ direction).dot(view_depth)/projected_length
+            registered.append([*grip,round(degrees,2),round(depth,4),round(slope,6)])
+            if not anchors_only:
+                scene.render.filepath=str((output/f"{mode}_{facing}_{i}.png").resolve())
+                bpy.ops.render.render(write_still=True)
     (output/f"{mode}.json").write_text(json.dumps(registered))
 
-if namespace["variant"] == "dagger_goblin":
+if namespace["variant"] == "dagger_goblin" and not anchors_only:
     for facing in range(8):
         root.rotation_euler.z = facing*math.pi/4
         for mode, count in (("idle", 1), ("walk", 8)):

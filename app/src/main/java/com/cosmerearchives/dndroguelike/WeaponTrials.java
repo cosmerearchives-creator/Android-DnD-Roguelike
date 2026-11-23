@@ -31,7 +31,11 @@ final class WeaponTrials {
         }
     }
 
-    private static final int WIDTH=144, HEIGHT=164, FRAMES=5;
+    private static final int WIDTH=144, HEIGHT=164, FRAMES=5, GRIP_VALUES=5;
+    // Relative depth in Blender units. A thin torso margin keeps the weapon
+    // behind the body until it actually clears the near side.
+    private static final float BODY_DEPTH=.06f;
+    private static final float WEAPON_CLIP=256f;
     private static final float ANCHOR=136.67f;
     private final Context context;
     private final Rect source = new Rect();
@@ -88,36 +92,48 @@ final class WeaponTrials {
         }
         float top=y-ANCHOR*scale, left=x-WIDTH*.5f*scale;
         source.set(frame*WIDTH,facing*HEIGHT,(frame+1)*WIDTH,(facing+1)*HEIGHT);
+        int gripFrame=progress<0 ? 0 : frame;
+        drawHeld(canvas,paint,sheetName,weapon,facing,gripFrame,left,top,scale,idleHeld,false);
         destination.set(left,top,left+WIDTH*scale,top+HEIGHT*scale);
         canvas.drawBitmap(sheet,source,destination,paint);
-        drawHeld(canvas,paint,sheetName,weapon,facing,progress<0 ? 0 : frame,left,top,scale,idleHeld);
+        drawHeld(canvas,paint,sheetName,weapon,facing,gripFrame,left,top,scale,idleHeld,true);
         return true;
     }
 
     private void drawHeld(Canvas canvas, Paint paint, String sheet, String weapon, int facing,
-                          int frame,float left,float top,float scale,boolean idleHeld) {
+                          int frame,float left,float top,float scale,boolean idleHeld,boolean foreground) {
         if (weapon.isEmpty()) return;
-        if (!grips.containsKey(sheet)) grips.put(sheet,read(sheet+".txt",8*FRAMES*3));
+        if (!grips.containsKey(sheet)) grips.put(sheet,read(sheet+".txt",8*FRAMES*GRIP_VALUES));
         if (!icons.containsKey(weapon)) icons.put(weapon,load(weapon+".webp"));
         if (!iconGrips.containsKey(weapon)) iconGrips.put(weapon,read(weapon+".txt",3));
         float[] anchors=grips.get(sheet), iconAnchor=iconGrips.get(weapon);
         Bitmap icon=icons.get(weapon);
         if (anchors==null || icon==null || iconAnchor==null) return;
-        int anchor=(facing*FRAMES+frame)*3;
-        float size=iconAnchor[2]*scale;
-        canvas.save();
-        if (idleHeld) {
-            // Relaxed, lowered right-hand grip beside the hip. The weapon
-            // points down instead of hovering across the shoulder/face.
-            float handX=left+(WIDTH*.5f+((facing>=2 && facing<=5)?24f:-24f))*scale;
-            float handY=top+112f*scale;
-            canvas.translate(handX,handY);
-            canvas.rotate(facing>=2 && facing<=5 ? 164f : -164f);
+
+        int anchor=(facing*FRAMES+frame)*GRIP_VALUES;
+        float gripX=anchors[anchor];
+        float angle=idleHeld ? (gripX>=WIDTH*.5f ? 172f : -172f) : anchors[anchor+2];
+        float depth=anchors[anchor+3];
+        float slope=idleHeld ? 0f : anchors[anchor+4];
+        float lower=-WEAPON_CLIP, upper=WEAPON_CLIP;
+
+        if (Math.abs(slope)<.0001f) {
+            if ((depth>BODY_DEPTH)!=foreground) return;
         } else {
-            canvas.translate(left+anchors[anchor]*scale,top+anchors[anchor+1]*scale);
-            canvas.rotate(anchors[anchor+2]-27f);
+            // In weapon space negative Y points toward the tip. A crossing
+            // swing can have its grip behind the body and its tip in front.
+            float split=(depth-BODY_DEPTH)/slope;
+            if ((slope>0f)==foreground) upper=Math.min(upper,split);
+            else lower=Math.max(lower,split);
+            if (upper<=lower) return;
         }
-        float factor=size/Math.max(icon.getWidth(),icon.getHeight());
+
+        canvas.save();
+        canvas.translate(left+gripX*scale,top+anchors[anchor+1]*scale);
+        canvas.rotate(angle);
+        canvas.clipRect(-WEAPON_CLIP*scale,lower*scale,WEAPON_CLIP*scale,upper*scale);
+        canvas.rotate(-27f); // Inventory art was rendered at a 27-degree tilt.
+        float factor=iconAnchor[2]*scale/Math.max(icon.getWidth(),icon.getHeight());
         float l=-iconAnchor[0]*factor, t=-iconAnchor[1]*factor;
         destination.set(l,t,l+icon.getWidth()*factor,t+icon.getHeight()*factor);
         canvas.drawBitmap(icon,null,destination,paint);
