@@ -83,14 +83,14 @@ final class OriginCreatorView extends FrameLayout {
         for(int i=0;i<STEPS.length;i++){
             TextView label=text(STEP_ICONS[i]+"  "+STEPS[i],i==5?11:13,true);
             label.setGravity(Gravity.CENTER);
-            label.setBackground(ornate(i==0?0xF03D4C49:PANEL,i==0?0xFFFFD88C:0xFF577074,i==0?3:1));
+            label.setBackground(ornate(i==0?0xF03D4C49:PANEL,i==0?0xFFFFD88C:0xFF577074,i==0?4:1));
             label.setSelected(i==0);
             stepViews[i]=label;
             LinearLayout.LayoutParams size=new LinearLayout.LayoutParams(-1,dp(35));
             size.bottomMargin=dp(12);
             steps.addView(label,size);
             if(i<STEPS.length-1){
-                TextView connector=text("◇",10,true);
+                TextView connector=text("⌘",10,true);
                 connector.setGravity(Gravity.CENTER);
                 connector.setTextColor(GOLD);
                 LinearLayout.LayoutParams cp=new LinearLayout.LayoutParams(-1,dp(12));
@@ -152,7 +152,7 @@ final class OriginCreatorView extends FrameLayout {
             item.addView(icon,new LinearLayout.LayoutParams(dp(32),-1));
             LinearLayout copy=column();
             TextView name=text(PlayerCharacter.BACKGROUNDS[i],12,true);
-            name.setTypeface(Typeface.create("serif",Typeface.BOLD));
+            name.setTypeface(Typeface.create("serif",Typeface.NORMAL));
             name.setMaxLines(2);
             name.setEllipsize(null);
             copy.addView(name);
@@ -194,7 +194,7 @@ final class OriginCreatorView extends FrameLayout {
         TextView backButton=action("❮  Back",back);
         backButton.setBackground(ornate(CARD,GOLD,2));
         footer.addView(backButton,new LinearLayout.LayoutParams(dp(78),-1));
-        TextView progress=text("◉ ── ○ ── ○ ── ○ ── ○ ── ○ ── ○",10,false);
+        TextView progress=text("◉━━━━○━━━━○━━━━○━━━━○",12,false);
         progress.setGravity(Gravity.CENTER);
         progress.setContentDescription("Step 1 of 7");
         footer.addView(progress,new LinearLayout.LayoutParams(0,-1,1));
@@ -252,11 +252,13 @@ final class OriginCreatorView extends FrameLayout {
                 float l=b.left+dp(1),t=b.top+dp(1),r=b.right-dp(1),bottom=b.bottom-dp(1);
                 float cut=Math.min(dp(shape==1||shape==3?12:9),(bottom-t)*.24f);
                 outline.reset();
-                if(shape==1 || (shape==3 && (bottom-t)>dp(30) && (r-l)>dp(85))){
+                if(shape==1 || shape==4){
                     outline.moveTo(l+cut,t);outline.lineTo(r-cut,t);
-                    outline.lineTo(r,bottom-(bottom-t)*.5f);
+                    outline.lineTo(r,t+(bottom-t)*.5f);
                     outline.lineTo(r-cut,bottom);outline.lineTo(l+cut,bottom);
-                    outline.lineTo(l,bottom-(bottom-t)*.5f);outline.close();
+                    outline.lineTo(l+dp(2),bottom-cut);
+                    outline.lineTo(l,t+(bottom-t)*.5f);
+                    outline.lineTo(l+dp(2),t+cut);outline.close();
                 }else{
                     outline.moveTo(l+cut,t);outline.lineTo(r-cut,t);
                     outline.lineTo(r,t+cut);outline.lineTo(r,bottom-cut);
@@ -265,12 +267,14 @@ final class OriginCreatorView extends FrameLayout {
                 }
                 brush.setStyle(Paint.Style.FILL);brush.setColor(fill);canvas.drawPath(outline,brush);
                 brush.setStyle(Paint.Style.STROKE);
-                if(shape==3){
+                if(shape==3 || shape==4){
                     brush.setStyle(Paint.Style.STROKE);
-                    brush.setStrokeWidth(dp(5));brush.setColor(0x66FFD278);
+                    brush.setStrokeWidth(dp(7));brush.setColor(0x35FFCE62);
+                    canvas.drawPath(outline,brush);
+                    brush.setStrokeWidth(dp(4));brush.setColor(0x88FFD478);
                     canvas.drawPath(outline,brush);
                 }
-                brush.setStrokeWidth(dp(shape==3?2:1.2f));brush.setColor(edge);
+                brush.setStrokeWidth(dp(shape==3||shape==4?1.8f:1.2f));brush.setColor(edge);
                 canvas.drawPath(outline,brush);brush.setStyle(Paint.Style.FILL);
             }
             @Override public void setAlpha(int alpha) {}
