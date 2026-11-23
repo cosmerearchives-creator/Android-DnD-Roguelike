@@ -108,6 +108,9 @@ public final class PrototypeWorldActivity extends Activity {
         private float stickCenterX, stickCenterY;
         private boolean stickActive;
         private float idleTime, walkCycles, attackRemaining, blend;
+        private static final float AUTO_SHEATHE_SECONDS=6f;
+        private float weaponQuietSeconds=AUTO_SHEATHE_SECONDS;
+        private boolean weaponDrawn;
         private int facing, pointer = -1;
         private boolean running, paused;
         private int health, experience, gold;
@@ -324,6 +327,10 @@ public final class PrototypeWorldActivity extends Activity {
             if (attackRemaining>0 || playerRecharge>0) return;
             activeMotion=motions[motionIndex];
             activeWeapon=selectedWeapon();
+            // Drawing happens automatically with the attack and never
+            // consumes a separate action or recharge.
+            weaponDrawn=activeMotion!=WeaponTrials.Motion.UNARMED;
+            weaponQuietSeconds=0f;
             attackRemaining=RigAttackPose.DURATION;
             playerRecharge=PLAYER_ACTION_REFILL;
             playerImpact=true;
@@ -497,6 +504,14 @@ public final class PrototypeWorldActivity extends Activity {
                 }
             }
             updateGoblins(dt);
+            // Combat keeps the weapon ready. After six peaceful seconds
+            // following the last attack, the sheathed state is just idle art.
+            if (hostile || attackRemaining>0f) {
+                weaponQuietSeconds=0f;
+            } else if (weaponDrawn) {
+                weaponQuietSeconds+=dt;
+                if (weaponQuietSeconds>=AUTO_SHEATHE_SECONDS) weaponDrawn=false;
+            }
             float magnitude=(float)Math.hypot(stickX,stickY);
             boolean moving=false;
             if (magnitude>.08f && attackRemaining==0) {
@@ -742,11 +757,11 @@ public final class PrototypeWorldActivity extends Activity {
             Bitmap punch = styleIndex==3 ? malePetite[2] : styleIndex==2 ? maleClassic[2] : petiteStyle ? bakedPunch : classicPunch;
             WeaponTrials.Motion motion=attackRemaining>0 ? activeMotion : motions[motionIndex];
             String weapon=attackRemaining>0 ? activeWeapon : selectedWeapon();
-            if (motion!=WeaponTrials.Motion.UNARMED && (attackRemaining>0 || blend<=.15f)) {
+            if (motion!=WeaponTrials.Motion.UNARMED && (attackRemaining>0 || weaponDrawn)) {
                 float progress=attackRemaining>0 ? 1-attackRemaining/RigAttackPose.DURATION : 0f;
                 paint.setColor(Color.WHITE);
                 if (weaponTrials.draw(c,paint,styleIndex,motion,weapon,facing,progress,px,py,
-                    (petiteStyle ? 1f : 1.12f)*192f/164f)) return;
+                    (petiteStyle ? 1f : 1.12f)*192f/164f,attackRemaining<=0f)) return;
             }
             if (idle!=null && walk!=null && punch!=null) {
                 Bitmap sheet=idle;
