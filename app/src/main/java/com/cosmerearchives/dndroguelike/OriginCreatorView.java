@@ -26,16 +26,16 @@ import java.io.InputStream;
 /** The Origin step of the portrait creator, built from native Android views. */
 final class OriginCreatorView extends FrameLayout {
     private static final int INK=0xFFF6E3BE, GOLD=0xFFD9B678, MUTED=0xFFC5D1CB;
-    private static final int PANEL=0xF01B3035, CARD=0xF4284243;
+    private static final int PANEL=0xF513282E, CARD=0xF420363A;
     private static final String[] STEP_ICONS={"♟","⚔","✦","⬡","✥","✶","✓"};
     private static final String[] CARD_ICONS={"✦","♣","⚔","◆","⚒"};
     private static final String[] STEPS={"Origin","Race","Class","Abilities","Skills","Appearance","Review"};
     private static final String[] DESCRIPTIONS={
-        "A devotee trained in faith and tradition.",
-        "A guide who knows how to survive far from town.",
-        "A watchful defender of travelers and trade routes.",
-        "A curious explorer of old ruins and forgotten lore.",
-        "A craftsperson trained by a trade guild."
+        "Trained in faith and tradition.",
+        "A guide who survives far from town.",
+        "Protects travelers and trade routes.",
+        "Explores ruins and forgotten lore.",
+        "A craftsperson trained by a guild."
     };
     private final PlayerCharacter hero;
     private final Runnable onChange;
@@ -43,6 +43,7 @@ final class OriginCreatorView extends FrameLayout {
     private final LinearLayout[] cards=new LinearLayout[PlayerCharacter.BACKGROUNDS.length];
     private final TextView[] stepViews=new TextView[STEPS.length];
     private final Scene scene;
+    private final TextView direction;
     private int facing=2;
 
     OriginCreatorView(Context context,PlayerCharacter hero,Runnable onChange,Runnable back,Runnable next) {
@@ -61,13 +62,14 @@ final class OriginCreatorView extends FrameLayout {
         layout.addView(crest,new LinearLayout.LayoutParams(-1,dp(25)));
         TextView heading=text("Character Creation",25,true);
         heading.setGravity(Gravity.CENTER);
-        heading.setTextSize(27);
-        layout.addView(heading,new LinearLayout.LayoutParams(-1,dp(47)));
-        TextView subtitle=text("Create your adventurer",13,false);
+        heading.setTextSize(29);
+        layout.addView(heading,new LinearLayout.LayoutParams(-1,dp(38)));
+        TextView subtitle=text("Create Your Adventurer.",13,false);
         subtitle.setGravity(Gravity.CENTER);
+        subtitle.setTextSize(15);
         subtitle.setTextColor(INK);
         subtitle.setTypeface(Typeface.create("serif",Typeface.NORMAL));
-        layout.addView(subtitle,new LinearLayout.LayoutParams(-1,dp(34)));
+        layout.addView(subtitle,new LinearLayout.LayoutParams(-1,dp(27)));
         View titleRule=new View(context);
         titleRule.setBackgroundColor(GOLD);
         LinearLayout.LayoutParams ruleSize=new LinearLayout.LayoutParams(dp(210),dp(1));
@@ -78,23 +80,24 @@ final class OriginCreatorView extends FrameLayout {
         LinearLayout body=new LinearLayout(context);
         layout.addView(body,new LinearLayout.LayoutParams(-1,0,1));
         LinearLayout steps=column();
-        steps.setGravity(Gravity.CENTER_VERTICAL);
-        body.addView(steps,new LinearLayout.LayoutParams(dp(91),-1));
+        steps.setGravity(Gravity.TOP);
+        steps.setPadding(0,dp(56),0,0);
+        body.addView(steps,new LinearLayout.LayoutParams(dp(84),-1));
         for(int i=0;i<STEPS.length;i++){
             TextView label=text(STEP_ICONS[i]+"  "+STEPS[i],i==5?11:13,true);
             label.setGravity(Gravity.CENTER);
             label.setBackground(ornate(i==0?0xF03D4C49:PANEL,i==0?0xFFFFD88C:0xFF577074,i==0?4:1));
             label.setSelected(i==0);
             stepViews[i]=label;
-            LinearLayout.LayoutParams size=new LinearLayout.LayoutParams(-1,dp(35));
-            size.bottomMargin=dp(12);
+            LinearLayout.LayoutParams size=new LinearLayout.LayoutParams(-1,dp(32));
+            size.bottomMargin=dp(8);
             steps.addView(label,size);
             if(i<STEPS.length-1){
                 TextView connector=text("⌘",10,true);
                 connector.setGravity(Gravity.CENTER);
                 connector.setTextColor(GOLD);
-                LinearLayout.LayoutParams cp=new LinearLayout.LayoutParams(-1,dp(12));
-                cp.topMargin=-dp(12);cp.bottomMargin=dp(1);
+                LinearLayout.LayoutParams cp=new LinearLayout.LayoutParams(-1,dp(10));
+                cp.topMargin=-dp(8);cp.bottomMargin=dp(1);
                 steps.addView(connector,cp);
             }
         }
@@ -104,21 +107,28 @@ final class OriginCreatorView extends FrameLayout {
         LinearLayout rotation=new LinearLayout(context);
         rotation.setGravity(Gravity.CENTER);
         FrameLayout.LayoutParams turnPosition=new FrameLayout.LayoutParams(-1,dp(48),Gravity.BOTTOM);
-        turnPosition.bottomMargin=dp(47);
+        turnPosition.bottomMargin=dp(53);
         stage.addView(rotation,turnPosition);
         TextView left=action("↶",()->rotate(-1)),right=action("↷",()->rotate(1));
+        left.setTextSize(26);
+        right.setTextSize(26);
         left.setContentDescription("Rotate left");
         right.setContentDescription("Rotate right");
         left.setBackgroundColor(0x00000000);
         rotation.addView(left,new LinearLayout.LayoutParams(0,-1,1));
+        direction=text("",10,true);
+        direction.setGravity(Gravity.CENTER);
+        direction.setTextColor(GOLD);
+        direction.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+        rotation.addView(direction,new LinearLayout.LayoutParams(dp(36),-1));
         right.setBackgroundColor(0x00000000);
         rotation.addView(right,new LinearLayout.LayoutParams(0,-1,1));
 
         LinearLayout options=column();
-        options.setPadding(dp(8),dp(9),dp(8),dp(9));
+        options.setPadding(dp(7),dp(8),dp(7),dp(8));
         options.setBackground(ornate(PANEL,GOLD,2));
-        LinearLayout.LayoutParams panel=new LinearLayout.LayoutParams(0,-1,1.65f);
-        panel.setMargins(dp(3),dp(23),0,dp(70));
+        LinearLayout.LayoutParams panel=new LinearLayout.LayoutParams(0,-1,1.28f);
+        panel.setMargins(dp(3),dp(39),0,dp(109));
         body.addView(options,panel);
         LinearLayout panelHeader=new LinearLayout(context);
         panelHeader.setGravity(Gravity.CENTER_VERTICAL);
@@ -146,10 +156,10 @@ final class OriginCreatorView extends FrameLayout {
             item.setGravity(Gravity.CENTER_VERTICAL);
             item.setOrientation(LinearLayout.HORIZONTAL);
             item.setPadding(dp(6),dp(4),dp(5),dp(4));
-            TextView icon=text(CARD_ICONS[i],23,true);
+            TextView icon=text(CARD_ICONS[i]+"\uFE0E",23,true);
             icon.setGravity(Gravity.CENTER);
             icon.setTextColor(GOLD);
-            item.addView(icon,new LinearLayout.LayoutParams(dp(32),-1));
+            item.addView(icon,new LinearLayout.LayoutParams(dp(25),-1));
             LinearLayout copy=column();
             TextView name=text(PlayerCharacter.BACKGROUNDS[i],12,true);
             name.setTypeface(Typeface.create("serif",Typeface.NORMAL));
@@ -161,7 +171,7 @@ final class OriginCreatorView extends FrameLayout {
             description.setMaxLines(3);
             copy.addView(description);
             item.addView(copy,new LinearLayout.LayoutParams(0,-2,1));
-            item.setMinimumHeight(dp(48));
+            item.setMinimumHeight(dp(43));
             item.setOnClickListener(view->{
                 hero.background=PlayerCharacter.BACKGROUNDS[index];
                 refresh();
@@ -190,23 +200,45 @@ final class OriginCreatorView extends FrameLayout {
         footer.setPadding(dp(6),dp(6),dp(6),dp(6));
         footer.setGravity(Gravity.CENTER_VERTICAL);
         footer.setBackground(ornate(PANEL,GOLD,2));
-        layout.addView(footer,new LinearLayout.LayoutParams(-1,dp(58)));
+        layout.addView(footer,new LinearLayout.LayoutParams(-1,dp(53)));
         TextView backButton=action("❮  Back",back);
         backButton.setBackground(ornate(CARD,GOLD,2));
         footer.addView(backButton,new LinearLayout.LayoutParams(dp(78),-1));
-        TextView progress=text("◉━━━━○━━━━○━━━━○━━━━○",12,false);
-        progress.setGravity(Gravity.CENTER);
+        View progress=new View(context){
+            private final Paint ink=new Paint(Paint.ANTI_ALIAS_FLAG);
+            @Override protected void onDraw(Canvas canvas){
+                float pad=dp(13), y=getHeight()*.5f;
+                float stride=Math.max(0f,getWidth()-2*pad)/4f;
+                ink.setColor(0xFF879695);
+                ink.setStrokeWidth(dp(1));
+                canvas.drawLine(pad,y,pad+4*stride,y,ink);
+                for(int i=0;i<5;i++){
+                    float x=pad+i*stride, radius=dp(i==0?5:4);
+                    ink.setColor(i==0?GOLD:0xFF879695);
+                    canvas.drawCircle(x,y,radius,ink);
+                    ink.setColor(i==0?0xFFFFE7AE:PANEL|0xFF000000);
+                    canvas.drawCircle(x,y,radius-dp(1),ink);
+                }
+            }
+        };
         progress.setContentDescription("Step 1 of 7");
         footer.addView(progress,new LinearLayout.LayoutParams(0,-1,1));
         TextView nextButton=action("Next  ❯",next);
         nextButton.setBackground(ornate(CARD,GOLD,2));
         footer.addView(nextButton,new LinearLayout.LayoutParams(dp(78),-1));
         refresh();
+        refreshFacing();
     }
 
     private void rotate(int delta) {
         facing=Math.floorMod(facing+delta,8);
         scene.invalidate();
+        refreshFacing();
+    }
+
+    private void refreshFacing() {
+        int angle=facing%4;
+        direction.setText(angle==0 ? "◆ ◇ ◇" : angle==2 ? "◇ ◇ ◆" : "◇ ◆ ◇");
     }
 
     private void refresh() {
