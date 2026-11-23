@@ -176,9 +176,9 @@ public final class PrototypeWorldActivity extends Activity {
             goblinWalk = load(context, "blender_world/goblin_walk.png");
             goblinAttack = load(context, "blender_world/goblin_punch.png");
             spawnGoblin();
-            bakedElf = load(context, "blender_world/petite_idle.png");
-            bakedWalk = load(context, "blender_world/petite_walk.png");
-            bakedPunch = load(context, "blender_world/petite_punch.png");
+            bakedElf = load(context, "blender_world/petite_detail_idle.png");
+            bakedWalk = load(context, "blender_world/petite_detail_walk.png");
+            bakedPunch = load(context, "blender_world/petite_detail_punch.png");
             classicElf = load(context, "blender_world/classic_idle.png");
             classicWalk = load(context, "blender_world/classic_walk.png");
             classicPunch = load(context, "blender_world/classic_punch.png");
