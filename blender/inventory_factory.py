@@ -1,7 +1,9 @@
 """Experimental Blender inventory art, one transparent icon per real Equipment catalog ID."""
-import bpy,sys,os,json,math,random
+import bpy,sys,json
 from pathlib import Path
-from mathutils import Vector
+from mathutils import Matrix, Vector
+sys.path.insert(0,str(Path(__file__).resolve().parent))
+from weapon_art import render_weapon
 args=sys.argv[sys.argv.index("--")+1:]
 def opt(k,d):return args[args.index(k)+1] if k in args else d
 group=opt("--group","weapons")
@@ -26,36 +28,40 @@ bpy.ops.object.light_add(type="AREA",location=(3,-4,6));bpy.context.object.data.
 bpy.ops.object.camera_add(location=(3,-5,4));camera=bpy.context.object
 camera.rotation_euler=(Vector((0,0,.8))-camera.location).to_track_quat("-Z","Y").to_euler()
 camera.data.type="ORTHO";camera.data.ortho_scale=3.6
-scene=bpy.context.scene;scene.camera=camera;scene.render.engine="BLENDER_EEVEE"
+scene=bpy.context.scene;scene.camera=camera
 scene.render.resolution_x=256;scene.render.resolution_y=256;scene.render.resolution_percentage=100
 scene.render.film_transparent=True;scene.render.image_settings.file_format="PNG"
+if group=="weapons":
+ scene.render.engine="BLENDER_WORKBENCH"
+ scene.display.render_aa="16"
+ scene.display.shading.light="STUDIO"
+ scene.display.shading.color_type="MATERIAL"
+ scene.display.shading.show_cavity=True
+ scene.display.shading.cavity_type="WORLD"
+ camera.location=(1.16,-6,2.16)
+ camera.rotation_euler=(Vector((0,0,1.08))-camera.location).to_track_quat("-Z","Y").to_euler()
+ camera.data.ortho_scale=2.43
+else:
+ scene.render.engine="BLENDER_EEVEE_NEXT" if "BLENDER_EEVEE_NEXT" in scene.render.bl_rna.properties["engine"].enum_items.keys() else "BLENDER_EEVEE"
 for entry in catalog:
  if (entry["category"]=="weapon") != (group=="weapons"):continue
  for obj in list(bpy.data.objects):
-  if obj.type=="MESH":bpy.data.objects.remove(obj,do_unlink=True)
- name=entry["name"].lower();rng=random.Random(entry["id"])
+  if obj.type in {"MESH","CURVE"}:bpy.data.objects.remove(obj,do_unlink=True)
+ name=entry["name"].lower()
  if group=="weapons":
-  if any(k in name for k in ("bow","crossbow","sling","blowgun")):
-   cube("stock",(0,0,.75),(.16,.22,1.6),wood)
-   cube("limb",(0,0,1.4),(1.4,.12,.15),iron)
-   cylinder("bow string",(0,0,1.25),.025,1.2,cloth)
-  elif any(k in name for k in ("axe","halberd","glaive","pick")):
-   cylinder("haft",(0,0,.85),.07,1.65,wood)
-   cube("head",(.22,0,1.5),(.52,.19,.42),iron)
-  elif any(k in name for k in ("mace","hammer","maul","club","flail","morningstar")):
-   cylinder("haft",(0,0,.85),.075,1.6,wood)
-   sphere("head",(0,0,1.6),(.25,.25,.24),iron)
-  elif any(k in name for k in ("spear","javelin","pike","lance","trident","dart")):
-   cylinder("shaft",(0,0,.83),.05,1.65,wood)
-   cube("point",(0,0,1.72),(.15,.12,.36),iron)
-  elif "net" in name:
-   for n in range(-3,4):
-    cube("cord",(n*.17,0,.85),( .025,.04,1.2),cloth)
-    cube("crosscord",(0,0,.85+n*.17),(1.2,.04,.025),cloth)
-  else:
-   cylinder("grip",(0,0,.35),.07,.6,leather)
-   cube("guard",(0,0,.68),(.48,.12,.10),gold)
-   cube("blade",(0,0,1.25),(.17,.075,1.15),iron)
+  render_weapon(entry["id"],iron,wood,gold,leather,cloth,cylinder,sphere)
+  # Angle the icon in the image plane so points and handles have room.
+  angle=.47
+  rotation=Matrix.Rotation(angle,4,"Y")
+  pivot=Vector((0,0,1.13))
+  bpy.context.view_layer.update()
+  for obj in list(bpy.data.objects):
+   if obj.type in {"MESH","CURVE"}:
+    matrix=obj.matrix_world.copy()
+    matrix.translation-=pivot
+    result=rotation @ matrix
+    result.translation+=pivot
+    obj.matrix_world=result
  elif entry["category"]=="armor":
   cube("torso",(0,0,.85),(.9,.5,1.15),iron if any(k in name for k in ("mail","plate","scale")) else leather)
   cube("collar",(0,0,1.5),(.56,.6,.16),gold)
