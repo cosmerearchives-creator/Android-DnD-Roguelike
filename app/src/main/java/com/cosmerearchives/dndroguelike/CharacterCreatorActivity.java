@@ -43,7 +43,7 @@ public final class CharacterCreatorActivity extends Activity {
     private boolean previewGame=false, previewOriginalShoulders=false;
     private int previewDirection=0,previewAnimation=0;
     private int tab=0;
-    private boolean building=false;
+    private boolean building=false, originPreview=true;
     private final Random random=new Random();
     private final String[] tabs={"Identity","Abilities","Background","Class","Equipment","Review"};
     private static final int BG=0xFF13212A, INK=0xFFF3E0B7, BRASS=0xFFC7A96D;
@@ -56,6 +56,7 @@ public final class CharacterCreatorActivity extends Activity {
         hero=PlayerCharacter.loadDraft(this);
         if(saved!=null){
             tab=saved.getInt("step");
+            originPreview=saved.getBoolean("originPreview",true);
             previewDirection=saved.getInt("facing");
             previewAnimation=saved.getInt("motion");
             previewGame=saved.getBoolean("smallPreview");
@@ -68,6 +69,7 @@ public final class CharacterCreatorActivity extends Activity {
     @Override protected void onSaveInstanceState(Bundle state){
         super.onSaveInstanceState(state);
         state.putInt("step",tab);
+        state.putBoolean("originPreview",originPreview);
         state.putInt("facing",previewDirection);
         state.putInt("motion",previewAnimation);
         state.putBoolean("smallPreview",previewGame);
@@ -114,6 +116,21 @@ public final class CharacterCreatorActivity extends Activity {
         LinearLayout l=new LinearLayout(this);l.setOrientation(LinearLayout.HORIZONTAL);l.setGravity(Gravity.CENTER_VERTICAL);return l;
     }
     private void show(){
+        if(originPreview){
+            OriginCreatorView origin=new OriginCreatorView(this,hero,()->hero.save(this),this::finish,()->{
+                originPreview=false;
+                tab=0;
+                show();
+            });
+            ViewCompat.setOnApplyWindowInsetsListener(origin,(view,insets)->{
+                Insets safe=insets.getInsets(WindowInsetsCompat.Type.systemBars()|WindowInsetsCompat.Type.displayCutout());
+                view.setPadding(safe.left,safe.top,safe.right,safe.bottom);
+                return WindowInsetsCompat.CONSUMED;
+            });
+            setContentView(origin);
+            ViewCompat.requestApplyInsets(origin);
+            return;
+        }
         building=true;
         boolean landscape=getResources().getConfiguration().orientation==Configuration.ORIENTATION_LANDSCAPE;
         root=vertical();
