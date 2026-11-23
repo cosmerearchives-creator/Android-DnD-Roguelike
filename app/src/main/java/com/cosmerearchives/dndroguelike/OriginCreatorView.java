@@ -10,6 +10,9 @@ import android.graphics.Rect;
 import android.graphics.RectF;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
+import android.graphics.drawable.Drawable;
+import android.graphics.PixelFormat;
+import android.graphics.ColorFilter;
 import android.view.Gravity;
 import android.view.View;
 import android.widget.FrameLayout;
@@ -23,6 +26,8 @@ import java.io.InputStream;
 final class OriginCreatorView extends FrameLayout {
     private static final int INK=0xFFF6E3BE, GOLD=0xFFD9B678, MUTED=0xFFC5D1CB;
     private static final int PANEL=0xF01B3035, CARD=0xF4284243;
+    private static final String[] STEP_ICONS={"♟","⚔","✦","⬡","✥","✶","✓"};
+    private static final String[] CARD_ICONS={"✦","♣","⚔","◆","⚒"};
     private static final String[] STEPS={"Origin","Race","Class","Abilities","Skills","Appearance","Review"};
     private static final String[] DESCRIPTIONS={
         "A devotee trained in faith and tradition.",
@@ -34,6 +39,7 @@ final class OriginCreatorView extends FrameLayout {
     private final PlayerCharacter hero;
     private final Runnable onChange;
     private final TextView feature;
+    private final TextView[] stepViews=new TextView[STEPS.length];
     private final TextView[] cards=new TextView[PlayerCharacter.BACKGROUNDS.length];
     private final Scene scene;
     private int facing=2;
@@ -46,26 +52,30 @@ final class OriginCreatorView extends FrameLayout {
         addView(scene,new FrameLayout.LayoutParams(-1,-1));
 
         LinearLayout layout=column();
-        layout.setPadding(dp(6),dp(14),dp(6),dp(8));
+        layout.setPadding(dp(8),dp(12),dp(8),dp(9));
         addView(layout,new FrameLayout.LayoutParams(-1,-1));
         TextView heading=text("Character Creation",25,true);
         heading.setGravity(Gravity.CENTER);
+        heading.setTextSize(27);
         layout.addView(heading,new LinearLayout.LayoutParams(-1,dp(40)));
         TextView subtitle=text("Create your adventurer",13,false);
         subtitle.setGravity(Gravity.CENTER);
+        subtitle.setTextColor(MUTED);
         layout.addView(subtitle,new LinearLayout.LayoutParams(-1,dp(28)));
 
         LinearLayout body=new LinearLayout(context);
         layout.addView(body,new LinearLayout.LayoutParams(-1,0,1));
         LinearLayout steps=column();
         steps.setGravity(Gravity.CENTER_VERTICAL);
-        body.addView(steps,new LinearLayout.LayoutParams(dp(75),-1));
+        body.addView(steps,new LinearLayout.LayoutParams(dp(102),-1));
         for(int i=0;i<STEPS.length;i++){
-            TextView label=text(STEPS[i],i==5?10:12,true);
+            TextView label=text(STEP_ICONS[i]+"  "+STEPS[i],i==5?12:14,true);
             label.setGravity(Gravity.CENTER);
-            label.setBackground(frame(i==0?0xF03D4C49:PANEL,i==0?GOLD:0xFF577074));
-            LinearLayout.LayoutParams size=new LinearLayout.LayoutParams(-1,dp(39));
-            size.bottomMargin=dp(9);
+            label.setBackground(ornate(i==0?0xF03D4C49:PANEL,i==0?0xFFFFD88C:0xFF577074,1));
+            label.setSelected(i==0);
+            stepViews[i]=label;
+            LinearLayout.LayoutParams size=new LinearLayout.LayoutParams(-1,dp(43));
+            size.bottomMargin=dp(7);
             steps.addView(label,size);
         }
 
@@ -83,14 +93,20 @@ final class OriginCreatorView extends FrameLayout {
         rotation.addView(right,new LinearLayout.LayoutParams(0,-1,1));
 
         LinearLayout options=column();
-        options.setPadding(dp(7),dp(8),dp(7),dp(7));
-        options.setBackground(frame(PANEL,GOLD));
+        options.setPadding(dp(11),dp(10),dp(11),dp(10));
+        options.setBackground(ornate(PANEL,GOLD,2));
         LinearLayout.LayoutParams panel=new LinearLayout.LayoutParams(0,-1,1.40f);
         panel.setMargins(dp(3),dp(14),0,dp(46));
         body.addView(options,panel);
-        options.addView(text("Origin",19,true));
+        TextView panelTitle=text("Origin     ⚄",22,true);
+        panelTitle.setPadding(dp(5),0,0,dp(8));
+        options.addView(panelTitle);
+        View separator=new View(context);separator.setBackgroundColor(0x997F8C80);
+        options.addView(separator,new LinearLayout.LayoutParams(-1,dp(1)));
         if (hero.background==null) hero.background=PlayerCharacter.BACKGROUNDS[0];
-        options.addView(text("Choose a background",12,true));
+        TextView prompt=text("Choose a Background",16,true);
+        prompt.setPadding(dp(5),dp(10),0,dp(9));
+        options.addView(prompt);
         ScrollView scroll=new ScrollView(context);
         LinearLayout list=column();
         scroll.addView(list);
@@ -98,9 +114,9 @@ final class OriginCreatorView extends FrameLayout {
         for(int i=0;i<cards.length;i++) {
             final int index=i;
             TextView item=text("",12,false);
-            item.setMinHeight(dp(54));
+            item.setMinHeight(dp(56));
             item.setGravity(Gravity.CENTER_VERTICAL);
-            item.setPadding(dp(6),dp(7),dp(5),dp(7));
+            item.setPadding(dp(11),dp(7),dp(6),dp(7));
             item.setOnClickListener(view->{
                 hero.background=PlayerCharacter.BACKGROUNDS[index];
                 refresh();
@@ -108,20 +124,20 @@ final class OriginCreatorView extends FrameLayout {
             });
             cards[i]=item;
             LinearLayout.LayoutParams card=new LinearLayout.LayoutParams(-1,-2);
-            card.bottomMargin=dp(5);
+            card.bottomMargin=dp(6);
             list.addView(item,card);
         }
         feature=text("",12,false);
-        feature.setPadding(dp(5),dp(7),dp(5),dp(6));
-        feature.setBackground(frame(CARD,0xFF668183));
+        feature.setPadding(dp(10),dp(9),dp(8),dp(9));
+        feature.setBackground(ornate(CARD,0xFF668183,2));
         options.addView(feature);
         LinearLayout footer=new LinearLayout(context);
         footer.setPadding(dp(6),dp(6),dp(6),dp(6));
         footer.setGravity(Gravity.CENTER_VERTICAL);
-        footer.setBackground(frame(PANEL,GOLD));
-        layout.addView(footer,new LinearLayout.LayoutParams(-1,dp(58)));
+        footer.setBackground(ornate(PANEL,GOLD,2));
+        layout.addView(footer,new LinearLayout.LayoutParams(-1,dp(64)));
         footer.addView(action("‹ Back",back),new LinearLayout.LayoutParams(dp(68),-1));
-        TextView progress=text("●  ○  ○  ○  ○  ○  ○",11,false);
+        TextView progress=text("◆ ── ◇ ── ◇ ── ◇ ── ◇ ── ◇ ── ◇",11,false);
         progress.setGravity(Gravity.CENTER);
         progress.setContentDescription("Step 1 of 7");
         footer.addView(progress,new LinearLayout.LayoutParams(0,-1,1));
@@ -138,13 +154,13 @@ final class OriginCreatorView extends FrameLayout {
         for (int i=0;i<cards.length;i++) {
             String name=PlayerCharacter.BACKGROUNDS[i];
             boolean selected=name.equals(hero.background);
-            android.text.SpannableString copy=new android.text.SpannableString(name+"\n"+DESCRIPTIONS[i]);
-            copy.setSpan(new android.text.style.StyleSpan(Typeface.BOLD),0,name.length(),0);
+            android.text.SpannableString copy=new android.text.SpannableString(CARD_ICONS[i]+"   "+name+"\n      "+DESCRIPTIONS[i]);
+            copy.setSpan(new android.text.style.StyleSpan(Typeface.BOLD),CARD_ICONS[i].length()+3,CARD_ICONS[i].length()+3+name.length(),0);
             cards[i].setText(copy);
             cards[i].setSelected(selected);
-            cards[i].setBackground(frame(selected?0xFF4A5449:CARD,selected?GOLD:0xFF4E6C70));
+            cards[i].setBackground(ornate(selected?0xFF454C43:CARD,selected?0xFFFFD68A:0xFF4E6C70,selected?3:2));
         }
-        feature.setText("Background skills\n"+String.join(" and ",hero.backgroundSkills()));
+        feature.setText("Background Feature\n\n✦   "+hero.background+"\n      "+String.join(" and ",hero.backgroundSkills()));
     }
 
     private int dp(float value) {
@@ -164,10 +180,43 @@ final class OriginCreatorView extends FrameLayout {
     private TextView action(String label,Runnable action) {
         TextView view=text(label,15,true);
         view.setGravity(Gravity.CENTER);
-        view.setBackground(frame(CARD,GOLD));
+        view.setBackground(ornate(CARD,GOLD,1));
         view.setOnClickListener(v->action.run());
         return view;
     }
+
+    /** Drawn polygon frames stay native, clickable and density-independent. */
+    private Drawable ornate(int fill,int edge,int shape) {
+        return new Drawable() {
+            final Paint brush=new Paint(Paint.ANTI_ALIAS_FLAG);
+            final Path outline=new Path();
+            @Override public void draw(Canvas canvas) {
+                Rect b=getBounds();
+                float l=b.left+dp(1),t=b.top+dp(1),r=b.right-dp(1),bottom=b.bottom-dp(1);
+                float cut=Math.min(dp(shape==1?12:9),(bottom-t)*.24f);
+                outline.reset();
+                if(shape==1){
+                    outline.moveTo(l+cut,t);outline.lineTo(r-cut,t);
+                    outline.lineTo(r,bottom-(bottom-t)*.5f);
+                    outline.lineTo(r-cut,bottom);outline.lineTo(l+cut,bottom);
+                    outline.lineTo(l,bottom-(bottom-t)*.5f);outline.close();
+                }else{
+                    outline.moveTo(l+cut,t);outline.lineTo(r-cut,t);
+                    outline.lineTo(r,t+cut);outline.lineTo(r,bottom-cut);
+                    outline.lineTo(r-cut,bottom);outline.lineTo(l+cut,bottom);
+                    outline.lineTo(l,bottom-cut);outline.lineTo(l,t+cut);outline.close();
+                }
+                brush.setStyle(Paint.Style.FILL);brush.setColor(fill);canvas.drawPath(outline,brush);
+                brush.setStyle(Paint.Style.STROKE);
+                brush.setStrokeWidth(dp(shape==3?2.2f:1.2f));brush.setColor(edge);
+                canvas.drawPath(outline,brush);brush.setStyle(Paint.Style.FILL);
+            }
+            @Override public void setAlpha(int alpha) {}
+            @Override public void setColorFilter(ColorFilter filter) {}
+            @Override public int getOpacity(){return PixelFormat.TRANSLUCENT;}
+        };
+    }
+
     private GradientDrawable frame(int fill,int edge) {
         GradientDrawable shape=new GradientDrawable();
         shape.setColor(fill);
