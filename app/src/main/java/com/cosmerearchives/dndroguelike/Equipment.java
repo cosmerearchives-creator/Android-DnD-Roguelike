@@ -28,6 +28,14 @@ final class Equipment {
             this.thrown=properties.contains("Thrown");
             this.ranged=properties.contains("Ammunition");
         }
+        String damageDice(boolean twoHands){
+            if(versatile && twoHands){
+                int start=properties.indexOf("Versatile (")+11;
+                int end=properties.indexOf(')',start);
+                if(end>start)return properties.substring(start,end);
+            }
+            return damage;
+        }
         boolean weapon(){return kind==Kind.WEAPON;}
         String detail(){return name+"  •  "+weight+" lb"+(damage.isEmpty()?"":"  •  "+damage+" "+damageType)+(properties.isEmpty()?"":"  •  "+properties);}
     }
@@ -99,6 +107,7 @@ final class Equipment {
             if(slot==Slot.MAIN_HAND){
                 if(item.kind!=Kind.WEAPON)return false;
                 if(item.twoHanded){slots[Slot.OFF_HAND.ordinal()]=null;versatileTwoHanded=false;}
+                if(!id.equals(slots[i]))versatileTwoHanded=false;
                 slots[i]=id;return true;
             }
             if(item.kind!=Kind.SHIELD&&item.kind!=Kind.WEAPON&&!id.equals("torch"))return false;
