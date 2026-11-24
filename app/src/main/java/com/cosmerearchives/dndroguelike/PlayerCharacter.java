@@ -61,6 +61,15 @@ final class PlayerCharacter {
             default:return "Guild Membership";
         }
     }
+    String backgroundFeatureTag(){
+        return backgroundFeature().toLowerCase(java.util.Locale.ROOT).replace(' ','_');
+    }
+    java.util.Set<String> backgroundFeatureTags(){
+        return java.util.Collections.singleton(backgroundFeatureTag());
+    }
+    boolean hasBackgroundFeature(String tag){
+        return backgroundFeatureTag().equals(tag.trim().toLowerCase(java.util.Locale.ROOT).replace(' ','_'));
+    }
     int backgroundLanguageCount(){
         return background.equals("Acolyte")?2:background.equals("Soldier")?0:1;
     }
@@ -163,6 +172,7 @@ final class PlayerCharacter {
             o.put("name",name);o.put("appearance",appearance.id);
             o.put("petiteEars",petite.ears);o.put("petiteHair",petite.hair);o.put("petiteSkin",petite.skin);
             o.put("class",startingClass);o.put("background",background);
+            o.put("backgroundFeatureTags",new JSONArray(backgroundFeatureTags()));
             o.put("skillTags",new JSONArray(skillTags()));
             o.put("style",style);o.put("cantrip",cantrip);o.put("skillOne",skillOne);o.put("skillTwo",skillTwo);
             o.put("languageOne",languageOne);o.put("languageTwo",languageTwo);o.put("languageThree",languageThree);
