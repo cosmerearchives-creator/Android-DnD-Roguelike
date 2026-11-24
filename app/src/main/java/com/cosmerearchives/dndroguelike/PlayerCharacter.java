@@ -86,11 +86,70 @@ final class PlayerCharacter {
     private static String skillTag(String skill){
         return skill.trim().toLowerCase(java.util.Locale.ROOT).replace(' ','_');
     }
-    java.util.Set<String> skillTags(){
+    static final String[] ALL_SKILLS={"Acrobatics","Animal Handling","Arcana","Athletics","Deception","History","Insight","Intimidation","Investigation","Medicine","Nature","Perception","Performance","Persuasion","Religion","Sleight of Hand","Stealth","Survival"};
+    String replacementOne="",replacementTwo="";
+    java.util.Set<String> baseSkillTags(){
         java.util.Set<String> tags=new java.util.TreeSet<>();
-        tags.add("perception"); // High elf Keen Senses
+        tags.add("perception");
         tags.add(skillTag(skillOne));tags.add(skillTag(skillTwo));
         for(String skill:backgroundSkills())tags.add(skillTag(skill));
+        return tags;
+    }
+    int replacementCount(){return 5-baseSkillTags().size();}
+    String[] replacementOptions(String excluded){
+        java.util.ArrayList<String> options=new java.util.ArrayList<>();
+        for(String skill:ALL_SKILLS)if(!baseSkillTags().contains(skillTag(skill))&&!skill.equals(excluded))options.add(skill);
+        return options.toArray(new String[0]);
+    }
+    void normalizeProficiencies(){
+        String[] first=replacementOptions("");
+        if(replacementCount()>0 && !java.util.Arrays.asList(first).contains(replacementOne))replacementOne=first[0];
+        String[] second=replacementOptions(replacementOne);
+        if(replacementCount()>1 && !java.util.Arrays.asList(second).contains(replacementTwo))replacementTwo=second[0];
+        java.util.Set<String> used=new java.util.HashSet<>();
+        String[] choices={languageOne,languageTwo,languageThree};
+        for(int i=0;i<1+backgroundLanguageCount();i++){
+            if(!java.util.Arrays.asList(LANGUAGES).contains(choices[i])||used.contains(choices[i])){
+                for(String option:LANGUAGES)if(!used.contains(option)){choices[i]=option;break;}
+            }
+            used.add(choices[i]);
+        }
+        languageOne=choices[0];languageTwo=choices[1];languageThree=choices[2];
+    }
+    String[] languageOptions(int slot){
+        java.util.ArrayList<String> options=new java.util.ArrayList<>();
+        String[] choices={languageOne,languageTwo,languageThree};
+        for(String option:LANGUAGES){
+            boolean used=false;
+            for(int i=0;i<1+backgroundLanguageCount();i++)if(i!=slot&&option.equals(choices[i]))used=true;
+            if(!used)options.add(option);
+        }
+        return options.toArray(new String[0]);
+    }
+    java.util.Set<String> languageTags(){
+        normalizeProficiencies();
+        java.util.Set<String> tags=new java.util.TreeSet<>();
+        tags.add("common");tags.add("elvish");tags.add(skillTag(languageOne));
+        if(backgroundLanguageCount()>0)tags.add(skillTag(languageTwo));
+        if(backgroundLanguageCount()>1)tags.add(skillTag(languageThree));
+        return java.util.Collections.unmodifiableSet(tags);
+    }
+    boolean knowsLanguage(String language){return languageTags().contains(skillTag(language));}
+    private static String toolTag(String tool){
+        String tag=skillTag(tool);
+        return tag.endsWith("_artisan")?tag.substring(0,tag.length()-8):tag;
+    }
+    java.util.Set<String> toolTags(){
+        java.util.Set<String> tags=new java.util.TreeSet<>();
+        for(String tool:backgroundTools())tags.add(toolTag(tool));
+        return java.util.Collections.unmodifiableSet(tags);
+    }
+    boolean toolProficient(String tool){return toolTags().contains(toolTag(tool));}
+    java.util.Set<String> skillTags(){
+        normalizeProficiencies();
+        java.util.Set<String> tags=baseSkillTags();
+        if(replacementCount()>0)tags.add(skillTag(replacementOne));
+        if(replacementCount()>1)tags.add(skillTag(replacementTwo));
         return java.util.Collections.unmodifiableSet(tags);
     }
     boolean skillProficient(String skill){
@@ -173,7 +232,11 @@ final class PlayerCharacter {
             o.put("petiteEars",petite.ears);o.put("petiteHair",petite.hair);o.put("petiteSkin",petite.skin);
             o.put("class",startingClass);o.put("background",background);
             o.put("backgroundFeatureTags",new JSONArray(backgroundFeatureTags()));
+            normalizeProficiencies();
             o.put("skillTags",new JSONArray(skillTags()));
+            o.put("toolTags",new JSONArray(toolTags()));
+            o.put("languageTags",new JSONArray(languageTags()));
+            o.put("replacementOne",replacementOne);o.put("replacementTwo",replacementTwo);
             o.put("style",style);o.put("cantrip",cantrip);o.put("skillOne",skillOne);o.put("skillTwo",skillTwo);
             o.put("languageOne",languageOne);o.put("languageTwo",languageTwo);o.put("languageThree",languageThree);
             o.put("instrumentChoice",instrumentChoice);o.put("prayerChoice",prayerChoice);o.put("toolChoice",toolChoice);o.put("gamingChoice",gamingChoice);o.put("artisanChoice",artisanChoice);
@@ -215,6 +278,8 @@ final class PlayerCharacter {
             JSONArray set=history.optJSONArray(j);if(set==null||set.length()!=6)continue;
             int[] values=new int[6];for(int i=0;i<6;i++)values[i]=set.optInt(i);p.rolls.add(values);
         }
+        p.replacementOne=o.optString("replacementOne","");p.replacementTwo=o.optString("replacementTwo","");
+        p.normalizeProficiencies();
         return p;
     }
     void save(Context context){
