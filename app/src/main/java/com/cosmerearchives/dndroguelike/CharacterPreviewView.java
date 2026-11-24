@@ -21,6 +21,11 @@ final class CharacterPreviewView extends View {
     private final RectF backdrop=new RectF();
     private final Paint terrainPaint=new Paint(Paint.FILTER_BITMAP_FLAG);
     private ElfAppearance appearance;
+    private PetiteAppearance petite=PetiteAppearance.DEFAULT;
+    private final Bitmap[] petiteSheets=new Bitmap[3];
+    private final Rect animationCell=new Rect();
+    private final RectF animationBounds=new RectF();
+    private final Paint animationPaint=new Paint(Paint.FILTER_BITMAP_FLAG);
     private boolean worldScale;
     private int direction, animation;
     private long animationStart;
@@ -53,6 +58,31 @@ final class CharacterPreviewView extends View {
         rig.setAppearance(value);
         appearance = value;
         invalidate();
+    }
+
+    void petite(PetiteAppearance value) {
+        if (petite==value) return;
+        petite=value;
+        java.util.Arrays.fill(petiteSheets,null);
+        invalidate();
+    }
+
+    private boolean drawPetite(Canvas canvas,float seconds,float progress,float scale) {
+        if (petiteSheets[animation]==null) {
+            String motion=new String[]{"idle","walk","punch"}[animation];
+            Bitmap source=PetiteAppearance.load(getContext(),"blender_world/petite_detail_"+motion+".png");
+            petiteSheets[animation]=petite.apply(getContext(),source,motion);
+        }
+        Bitmap sheet=petiteSheets[animation];
+        if (sheet==null) return false;
+        int frame=animation==1 ? Math.floorMod((int)(seconds*12.4f),8)
+            : animation==2 ? Math.min(4,(int)(progress*5)) : 0;
+        int facing=(direction*2+1)%8;
+        animationCell.set(frame*168,facing*192,(frame+1)*168,(facing+1)*192);
+        float x=getWidth()*.5f,y=getHeight()*.92f;
+        animationBounds.set(x-84*scale,y-160*scale,x+84*scale,y+32*scale);
+        canvas.drawBitmap(sheet,animationCell,animationBounds,animationPaint);
+        return true;
     }
 
     void shouldersOriginal(boolean original) {
@@ -92,9 +122,11 @@ final class CharacterPreviewView extends View {
             backdrop.set(0f,(getHeight()-size)*.5f,size,(getHeight()+size)*.5f);
             canvas.drawBitmap(terrain,terrainTile,backdrop,terrainPaint);
         }
-        rig.draw(canvas, getWidth() * .5f, getHeight() * .92f, scale, direction,
+        if (appearance!=ElfAppearance.PETITE || !drawPetite(canvas,seconds,progress,scale)) {
+            rig.draw(canvas, getWidth() * .5f, getHeight() * .92f, scale, direction,
             walking ? seconds * 1.55f : 0f, walking ? 1f : 0f, seconds,
             progress, false, getWidth());
+        }
         postInvalidateOnAnimation();
     }
 }
