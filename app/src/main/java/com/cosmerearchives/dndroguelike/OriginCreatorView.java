@@ -355,7 +355,7 @@ final class OriginCreatorView extends FrameLayout {
     }
 
     private void raceFields(LinearLayout fields){
-        select(fields,"Race",new String[]{"Elf"},"Elf",value->{});
+        select(fields,"Select a Race",new String[]{"Elf"},"Elf",value->{});
         select(fields,"Subrace",new String[]{"High Elf","Wood Elf","Drow"},hero.race.displayName(),value->{
             RaceDefinition selected="Drow".equals(value)?RaceDefinition.DROW:"Wood Elf".equals(value)?RaceDefinition.WOOD_ELF:RaceDefinition.HIGH_ELF;
             if(hero.race!=selected){
@@ -366,13 +366,74 @@ final class OriginCreatorView extends FrameLayout {
                 refresh();scene.invalidate();onChange.run();showStep(RACE);
             }
         });
-        fields.addView(text(hero.race==RaceDefinition.DROW?"Dexterity +2 · Charisma +1":hero.race==RaceDefinition.WOOD_ELF?"Dexterity +2 · Wisdom +1":"Dexterity +2 · Intelligence +1",14,true));
-        fields.addView(text("Walking speed: "+hero.race.speedFeet+" ft\nDarkvision: "+hero.race.darkvisionFeet+" ft\nPerception proficiency\nCommon and Elvish\n"+(hero.race==RaceDefinition.DROW?"Drow Weapon Training":"Elf Weapon Training")+"\nFey Ancestry\nTrance",13,false));
-        if(hero.race==RaceDefinition.WOOD_ELF)fields.addView(text("Mask of the Wild — stealth integration pending",13,false));
+        LinearLayout traits=section(fields,"Racial Traits");
+        LinearLayout rows=column();
+        rows.setPadding(dp(8),dp(5),dp(8),dp(5));
+        rows.setBackground(ornate(CARD,0xFF668183,2));
+        LinearLayout.LayoutParams rp=new LinearLayout.LayoutParams(-1,-2);
+        rp.topMargin=dp(6);traits.addView(rows,rp);
+        java.util.ArrayList<String> bonuses=new java.util.ArrayList<>();
+        for(int i=0;i<PlayerCharacter.ABILITIES.length;i++){
+            int bonus=hero.race.bonus(i);
+            if(bonus!=0)bonuses.add(PlayerCharacter.ABILITIES[i]+" +"+bonus);
+        }
+        racialRow(rows,"strength",String.join(" · ",bonuses));
+        racialRow(rows,"speed","Walking speed: "+hero.race.speedFeet+" ft");
+        racialRow(rows,"vision","Darkvision: "+hero.race.darkvisionFeet+" ft");
+        racialRow(rows,"perception","Perception proficiency");
+        racialRow(rows,"speech","Common and Elvish");
+        racialRow(rows,"weapons",hero.race==RaceDefinition.DROW?"Drow Weapon Training":"Elf Weapon Training");
+        racialRow(rows,"leaf","Fey Ancestry");
+        racialRow(rows,"trance","Trance");
+        if(hero.race==RaceDefinition.WOOD_ELF)racialRow(rows,"leaf","Mask of the Wild — stealth integration pending");
         else if(hero.race==RaceDefinition.DROW){
-            fields.addView(text("Sunlight Sensitivity",14,true));
-            fields.addView(text("Drow Magic (Charisma)\nLevel 1: Dancing Lights\nLevel 3: Faerie Fire (once per long rest)\nLevel 5: Darkness (once per long rest)",13,false));
-        }else select(fields,"Wizard cantrip",PlayerCharacter.CANTRIPS,hero.cantrip,value->{hero.cantrip=value;onChange.run();});
+            racialRow(rows,"sun","Sunlight Sensitivity");
+            LinearLayout magic=section(fields,"Drow Magic");
+            racialRow(magic,"magic","Charisma spellcasting");
+            racialRow(magic,"magic","Level 1: Dancing Lights");
+            racialRow(magic,"magic","Level 3: Faerie Fire (once per long rest)");
+            racialRow(magic,"magic","Level 5: Darkness (once per long rest)");
+        }else {
+            LinearLayout magic=section(fields,"Wizard Cantrip");
+            select(magic,"Wizard cantrip",PlayerCharacter.CANTRIPS,hero.cantrip,value->{hero.cantrip=value;onChange.run();},false);
+        }
+    }
+
+    private void racialRow(LinearLayout parent,String kind,String value){
+        TextView row=text(value,12,true);
+        row.setTypeface(Typeface.create("serif",Typeface.NORMAL));
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setPadding(dp(3),dp(3),dp(2),dp(3));
+        row.setMinHeight(dp(22));
+        row.setCompoundDrawablePadding(dp(9));
+        row.setCompoundDrawables(racialIcon(kind),null,null,null);
+        parent.addView(row,new LinearLayout.LayoutParams(-1,-2));
+    }
+
+    private Drawable racialIcon(String kind){
+        Drawable d=new Drawable(){
+            final Paint p=new Paint(Paint.ANTI_ALIAS_FLAG);
+            @Override public void draw(Canvas c){
+                Rect b=getBounds();c.save();c.translate(b.left,b.top);c.scale(b.width()/24f,b.height()/24f);
+                p.setColor(GOLD);p.setStrokeWidth(1.8f);p.setStrokeCap(Paint.Cap.ROUND);p.setStrokeJoin(Paint.Join.ROUND);p.setStyle(Paint.Style.STROKE);
+                Path q=new Path();
+                switch(kind){
+                    case "vision":q.moveTo(2,12);q.quadTo(12,1,22,12);q.quadTo(12,23,2,12);c.drawPath(q,p);c.drawCircle(12,12,4,p);break;
+                    case "perception":c.drawCircle(12,12,7,p);c.drawLine(12,1,12,8,p);c.drawLine(12,16,12,23,p);c.drawLine(1,12,8,12,p);c.drawLine(16,12,23,12,p);break;
+                    case "speed":q.moveTo(7,3);q.lineTo(15,3);q.lineTo(15,13);q.lineTo(21,16);q.lineTo(21,20);q.lineTo(3,20);q.lineTo(3,16);q.lineTo(7,12);q.close();c.drawPath(q,p);c.drawLine(3,17,20,17,p);break;
+                    case "speech":c.drawRoundRect(2,3,18,15,5,5,p);c.drawLine(6,15,4,20,p);c.drawLine(4,20,11,15,p);for(int i=0;i<3;i++)c.drawCircle(6+i*4,9,.6f,p);break;
+                    case "weapons":c.drawLine(3,3,20,20,p);c.drawLine(21,3,4,20,p);c.drawLine(13,19,19,13,p);c.drawLine(5,13,11,19,p);break;
+                    case "leaf":q.moveTo(3,21);q.quadTo(2,4,21,3);q.quadTo(22,19,3,21);c.drawPath(q,p);c.drawLine(3,21,17,7,p);break;
+                    case "trance":for(int i=0;i<3;i++){c.save();c.rotate(i*120,12,12);c.drawCircle(12,6,4,p);c.restore();}break;
+                    case "strength":q.moveTo(3,19);q.lineTo(3,12);q.lineTo(7,5);q.lineTo(11,4);q.lineTo(13,8);q.lineTo(9,10);q.lineTo(8,14);q.quadTo(16,8,20,15);q.lineTo(21,19);q.close();c.drawPath(q,p);break;
+                    case "sun":c.drawCircle(12,12,5,p);for(int i=0;i<8;i++){c.save();c.rotate(i*45,12,12);c.drawLine(12,2,12,5,p);c.restore();}break;
+                    default:q.moveTo(12,2);q.lineTo(15,9);q.lineTo(22,12);q.lineTo(15,15);q.lineTo(12,22);q.lineTo(9,15);q.lineTo(2,12);q.lineTo(9,9);q.close();c.drawPath(q,p);
+                }c.restore();
+            }
+            @Override public void setAlpha(int a){}
+            @Override public void setColorFilter(ColorFilter f){}
+            @Override public int getOpacity(){return PixelFormat.TRANSLUCENT;}
+        };d.setBounds(0,0,dp(18),dp(18));return d;
     }
     private String avatarName() {
         String name=hero.name.trim();
@@ -406,9 +467,14 @@ final class OriginCreatorView extends FrameLayout {
 
     private void select(LinearLayout fields,String label,String[] options,String current,
                         java.util.function.Consumer<String> change) {
+        select(fields,label,options,current,change,true);
+    }
+
+    private void select(LinearLayout fields,String label,String[] options,String current,
+                        java.util.function.Consumer<String> change,boolean showLabel) {
         TextView heading=text(label,12,true);
         heading.setPadding(0,dp(9),0,0);
-        fields.addView(heading);
+        if(showLabel)fields.addView(heading);
         Spinner choices=new Spinner(getContext());
         choices.setContentDescription(label);
         choices.setBackground(ornate(CARD,0xFF668183,2));
@@ -420,6 +486,7 @@ final class OriginCreatorView extends FrameLayout {
                 view.setTextColor(INK);
                 view.setTextSize(13);
                 decorate(view,label+" "+options[position],"▾",17);
+                if(label.equals("Select a Race")||label.equals("Subrace")||label.equals("Wizard cantrip"))view.setTypeface(Typeface.create("serif",Typeface.NORMAL));
                 return view;
             }
         };
@@ -505,7 +572,9 @@ final class OriginCreatorView extends FrameLayout {
     private void decorate(TextView view,String key,String right,int size){
         String k=key.toLowerCase(java.util.Locale.ROOT);
         String glyph="◆";
-        if(k.contains("language")) glyph="▤";
+        if(k.contains("racial traits")) glyph="▤";
+        else if(k.contains("cantrip")||k.contains("drow magic")) glyph="✦";
+        else if(k.contains("language")) glyph="▤";
         else if(k.contains("proficiency")||k.equals("skills")) glyph="✥";
         else if(k.contains("instrument")||k.contains("lute")) glyph="♫";
         else if(k.contains("quarterstaff")||k.contains("shovel")) glyph="⚒";
