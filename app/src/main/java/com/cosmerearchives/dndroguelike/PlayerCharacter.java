@@ -18,7 +18,7 @@ final class PlayerCharacter {
     private static final String DRAFT_FILE="high_elf_draft.json";
     static final String[] STARTING_CLASSES={"Fighter"};
     static final String[] ABILITIES={"Strength","Dexterity","Constitution","Intelligence","Wisdom","Charisma"};
-    static final String[] BACKGROUNDS={"Acolyte","Wilderness Pathfinder","Caravan Guard","Relic Seeker","Guild Apprentice"};
+    static final String[] BACKGROUNDS={"Acolyte","Outlander","Soldier","Archaeologist","Guild Artisan"};
     static final String[] STYLES={"Archery","Defense","Dueling","Great Weapon Fighting","Protection","Two-Weapon Fighting"};
     static final String[] CANTRIPS={"Fire Bolt","Ray of Frost","Shocking Grasp"};
     static final String[] FIGHTER_SKILLS={"Acrobatics","Animal Handling","Athletics","History","Insight","Intimidation","Perception","Survival"};
@@ -41,16 +41,45 @@ final class PlayerCharacter {
     static int modifier(int score){return (int)Math.floor((score-10)/2.0);}
     int proficiency(){return 2+(level-1)/4;}
     int attackBonus(){return modifier(score(0))+proficiency();}
-    int passivePerception(){return 10+modifier(score(4))+proficiency();}
+    int passivePerception(){return 10+skillBonus("Perception",4);}
     int maxCarry(){return score(0)*15;}
     String[] backgroundSkills(){
         switch(background){
             case "Acolyte":return new String[]{"Insight","Religion"};
-            case "Wilderness Pathfinder":return new String[]{"Survival","Nature"};
-            case "Caravan Guard":return new String[]{"Athletics","Perception"};
-            case "Relic Seeker":return new String[]{"Investigation","History"};
+            case "Outlander":return new String[]{"Athletics","Survival"};
+            case "Soldier":return new String[]{"Athletics","Intimidation"};
+            case "Archaeologist":return new String[]{"History","Survival"};
             default:return new String[]{"Insight","Persuasion"};
         }
+    }
+    String backgroundFeature(){
+        switch(background){
+            case "Acolyte":return "Shelter of the Faithful";
+            case "Outlander":return "Wanderer";
+            case "Soldier":return "Military Rank";
+            case "Archaeologist":return "Historical Knowledge";
+            default:return "Guild Membership";
+        }
+    }
+    int backgroundLanguageCount(){
+        return background.equals("Acolyte")?2:background.equals("Soldier")?0:1;
+    }
+    String[] backgroundTools(){
+        switch(background){
+            case "Acolyte":return new String[0];
+            case "Outlander":return new String[]{instrumentChoice};
+            case "Soldier":return new String[]{gamingChoice,"land_vehicles"};
+            case "Archaeologist":return new String[]{toolChoice.equals("navigator_tools")?toolChoice:"cartographer_tools"};
+            default:return new String[]{artisanChoice};
+        }
+    }
+    String instrumentChoice="Lute", prayerChoice="prayer_book";
+    boolean skillProficient(String skill){
+        return skill.equals("Perception") || skill.equals(skillOne) || skill.equals(skillTwo)
+            || java.util.Arrays.asList(backgroundSkills()).contains(skill);
+    }
+    int skillBonus(String skill,int ability){
+        return modifier(score(ability))+(skillProficient(skill)?proficiency():0);
     }
     static int[] rollScores(Random rng){
         int[] result=new int[6];
@@ -78,19 +107,24 @@ final class PlayerCharacter {
         if(rangedChoice.equals("light_crossbow"))bag.add("light_crossbow",1);
         else bag.add("handaxe",2);
         if(packChoice.equals("dungeon"))Equipment.dungeonPack(bag);else Equipment.explorerPack(bag);
-        if(background.equals("Acolyte")){
-            bag.add("holy_symbol",1);bag.add("prayer_book",1);bag.add("incense",5);bag.gold=15;
-        }else if(background.equals("Wilderness Pathfinder")){
-            bag.add("walking_staff",1);bag.add("hunting_trap",1);bag.add("wilderness_map",1);
-            bag.add(toolChoice,1);bag.gold=10;
-        }else if(background.equals("Caravan Guard")){
-            bag.add(gamingChoice,1);bag.add("travel_documents",1);bag.add("employer_insignia",1);bag.gold=10;
-        }else if(background.equals("Relic Seeker")){
-            bag.add("archaeological_kit",1);bag.add("sketchbook",1);
-            bag.add("charcoal",1);bag.add("artifact_fragment",1);bag.add(toolChoice,1);bag.gold=10;
-        }else{
-            bag.add(artisanChoice,1);bag.add("guild_id",1);bag.gold=10;
+        switch(background){
+            case "Acolyte":
+                bag.add("holy_symbol",1);bag.add(prayerChoice.equals("prayer_wheel")?"prayer_wheel":"prayer_book",1);
+                bag.add("incense",5);bag.add("vestments",1);bag.add("common_clothes",1);bag.gold=15;break;
+            case "Outlander":
+                bag.add("walking_staff",1);bag.add("hunting_trap",1);bag.add("animal_trophy",1);
+                bag.add("travelers_clothes",1);bag.gold=10;break;
+            case "Soldier":
+                bag.add(gamingChoice,1);bag.add("rank_insignia",1);bag.add("enemy_trophy",1);
+                bag.add("common_clothes",1);bag.gold=10;break;
+            case "Archaeologist":
+                bag.add("map_case",1);bag.add("bullseye_lantern",1);bag.add("miners_pick",1);
+                bag.add("travelers_clothes",1);bag.add("shovel",1);bag.add("two_person_tent",1);
+                bag.add("excavation_trinket",1);bag.gold=25;break;
+            default:
+                bag.add(artisanChoice,1);bag.add("guild_letter",1);bag.add("travelers_clothes",1);bag.gold=15;
         }
+        bag.add("pouch",1);
         if(armorChoice.equals("chain_mail"))bag.equip("chain_mail",Equipment.Slot.BODY);
         else bag.equip("leather_armor",Equipment.Slot.BODY);
         bag.equip(martialOne,Equipment.Slot.MAIN_HAND);
@@ -107,7 +141,7 @@ final class PlayerCharacter {
             o.put("class",startingClass);o.put("background",background);
             o.put("style",style);o.put("cantrip",cantrip);o.put("skillOne",skillOne);o.put("skillTwo",skillTwo);
             o.put("languageOne",languageOne);o.put("languageTwo",languageTwo);o.put("languageThree",languageThree);
-            o.put("toolChoice",toolChoice);o.put("gamingChoice",gamingChoice);o.put("artisanChoice",artisanChoice);
+            o.put("instrumentChoice",instrumentChoice);o.put("prayerChoice",prayerChoice);o.put("toolChoice",toolChoice);o.put("gamingChoice",gamingChoice);o.put("artisanChoice",artisanChoice);
             o.put("armorChoice",armorChoice);o.put("martialOne",martialOne);o.put("martialTwo",martialTwo);
             o.put("rangedChoice",rangedChoice);o.put("packChoice",packChoice);
             o.put("age",age);o.put("alignment",alignment);
@@ -125,7 +159,9 @@ final class PlayerCharacter {
         for(String option:STARTING_CLASSES){
             if(option.equals(savedClass))p.startingClass=option;
         }
-        p.background=o.optString("background",p.background);p.style=o.optString("style",p.style);
+        p.background=o.optString("background",p.background);
+        switch(p.background){case "Wilderness Pathfinder":p.background="Outlander";break;case "Caravan Guard":p.background="Soldier";break;case "Relic Seeker":p.background="Archaeologist";break;case "Guild Apprentice":p.background="Guild Artisan";break;}
+        p.instrumentChoice=o.optString("instrumentChoice",p.instrumentChoice);p.prayerChoice=o.optString("prayerChoice",p.prayerChoice);p.style=o.optString("style",p.style);
         p.cantrip=o.optString("cantrip",p.cantrip);p.skillOne=o.optString("skillOne",p.skillOne);
         p.skillTwo=o.optString("skillTwo",p.skillTwo);p.languageOne=o.optString("languageOne",p.languageOne);
         p.languageTwo=o.optString("languageTwo",p.languageTwo);p.languageThree=o.optString("languageThree",p.languageThree);
