@@ -46,6 +46,7 @@ final class OriginCreatorView extends FrameLayout {
     private final PlayerCharacter hero;
     private final Runnable onChange;
     private final TextView feature;
+    private final LinearLayout backgroundChoices;
     private final LinearLayout[] cards=new LinearLayout[PlayerCharacter.BACKGROUNDS.length];
     private final TextView[] stepViews=new TextView[STEPS.length];
     private final Scene scene;
@@ -216,7 +217,9 @@ final class OriginCreatorView extends FrameLayout {
         feature=text("",11,false);
         feature.setPadding(dp(4),dp(3),dp(2),dp(3));
         featureBox.addView(feature);
-        originFields.addView(featureBox);
+        list.addView(featureBox);
+        backgroundChoices=column();
+        list.addView(backgroundChoices);
         LinearLayout footer=new LinearLayout(context);
         footer.setPadding(dp(6),dp(6),dp(6),dp(6));
         footer.setGravity(Gravity.CENTER_VERTICAL);
@@ -384,7 +387,23 @@ final class OriginCreatorView extends FrameLayout {
             cards[i].setBackground(ornate(selected?0xFF454C43:CARD,
                 selected?0xFFFFD68A:0xFF4E6C70,selected?3:2));
         }
-        feature.setText("⚔  "+hero.background+"\n     "+String.join(" and ",hero.backgroundSkills()));
+        feature.setText(hero.backgroundFeature()+"\nSkills: "+String.join(", ",hero.backgroundSkills())+
+            "\nBonus languages: "+hero.backgroundLanguageCount());
+        backgroundChoices.removeAllViews();
+        if(hero.background.equals("Acolyte"))
+            select(backgroundChoices,"Prayer item",new String[]{"prayer_book","prayer_wheel"},hero.prayerChoice,v->{hero.prayerChoice=v;onChange.run();});
+        if(hero.background.equals("Outlander"))
+            select(backgroundChoices,"Instrument proficiency",new String[]{"Bagpipes","Drum","Dulcimer","Flute","Lute","Lyre","Horn","Pan flute","Shawm","Viol"},hero.instrumentChoice,v->{hero.instrumentChoice=v;onChange.run();});
+        if(hero.background.equals("Soldier"))
+            select(backgroundChoices,"Gaming set",new String[]{"dice_set","playing_cards","dragonchess","three_dragon_ante"},hero.gamingChoice,v->{hero.gamingChoice=v;onChange.run();});
+        if(hero.background.equals("Archaeologist"))
+            select(backgroundChoices,"Tool proficiency",new String[]{"cartographer_tools","navigator_tools"},hero.toolChoice,v->{hero.toolChoice=v;onChange.run();});
+        if(hero.background.equals("Guild Artisan"))
+            select(backgroundChoices,"Artisan tools",new String[]{"alchemist_supplies","brewer_supplies","calligrapher_supplies_artisan","carpenter_tools","cartographer_tools_artisan","cobbler_tools","cook_utensils","glassblower_tools","jeweler_tools","leatherworker_tools","mason_tools","painter_supplies","potter_tools","smith_tools","tinker_tools","weaver_tools","woodcarver_tools"},hero.artisanChoice,v->{hero.artisanChoice=v;onChange.run();});
+        if(hero.backgroundLanguageCount()>0)
+            select(backgroundChoices,"Background language 1",PlayerCharacter.LANGUAGES,hero.languageTwo,v->{hero.languageTwo=v;onChange.run();});
+        if(hero.backgroundLanguageCount()>1)
+            select(backgroundChoices,"Background language 2",PlayerCharacter.LANGUAGES,hero.languageThree,v->{hero.languageThree=v;onChange.run();});
     }
 
     private int dp(float value) {
