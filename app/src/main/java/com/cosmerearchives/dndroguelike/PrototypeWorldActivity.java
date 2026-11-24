@@ -130,7 +130,9 @@ public final class PrototypeWorldActivity extends Activity {
 
         World(Context context, PlayerCharacter hero,boolean townSession) {
             super(context);
-            weaponTrials=new WeaponTrials(context);
+            PetiteAppearance petite=hero!=null && hero.appearance==ElfAppearance.PETITE
+                ? hero.petite : PetiteAppearance.DEFAULT;
+            weaponTrials=new WeaponTrials(context,petite);
             dexterityModifier=hero==null ? 0 : PlayerCharacter.modifier(hero.score(1));
             strengthModifier=hero==null ? 0 : PlayerCharacter.modifier(hero.score(0));
             save = context.getSharedPreferences("wildlands_world", Context.MODE_PRIVATE);
@@ -176,9 +178,9 @@ public final class PrototypeWorldActivity extends Activity {
             goblinWalk = load(context, "blender_world/goblin_walk.png");
             goblinAttack = load(context, "blender_world/goblin_punch.png");
             spawnGoblin();
-            bakedElf = load(context, "blender_world/petite_detail_idle.png");
-            bakedWalk = load(context, "blender_world/petite_detail_walk.png");
-            bakedPunch = load(context, "blender_world/petite_detail_punch.png");
+            bakedElf = petite.apply(context,load(context,"blender_world/petite_detail_idle.png"),"idle");
+            bakedWalk = petite.apply(context,load(context,"blender_world/petite_detail_walk.png"),"walk");
+            bakedPunch = petite.apply(context,load(context,"blender_world/petite_detail_punch.png"),"punch");
             classicElf = load(context, "blender_world/classic_idle.png");
             classicWalk = load(context, "blender_world/classic_walk.png");
             classicPunch = load(context, "blender_world/classic_punch.png");
@@ -875,7 +877,10 @@ public final class PrototypeWorldActivity extends Activity {
             WeaponTrials.Motion motion=attackRemaining>0 ? activeMotion : motions[motionIndex];
             String weapon=attackRemaining>0 ? activeWeapon : selectedWeapon();
             if (motion!=WeaponTrials.Motion.UNARMED && (attackRemaining>0 || weaponDrawn)) {
-                float progress=attackRemaining>0 ? 1-attackRemaining/RigAttackPose.DURATION : 0f;
+                float progress=0f;
+                if (attackRemaining>0) progress=1-attackRemaining/RigAttackPose.DURATION;
+                else if (styleIndex==1 && blend>.15f)
+                    progress=-1f-(walkCycles-(float)Math.floor(walkCycles));
                 paint.setColor(Color.WHITE);
                 if (weaponTrials.draw(c,paint,styleIndex,motion,weapon,facing,progress,px,py,
                     (petiteStyle ? 1f : 1.12f)*192f/164f,attackRemaining<=0f)) return;

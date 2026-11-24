@@ -91,10 +91,12 @@ public final class CharacterCreatorActivity extends Activity {
     }
 
     private void cycleAppearance(int direction){
+        boolean wasPetite=hero.appearance==ElfAppearance.PETITE;
         hero.appearance=hero.appearance.cycle(direction);
         preview.appearance(hero.appearance);
         appearanceLabel.setText(appearanceText());
         persist();
+        if (wasPetite!=(hero.appearance==ElfAppearance.PETITE)) show();
     }
 
     private String appearanceText(){
@@ -207,6 +209,8 @@ public final class CharacterCreatorActivity extends Activity {
         stage.addView(appearanceControls);
         if(preview==null)preview=new CharacterPreviewView(this,hero.appearance);
         else ((ViewGroup)preview.getParent()).removeView(preview);
+        preview.appearance(hero.appearance);
+        preview.petite(hero.petite);
         preview.mode(previewGame);preview.direction(previewDirection);preview.animation(previewAnimation);
         preview.shouldersOriginal(previewOriginalShoulders);
         stage.addView(preview,new LinearLayout.LayoutParams(-1,0,1));
@@ -304,7 +308,20 @@ public final class CharacterCreatorActivity extends Activity {
     }
     private void identity(){
         note("Level 1  ·  Draft autosaves");
-        note("Use the arrows above the model to choose your appearance.");
+        if (hero.appearance==ElfAppearance.PETITE) {
+            select("Ear shape",PetiteAppearance.EARS,hero.petite.ears,
+                value->setPetite(new PetiteAppearance(value,hero.petite.hair,hero.petite.skin)));
+            select("Hair color",PetiteAppearance.HAIR,hero.petite.hair,
+                value->setPetite(new PetiteAppearance(hero.petite.ears,value,hero.petite.skin)));
+            select("Skin tone",PetiteAppearance.SKIN,hero.petite.skin,
+                value->setPetite(new PetiteAppearance(hero.petite.ears,hero.petite.hair,value)));
+        } else {
+            contents.addView(button("Customize Petite Pale",()->{
+                hero.appearance=ElfAppearance.PETITE;
+                persist();
+                show();
+            }));
+        }
         contents.addView(text("Character name",15));
         EditText name=new EditText(this);name.setSingleLine(true);name.setText(hero.name);
         name.setHint("Enter your character's name");name.setTextColor(INK);name.setHintTextColor(0xFF87919D);
@@ -322,6 +339,11 @@ public final class CharacterCreatorActivity extends Activity {
             ageLabel.setText("Age: "+hero.age+" years");
             persist();
         }));contents.addView(age);
+    }
+
+    private void setPetite(PetiteAppearance value) {
+        hero.petite=value;
+        preview.petite(value);
     }
     private SeekBar.OnSeekBarChangeListener seek(java.util.function.IntConsumer changed){
         return new SeekBar.OnSeekBarChangeListener(){
@@ -419,6 +441,8 @@ public final class CharacterCreatorActivity extends Activity {
     private void review(){
         heading("Final review");
         note("Name: "+hero.name+"  •  High Elf  •  "+hero.startingClass+" 1");
+        if (hero.appearance==ElfAppearance.PETITE)
+            note(hero.petite.ears+" ears  •  "+hero.petite.hair+" hair  •  "+hero.petite.skin+" skin");
         note("Background: "+hero.background+"  •  Style: "+hero.style);
         note("High Elf language: "+hero.languageOne);
         note("Skills: "+hero.skillOne+", "+hero.skillTwo+"  •  Cantrip: "+hero.cantrip);
@@ -444,7 +468,10 @@ public final class CharacterCreatorActivity extends Activity {
 
     private void startAdventure(){
         hero.completed=true;hero.save(this);
-        startActivity(new Intent(this,OutdoorActivity.class));
+        boolean petite=hero.appearance==ElfAppearance.PETITE;
+        if (petite) getSharedPreferences("wildlands_world",MODE_PRIVATE).edit()
+            .putInt("hero_style_index",1).putBoolean("petite_style",true).apply();
+        startActivity(new Intent(this,petite ? PrototypeWorldActivity.class : OutdoorActivity.class));
         finish();
     }
 }

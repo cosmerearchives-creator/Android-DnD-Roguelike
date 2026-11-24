@@ -24,6 +24,7 @@ final class PlayerCharacter {
     static final String[] FIGHTER_SKILLS={"Acrobatics","Animal Handling","Athletics","History","Insight","Intimidation","Perception","Survival"};
     static final String[] LANGUAGES={"Dwarvish","Giant","Gnomish","Goblin","Halfling","Orc","Abyssal","Celestial","Draconic","Deep Speech","Infernal","Primordial","Sylvan","Undercommon"};
     ElfAppearance appearance=ElfAppearance.CLASSIC;
+    PetiteAppearance petite=PetiteAppearance.DEFAULT;
     String startingClass=STARTING_CLASSES[0];
     String name="";String background=BACKGROUNDS[0],style=STYLES[0],cantrip=CANTRIPS[0];
     String skillOne="Athletics",skillTwo="Survival",languageOne="Dwarvish",languageTwo="Sylvan",languageThree="Draconic";
@@ -102,6 +103,7 @@ final class PlayerCharacter {
         JSONObject o=new JSONObject();
         try{
             o.put("name",name);o.put("appearance",appearance.id);
+            o.put("petiteEars",petite.ears);o.put("petiteHair",petite.hair);o.put("petiteSkin",petite.skin);
             o.put("class",startingClass);o.put("background",background);
             o.put("style",style);o.put("cantrip",cantrip);o.put("skillOne",skillOne);o.put("skillTwo",skillTwo);
             o.put("languageOne",languageOne);o.put("languageTwo",languageTwo);o.put("languageThree",languageThree);
@@ -119,6 +121,7 @@ final class PlayerCharacter {
         PlayerCharacter p=new PlayerCharacter();
         p.name=o.optString("name",p.name);
         p.appearance=ElfAppearance.fromId(o.optString("appearance"));
+        p.petite=new PetiteAppearance(o.optString("petiteEars"),o.optString("petiteHair"),o.optString("petiteSkin"));
         String savedClass=o.optString("class");
         for(String option:STARTING_CLASSES){
             if(option.equals(savedClass))p.startingClass=option;
