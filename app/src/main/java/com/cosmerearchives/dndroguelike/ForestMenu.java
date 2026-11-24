@@ -58,7 +58,7 @@ final class ForestMenu extends ScrollView {
         scene.place(logo, 254, 70, 273, 142, 0);
 
         TextView title = label(context, context.getString(R.string.app_name));
-        title.setAccessibilityHeading(true);
+        ViewCompat.setAccessibilityHeading(title, true);
         scene.place(title, 38, 205, 705, 83, 76);
         scene.place(label(context, context.getString(R.string.menu_subtitle)), 188, 294, 405, 53, 30);
         scene.place(label(context, "v" + BuildConfig.VERSION_NAME), 314, 361, 153, 48, 28);
