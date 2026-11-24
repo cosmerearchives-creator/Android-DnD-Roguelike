@@ -141,7 +141,7 @@ public final class OutdoorActivity extends Activity {
         private final float density;
         Landscape(Context context,PlayerCharacter hero,ElfAppearance appearance){
             super(context);appContext=context;
-            movementFactor=hero==null ? 1f : hero.loadout().movementFactor();
+            movementFactor=hero==null ? 1f : hero.loadout().movementFactor()*hero.race.movementFactor();
             Bitmap atlas=null;
             try(java.io.InputStream input=context.getAssets().open("wildlands_terrain_v031.png")){
                 atlas=BitmapFactory.decodeStream(input);

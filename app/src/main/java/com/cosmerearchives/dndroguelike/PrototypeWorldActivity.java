@@ -152,7 +152,7 @@ public final class PrototypeWorldActivity extends Activity {
             health=save.getInt("hero_health",100);
             experience=save.getInt("hero_experience",0);
             gold=save.getInt("hero_gold",0);
-            movementFactor = hero == null ? 1f : hero.loadout().movementFactor();
+            movementFactor = hero == null ? 1f : hero.loadout().movementFactor()*hero.race.movementFactor();
             playerAttackBonus = hero == null ? 2 : hero.attackBonus();
             playerDamage = hero == null ? 1 : Math.max(1, 1 + PlayerCharacter.modifier(hero.score(0)));
             combatBag=hero==null?new Equipment.Bag():hero.loadout();

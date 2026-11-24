@@ -109,7 +109,7 @@ final class PlayerCharacter {
         if(replacementCount()>1 && !java.util.Arrays.asList(second).contains(replacementTwo))replacementTwo=second[0];
         java.util.Set<String> used=new java.util.HashSet<>();
         String[] choices={languageOne,languageTwo,languageThree};
-        for(int i=0;i<1+backgroundLanguageCount();i++){
+        for(int i=0;i<race.bonusLanguages+backgroundLanguageCount();i++){
             if(!java.util.Arrays.asList(LANGUAGES).contains(choices[i])||used.contains(choices[i])){
                 for(String option:LANGUAGES)if(!used.contains(option)){choices[i]=option;break;}
             }
@@ -122,7 +122,7 @@ final class PlayerCharacter {
         String[] choices={languageOne,languageTwo,languageThree};
         for(String option:LANGUAGES){
             boolean used=false;
-            for(int i=0;i<1+backgroundLanguageCount();i++)if(i!=slot&&option.equals(choices[i]))used=true;
+            for(int i=0;i<race.bonusLanguages+backgroundLanguageCount();i++)if(i!=slot&&option.equals(choices[i]))used=true;
             if(!used)options.add(option);
         }
         return options.toArray(new String[0]);
@@ -130,9 +130,9 @@ final class PlayerCharacter {
     java.util.Set<String> languageTags(){
         normalizeProficiencies();
         java.util.Set<String> tags=new java.util.TreeSet<>();
-        tags.addAll(race.languages);tags.add(skillTag(languageOne));
-        if(backgroundLanguageCount()>0)tags.add(skillTag(languageTwo));
-        if(backgroundLanguageCount()>1)tags.add(skillTag(languageThree));
+        tags.addAll(race.languages);
+        String[] choices={languageOne,languageTwo,languageThree};
+        for(int i=0;i<race.bonusLanguages+backgroundLanguageCount();i++)tags.add(skillTag(choices[i]));
         return java.util.Collections.unmodifiableSet(tags);
     }
     boolean knowsLanguage(String language){return languageTags().contains(skillTag(language));}

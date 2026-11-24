@@ -19,5 +19,9 @@ final class RaceDefinition {
         this.languages=Collections.unmodifiableList(new java.util.ArrayList<>(languages));
         this.traits=Collections.unmodifiableList(new java.util.ArrayList<>(traits));
     }
+    final int bonusLanguages=1, darkvisionFeet=60;
+    final String size="medium", cantripAbility="intelligence";
+    final List<String> weaponProficiencies=Collections.unmodifiableList(Arrays.asList("longsword","shortsword","shortbow","longbow"));
+    float movementFactor(){return speedFeet/30f;}
     int bonus(int index){return bonuses[index];}
 }
