@@ -404,7 +404,7 @@ public final class PrototypeWorldActivity extends Activity {
             if(selected!=null){
                 if(combatBag.find(activeWeapon)==null && freeWeaponTrials)combatBag.add(activeWeapon,1);
                 if(combatBag.find(activeWeapon)==null){attackRemaining=0;playerRecharge=0;playerImpact=false;combatMessage("Weapon not in inventory");return;}
-                if(activeTwoHands && combatBag.slots[1]!=null){attackRemaining=0;playerRecharge=0;playerImpact=false;combatMessage("Free your off hand first");return;}
+                if(activeTwoHands && combatBag.slots[1]!=null){attackRemaining=0;playerRecharge=0;playerImpact=false;new android.app.AlertDialog.Builder(getContext()).setTitle("Two-handed grip").setMessage("Unequip your off-hand item to use this weapon?").setNegativeButton("Cancel",null).setPositiveButton("Unequip",(dialog,which)->{combatBag.slots[1]=null;}).show();return;}
                 combatBag.equip(activeWeapon,Equipment.Slot.MAIN_HAND);
                 if(selected.versatile)combatBag.setTwoHanded(activeTwoHands);
             }
@@ -1070,7 +1070,7 @@ public final class PrototypeWorldActivity extends Activity {
                     return true;
                 }
                 if (weaponButton.contains(px,py)) {
-                    if(e.getPointerCount()>1){combatBag.slots[1]=null;combatMessage("Off hand cleared");return true;}
+                    
                     selectedWeapons[motionIndex]=(selectedWeapons[motionIndex]+1)%motions[motionIndex].weapons.length;
                     return true;
                 }
