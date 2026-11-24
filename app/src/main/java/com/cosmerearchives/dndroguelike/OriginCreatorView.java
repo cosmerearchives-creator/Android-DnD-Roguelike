@@ -467,15 +467,16 @@ final class OriginCreatorView extends FrameLayout {
             select(gear,"Tool proficiency",new String[]{"cartographer_tools","navigator_tools"},hero.toolChoice,v->{hero.toolChoice=v;onChange.run();});
         if(hero.background.equals("Guild Artisan"))
             select(gear,"Artisan tools",new String[]{"alchemist_supplies","brewer_supplies","calligrapher_supplies_artisan","carpenter_tools","cartographer_tools_artisan","cobbler_tools","cook_utensils","glassblower_tools","jeweler_tools","leatherworker_tools","mason_tools","painter_supplies","potter_tools","smith_tools","tinker_tools","weaver_tools","woodcarver_tools"},hero.artisanChoice,v->{hero.artisanChoice=v;onChange.run();});
-        if(hero.race.bonusLanguages>0)select(languages,"Racial bonus language",hero.languageOptions(0),hero.languageOne,v->{hero.languageOne=v;refresh();onChange.run();});
-        if(hero.backgroundLanguageCount()>0)
-            select(languages,"Background language 1",hero.languageOptions(1),hero.languageTwo,v->{hero.languageTwo=v;refresh();onChange.run();});
-        if(hero.backgroundLanguageCount()>1)
-            select(languages,"Background language 2",hero.languageOptions(2),hero.languageThree,v->{hero.languageThree=v;refresh();onChange.run();});
-        if(hero.replacementCount()>0)
-            select(skills,"Replacement skill proficiency",hero.replacementOptions(hero.replacementCount()>1?hero.replacementTwo:""),hero.replacementOne,v->{hero.replacementOne=v;refresh();onChange.run();});
-        if(hero.replacementCount()>1)
-            select(skills,"Second replacement skill proficiency",hero.replacementOptions(hero.replacementOne),hero.replacementTwo,v->{hero.replacementTwo=v;refresh();onChange.run();});
+        hero.normalizeProficiencies();
+        for(int i=0;i<hero.languageCount();i++){
+            final int slot=i;
+            String label=i<hero.race.bonusLanguages?"Racial bonus language":"Background language "+(i-hero.race.bonusLanguages+1);
+            select(languages,label,hero.languageOptions(slot),hero.languageAt(slot),value->{hero.setLanguage(slot,value);refresh();onChange.run();});
+        }
+        for(int i=0;i<hero.replacementCount();i++){
+            final int slot=i;
+            select(skills,"Replacement skill proficiency"+(i==0?"":" "+(i+1)),hero.replacementOptions(slot),hero.replacementAt(slot),value->{hero.setReplacement(slot,value);refresh();onChange.run();});
+        }
     }
 
     private void decorate(TextView view,String key,String right,int size){

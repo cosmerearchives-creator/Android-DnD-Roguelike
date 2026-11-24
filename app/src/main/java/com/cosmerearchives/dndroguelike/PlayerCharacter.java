@@ -97,42 +97,43 @@ final class PlayerCharacter {
         return tags;
     }
     int replacementCount(){return race.skills.size()+2+backgroundSkills().length-baseSkillTags().size();}
-    String[] replacementOptions(String excluded){
-        java.util.ArrayList<String> options=new java.util.ArrayList<>();
-        for(String skill:ALL_SKILLS)if(!baseSkillTags().contains(skillTag(skill))&&!skill.equals(excluded))options.add(skill);
-        return options.toArray(new String[0]);
+    final List<String> chosenLanguages=new ArrayList<>(java.util.Arrays.asList("Dwarvish","Sylvan","Draconic"));
+    final List<String> chosenReplacements=new ArrayList<>();
+    int languageCount(){return race.bonusLanguages+backgroundLanguageCount();}
+    String languageAt(int slot){return chosenLanguages.get(slot);}
+    void setLanguage(int slot,String value){chosenLanguages.set(slot,value);}
+    String replacementAt(int slot){return chosenReplacements.get(slot);}
+    void setReplacement(int slot,String value){chosenReplacements.set(slot,value);}
+    private void normalizeChoices(List<String> choices,int count,String[] options,java.util.Collection<String> granted){
+        java.util.Set<String> used=new java.util.HashSet<>(granted);
+        while(choices.size()<count)choices.add("");
+        for(int i=0;i<count;i++){
+            String value=choices.get(i);
+            if(!java.util.Arrays.asList(options).contains(value)||used.contains(skillTag(value))){
+                value="";
+                for(String option:options)if(!used.contains(skillTag(option))){value=option;break;}
+                choices.set(i,value);
+            }
+            used.add(skillTag(value));
+        }
     }
     void normalizeProficiencies(){
-        String[] first=replacementOptions("");
-        if(replacementCount()>0 && !java.util.Arrays.asList(first).contains(replacementOne))replacementOne=first[0];
-        String[] second=replacementOptions(replacementOne);
-        if(replacementCount()>1 && !java.util.Arrays.asList(second).contains(replacementTwo))replacementTwo=second[0];
-        java.util.Set<String> used=new java.util.HashSet<>();
-        String[] choices={languageOne,languageTwo,languageThree};
-        for(int i=0;i<race.bonusLanguages+backgroundLanguageCount();i++){
-            if(!java.util.Arrays.asList(LANGUAGES).contains(choices[i])||race.languages.contains(skillTag(choices[i]))||used.contains(choices[i])){
-                for(String option:LANGUAGES)if(!used.contains(option)&&!race.languages.contains(skillTag(option))){choices[i]=option;break;}
-            }
-            used.add(choices[i]);
-        }
-        languageOne=choices[0];languageTwo=choices[1];languageThree=choices[2];
+        normalizeChoices(chosenReplacements,replacementCount(),ALL_SKILLS,baseSkillTags());
+        normalizeChoices(chosenLanguages,languageCount(),LANGUAGES,race.languages);
     }
-    String[] languageOptions(int slot){
-        java.util.ArrayList<String> options=new java.util.ArrayList<>();
-        String[] choices={languageOne,languageTwo,languageThree};
-        for(String option:LANGUAGES){
-            boolean used=false;
-            for(int i=0;i<race.bonusLanguages+backgroundLanguageCount();i++)if(i!=slot&&option.equals(choices[i]))used=true;
-            if(!used&&!race.languages.contains(skillTag(option)))options.add(option);
-        }
-        return options.toArray(new String[0]);
+    private String[] availableChoices(List<String> choices,int count,int slot,String[] options,java.util.Collection<String> granted){
+        java.util.Set<String> used=new java.util.HashSet<>(granted);
+        for(int i=0;i<count;i++)if(i!=slot)used.add(skillTag(choices.get(i)));
+        List<String> result=new ArrayList<>();
+        for(String option:options)if(!used.contains(skillTag(option)))result.add(option);
+        return result.toArray(new String[0]);
     }
+    String[] replacementOptions(int slot){normalizeProficiencies();return availableChoices(chosenReplacements,replacementCount(),slot,ALL_SKILLS,baseSkillTags());}
+    String[] languageOptions(int slot){normalizeProficiencies();return availableChoices(chosenLanguages,languageCount(),slot,LANGUAGES,race.languages);}
     java.util.Set<String> languageTags(){
         normalizeProficiencies();
-        java.util.Set<String> tags=new java.util.TreeSet<>();
-        tags.addAll(race.languages);
-        String[] choices={languageOne,languageTwo,languageThree};
-        for(int i=0;i<race.bonusLanguages+backgroundLanguageCount();i++)tags.add(skillTag(choices[i]));
+        java.util.Set<String> tags=new java.util.TreeSet<>(race.languages);
+        for(int i=0;i<languageCount();i++)tags.add(skillTag(chosenLanguages.get(i)));
         return java.util.Collections.unmodifiableSet(tags);
     }
     boolean knowsLanguage(String language){return languageTags().contains(skillTag(language));}
@@ -149,8 +150,7 @@ final class PlayerCharacter {
     java.util.Set<String> skillTags(){
         normalizeProficiencies();
         java.util.Set<String> tags=baseSkillTags();
-        if(replacementCount()>0)tags.add(skillTag(replacementOne));
-        if(replacementCount()>1)tags.add(skillTag(replacementTwo));
+        for(int i=0;i<replacementCount();i++)tags.add(skillTag(chosenReplacements.get(i)));
         return java.util.Collections.unmodifiableSet(tags);
     }
     boolean skillProficient(String skill){
@@ -237,9 +237,9 @@ final class PlayerCharacter {
             o.put("skillTags",new JSONArray(skillTags()));
             o.put("toolTags",new JSONArray(toolTags()));
             o.put("languageTags",new JSONArray(languageTags()));
-            o.put("replacementOne",replacementOne);o.put("replacementTwo",replacementTwo);
+            o.put("replacementChoices",new JSONArray(chosenReplacements));
             o.put("style",style);o.put("cantrip",cantrip);o.put("skillOne",skillOne);o.put("skillTwo",skillTwo);
-            o.put("languageOne",languageOne);o.put("languageTwo",languageTwo);o.put("languageThree",languageThree);
+            o.put("languageChoices",new JSONArray(chosenLanguages));
             o.put("instrumentChoice",instrumentChoice);o.put("prayerChoice",prayerChoice);o.put("toolChoice",toolChoice);o.put("gamingChoice",gamingChoice);o.put("artisanChoice",artisanChoice);
             o.put("armorChoice",armorChoice);o.put("martialOne",martialOne);o.put("martialTwo",martialTwo);
             o.put("rangedChoice",rangedChoice);o.put("packChoice",packChoice);
@@ -281,8 +281,17 @@ final class PlayerCharacter {
             int[] values=new int[6];for(int i=0;i<6;i++)values[i]=set.optInt(i);p.rolls.add(values);
         }
         p.replacementOne=o.optString("replacementOne","");p.replacementTwo=o.optString("replacementTwo","");
+        p.chosenLanguages.clear();
+        p.chosenLanguages.addAll(java.util.Arrays.asList(p.languageOne,p.languageTwo,p.languageThree));
+        p.chosenReplacements.addAll(java.util.Arrays.asList(p.replacementOne,p.replacementTwo));
+        readChoices(o.optJSONArray("languageChoices"),p.chosenLanguages);
+        readChoices(o.optJSONArray("replacementChoices"),p.chosenReplacements);
         p.normalizeProficiencies();
         return p;
+    }
+    private static void readChoices(JSONArray array,List<String> choices){
+        if(array==null)return;
+        choices.clear();for(int i=0;i<array.length();i++)choices.add(array.optString(i,""));
     }
     void save(Context context){
         byte[] data=json().toString().getBytes(StandardCharsets.UTF_8);
