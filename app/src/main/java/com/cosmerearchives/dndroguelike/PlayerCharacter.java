@@ -74,12 +74,36 @@ final class PlayerCharacter {
         }
     }
     String instrumentChoice="Lute", prayerChoice="prayer_book";
+    private static String skillTag(String skill){
+        return skill.trim().toLowerCase(java.util.Locale.ROOT).replace(' ','_');
+    }
+    java.util.Set<String> skillTags(){
+        java.util.Set<String> tags=new java.util.TreeSet<>();
+        tags.add("perception"); // High elf Keen Senses
+        tags.add(skillTag(skillOne));tags.add(skillTag(skillTwo));
+        for(String skill:backgroundSkills())tags.add(skillTag(skill));
+        return java.util.Collections.unmodifiableSet(tags);
+    }
     boolean skillProficient(String skill){
-        return skill.equals("Perception") || skill.equals(skillOne) || skill.equals(skillTwo)
-            || java.util.Arrays.asList(backgroundSkills()).contains(skill);
+        return skillTags().contains(skillTag(skill));
     }
     int skillBonus(String skill,int ability){
         return modifier(score(ability))+(skillProficient(skill)?proficiency():0);
+    }
+    int skillBonus(String skill){
+        int ability;
+        switch(skillTag(skill)){
+            case "athletics":ability=0;break;
+            case "acrobatics":case "sleight_of_hand":case "stealth":ability=1;break;
+            case "arcana":case "history":case "investigation":case "nature":case "religion":ability=3;break;
+            case "animal_handling":case "insight":case "medicine":case "perception":case "survival":ability=4;break;
+            case "deception":case "intimidation":case "performance":case "persuasion":ability=5;break;
+            default:throw new IllegalArgumentException("Unknown skill: "+skill);
+        }
+        return skillBonus(skill,ability);
+    }
+    int rollSkillCheck(String skill,Random rng){
+        return rng.nextInt(20)+1+skillBonus(skill);
     }
     static int[] rollScores(Random rng){
         int[] result=new int[6];
@@ -139,6 +163,7 @@ final class PlayerCharacter {
             o.put("name",name);o.put("appearance",appearance.id);
             o.put("petiteEars",petite.ears);o.put("petiteHair",petite.hair);o.put("petiteSkin",petite.skin);
             o.put("class",startingClass);o.put("background",background);
+            o.put("skillTags",new JSONArray(skillTags()));
             o.put("style",style);o.put("cantrip",cantrip);o.put("skillOne",skillOne);o.put("skillTwo",skillTwo);
             o.put("languageOne",languageOne);o.put("languageTwo",languageTwo);o.put("languageThree",languageThree);
             o.put("instrumentChoice",instrumentChoice);o.put("prayerChoice",prayerChoice);o.put("toolChoice",toolChoice);o.put("gamingChoice",gamingChoice);o.put("artisanChoice",artisanChoice);
