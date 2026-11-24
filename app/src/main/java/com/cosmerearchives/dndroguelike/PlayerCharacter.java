@@ -23,6 +23,7 @@ final class PlayerCharacter {
     static final String[] CANTRIPS={"Fire Bolt","Ray of Frost","Shocking Grasp"};
     static final String[] FIGHTER_SKILLS={"Acrobatics","Animal Handling","Athletics","History","Insight","Intimidation","Perception","Survival"};
     static final String[] LANGUAGES={"Dwarvish","Giant","Gnomish","Goblin","Halfling","Orc","Abyssal","Celestial","Draconic","Deep Speech","Infernal","Primordial","Sylvan","Undercommon"};
+    final RaceDefinition race=RaceDefinition.HIGH_ELF;
     final ElfAppearance appearance=ElfAppearance.PETITE;
     PetiteAppearance petite=PetiteAppearance.DEFAULT;
     String startingClass=STARTING_CLASSES[0];
@@ -37,7 +38,7 @@ final class PlayerCharacter {
     boolean completed;
     int experience=0,level=1;
     int maxHp(){return 10+modifier(score(2));}
-    int score(int index){return base[index]+(index==1?2:index==3?1:0);}
+    int score(int index){return base[index]+race.bonus(index);}
     static int modifier(int score){return (int)Math.floor((score-10)/2.0);}
     int proficiency(){return 2+(level-1)/4;}
     int attackBonus(){return modifier(score(0))+proficiency();}
@@ -90,12 +91,12 @@ final class PlayerCharacter {
     String replacementOne="",replacementTwo="";
     java.util.Set<String> baseSkillTags(){
         java.util.Set<String> tags=new java.util.TreeSet<>();
-        tags.add("perception");
+        tags.addAll(race.skills);
         tags.add(skillTag(skillOne));tags.add(skillTag(skillTwo));
         for(String skill:backgroundSkills())tags.add(skillTag(skill));
         return tags;
     }
-    int replacementCount(){return 5-baseSkillTags().size();}
+    int replacementCount(){return race.skills.size()+2+backgroundSkills().length-baseSkillTags().size();}
     String[] replacementOptions(String excluded){
         java.util.ArrayList<String> options=new java.util.ArrayList<>();
         for(String skill:ALL_SKILLS)if(!baseSkillTags().contains(skillTag(skill))&&!skill.equals(excluded))options.add(skill);
@@ -129,7 +130,7 @@ final class PlayerCharacter {
     java.util.Set<String> languageTags(){
         normalizeProficiencies();
         java.util.Set<String> tags=new java.util.TreeSet<>();
-        tags.add("common");tags.add("elvish");tags.add(skillTag(languageOne));
+        tags.addAll(race.languages);tags.add(skillTag(languageOne));
         if(backgroundLanguageCount()>0)tags.add(skillTag(languageTwo));
         if(backgroundLanguageCount()>1)tags.add(skillTag(languageThree));
         return java.util.Collections.unmodifiableSet(tags);
@@ -228,7 +229,7 @@ final class PlayerCharacter {
     JSONObject json(){
         JSONObject o=new JSONObject();
         try{
-            o.put("name",name);o.put("appearance",appearance.id);
+            o.put("race",race.id);o.put("racialTraitTags",new JSONArray(race.traits));o.put("name",name);o.put("appearance",appearance.id);
             o.put("petiteEars",petite.ears);o.put("petiteHair",petite.hair);o.put("petiteSkin",petite.skin);
             o.put("class",startingClass);o.put("background",background);
             o.put("backgroundFeatureTags",new JSONArray(backgroundFeatureTags()));
