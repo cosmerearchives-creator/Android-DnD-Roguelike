@@ -85,7 +85,10 @@ public final class PrototypeWorldActivity extends Activity {
         private String activeWeapon="";
         private float arrowTime,arrowX,arrowY,arrowEndX,arrowEndY;
         private final RectF motionButton=new RectF(), weaponButton=new RectF();
-        private final int playerAttackBonus, playerDamage, playerAc;
+        private final int playerAttackBonus, playerDamage;
+        private final Equipment.Bag combatBag;
+        private final boolean freeWeaponTrials;
+        private boolean activeTwoHands;
         private final java.util.Random combatDice = new java.util.Random();
         private static final int MAX_GOBLINS=5;
         private static final class Goblin {
@@ -152,7 +155,8 @@ public final class PrototypeWorldActivity extends Activity {
             movementFactor = hero == null ? 1f : hero.loadout().movementFactor();
             playerAttackBonus = hero == null ? 2 : hero.attackBonus();
             playerDamage = hero == null ? 1 : Math.max(1, 1 + PlayerCharacter.modifier(hero.score(0)));
-            playerAc = hero == null ? 10 : hero.loadout().armorClass();
+            combatBag=hero==null?new Equipment.Bag():hero.loadout();
+            freeWeaponTrials=hero==null || !townSession;
             Bitmap bakedTerrain = load(context, "blender_world/terrain.png");
             Bitmap bakedProps = load(context, "blender_world/props.png");
             bakedEnvironment = bakedTerrain != null && bakedProps != null;
@@ -395,6 +399,15 @@ public final class PrototypeWorldActivity extends Activity {
             pendingShove=0;
             activeMotion=motions[motionIndex];
             activeWeapon=selectedWeapon();
+            Equipment.Item selected=Equipment.get(activeWeapon);
+            activeTwoHands=selected!=null && (selected.twoHanded || (selected.versatile && activeMotion==WeaponTrials.Motion.HEAVY));
+            if(selected!=null){
+                if(combatBag.find(activeWeapon)==null && freeWeaponTrials)combatBag.add(activeWeapon,1);
+                if(combatBag.find(activeWeapon)==null){attackRemaining=0;playerRecharge=0;playerImpact=false;combatMessage("Weapon not in inventory");return;}
+                if(activeTwoHands && combatBag.slots[1]!=null){attackRemaining=0;playerRecharge=0;playerImpact=false;combatMessage("Free your off hand first");return;}
+                combatBag.equip(activeWeapon,Equipment.Slot.MAIN_HAND);
+                if(selected.versatile)combatBag.setTwoHanded(activeTwoHands);
+            }
             // Drawing happens automatically with the attack and never
             // consumes a separate action or recharge.
             weaponDrawn=activeMotion!=WeaponTrials.Motion.UNARMED;
@@ -409,7 +422,10 @@ public final class PrototypeWorldActivity extends Activity {
             arrowTime=.19f;
         }
         private int rollDamage(Equipment.Item weapon,int ability) {
-            String[] dice=weapon.damage.split("d",2);
+            return rollDamage(weapon,ability,false);
+        }
+        private int rollDamage(Equipment.Item weapon,int ability,boolean twoHands) {
+            String[] dice=weapon.damageDice(twoHands).split("d",2);
             int count=Integer.parseInt(dice[0]), sides=Integer.parseInt(dice[1]);
             int damage=ability;
             for (int i=0;i<count;i++) damage+=combatDice.nextInt(sides)+1;
@@ -472,7 +488,7 @@ public final class PrototypeWorldActivity extends Activity {
                 if (activeMotion==WeaponTrials.Motion.BOW) fireArrow(x,y,TownHub.DUMMY_X,TownHub.DUMMY_Y);
                 Equipment.Item weapon=Equipment.get(activeWeapon);
                 int damage=weapon==null ? playerDamage : rollDamage(weapon,
-                    activeMotion==WeaponTrials.Motion.BOW ? dexterityModifier : strengthModifier);
+                    activeMotion==WeaponTrials.Motion.BOW ? dexterityModifier : strengthModifier,activeTwoHands);
                 dummyHp-=damage;
                 if (dummyHp<=0) {
                     dummyHp=20;
@@ -506,7 +522,7 @@ public final class PrototypeWorldActivity extends Activity {
             if (roll+bonus<armor) {
                 combatMessage("Attack missed");return;
             }
-            int damage=item==null ? playerDamage : rollDamage(item,ability);
+            int damage=item==null ? playerDamage : rollDamage(item,ability,activeTwoHands);
             target.hp=Math.max(0,target.hp-damage);
             if (target.hp>0) {
                 combatMessage("Goblin hit · "+damage+" damage");return;
@@ -548,7 +564,7 @@ public final class PrototypeWorldActivity extends Activity {
                         goblin.impact=false;
                         if (goblin.motion==WeaponTrials.Motion.BOW && canHit) fireArrow(goblin.x,goblin.y,x,y);
                         if (!canHit) combatMessage("You evaded the goblin");
-                        else if (combatDice.nextInt(20)+5<playerAc) combatMessage("Goblin missed");
+                        else if (combatDice.nextInt(20)+5<combatBag.armorClass()) combatMessage("Goblin missed");
                         else {
                             int damage=rollDamage(Equipment.get(goblin.weapon),2);
                             health=Math.max(0,health-damage);
@@ -987,7 +1003,7 @@ public final class PrototypeWorldActivity extends Activity {
             button(c,exitButton,"MENU");
             button(c,motionButton,motions[motionIndex].title+" ›");
             Equipment.Item selection=Equipment.get(selectedWeapon());
-            button(c,weaponButton,selection==null ? "Bare hands" : selection.name+" ›");
+            button(c,weaponButton,selection==null ? "Bare hands" : selection.name+(selection.versatile?(motions[motionIndex]==WeaponTrials.Motion.HEAVY?" (2H)":" (1H)"):"")+" ›");
             paint.setTextSize(13*d);paint.setColor(0xFFF1D8AA);
             c.drawText(inTown() ? town.isInside() ? "WILDLANDS · TAVERN" : "WILDLANDS · TOWN"
                 : "WILDLANDS · FREE ROAM",15*d,32*d,paint);
@@ -1054,6 +1070,7 @@ public final class PrototypeWorldActivity extends Activity {
                     return true;
                 }
                 if (weaponButton.contains(px,py)) {
+                    if(e.getPointerCount()>1){combatBag.slots[1]=null;combatMessage("Off hand cleared");return true;}
                     selectedWeapons[motionIndex]=(selectedWeapons[motionIndex]+1)%motions[motionIndex].weapons.length;
                     return true;
                 }
