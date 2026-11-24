@@ -17,9 +17,9 @@ import java.util.Scanner;
 final class WeaponTrials {
     enum Motion {
         UNARMED("Unarmed", "unarmed", ""),
-        SWING("One-hand swing", "swing", "longsword", "scimitar", "battleaxe", "warhammer"),
-        THRUST("One-hand thrust", "thrust", "dagger", "rapier", "spear"),
-        HEAVY("Two-hand swing", "heavy", "greatsword", "greataxe", "maul"),
+        SWING("One-hand swing", "swing", "longsword", "scimitar", "battleaxe", "warhammer", "quarterstaff"),
+        THRUST("One-hand thrust", "thrust", "dagger", "rapier", "spear", "trident"),
+        HEAVY("Two-hand swing", "heavy", "greatsword", "greataxe", "maul", "longsword", "battleaxe", "warhammer", "quarterstaff", "spear", "trident"),
         BOW("Bow shot", "bow", "shortbow", "longbow");
 
         final String title, asset;
@@ -140,7 +140,21 @@ final class WeaponTrials {
         if (!iconGrips.containsKey(weapon)) iconGrips.put(weapon,read(weapon+".txt",3));
         float[] anchors=grips.get(sheet), iconAnchor=iconGrips.get(weapon);
         Bitmap icon=icons.get(iconKey);
-        if (anchors==null || icon==null || iconAnchor==null) return;
+        if (anchors==null) return;
+        if (weapon.equals("quarterstaff") && icon==null) {
+            int a=(facing*gripFrames+frame)*GRIP_VALUES;
+            if ((anchors[a+3]>BODY_DEPTH)!=foreground)return;
+            canvas.save();
+            canvas.translate(left+anchors[a]*scale,top+anchors[a+1]*scale);
+            canvas.rotate(idleHeld?172f:anchors[a+2]);
+            Paint staff=new Paint(Paint.ANTI_ALIAS_FLAG);
+            staff.setColor(0xFF503421);staff.setStrokeWidth(4f*scale);staff.setStrokeCap(Paint.Cap.ROUND);
+            canvas.drawLine(0,-45*scale,0,45*scale,staff);
+            staff.setColor(0xFFAA8050);staff.setStrokeWidth(1.5f*scale);
+            canvas.drawLine(-scale,-44*scale,-scale,44*scale,staff);
+            canvas.restore();return;
+        }
+        if (icon==null || iconAnchor==null) return;
 
         int anchor=(facing*gripFrames+frame)*GRIP_VALUES;
         float gripX=anchors[anchor];
