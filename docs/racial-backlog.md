@@ -7,3 +7,7 @@ Next: Wood Elf and Drow after foundation verification. Separate avatar presets f
 
 ## Wood Elf
 - Mask of the Wild deferred until natural obscuration and hiding mechanics exist.
+
+## Drow and follow-up audit
+- Superior Darkvision, Sunlight Sensitivity and Drow Magic: registered, runtime effects outstanding.
+- Audit all outstanding mechanics; distinguish explicit user-approved deferrals from unfinished work. Do not assume backlog entries constitute approval.

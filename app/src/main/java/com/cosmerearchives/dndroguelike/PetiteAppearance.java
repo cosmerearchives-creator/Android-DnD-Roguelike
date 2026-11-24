@@ -9,8 +9,8 @@ import java.io.InputStream;
 /** Independent color and ear layers for the detailed Petite Pale sprite rig. */
 final class PetiteAppearance {
     static final String[] EARS={"Rounded","Pointed elf"};
-    static final String[] HAIR={"Dark brown","Black","Chestnut","Auburn","Silver"};
-    static final String[] SKIN={"Original","Fair","Warm brown","Deep brown"};
+    static final String[] HAIR={"Dark brown","Black","Chestnut","Auburn","Silver","White"};
+    static final String[] SKIN={"Original","Fair","Warm brown","Deep brown","Charcoal","Muted violet","Blue-gray"};
     static final PetiteAppearance DEFAULT=new PetiteAppearance(EARS[0],HAIR[0],SKIN[0]);
     final String ears, hair, skin;
     private final int hairIndex, skinIndex;
@@ -78,6 +78,7 @@ final class PetiteAppearance {
             case 4:
                 int light=(r*3+g*6+b)/10*2+60;
                 return color(value,light,light+3,light+9);
+            case 5: int white=(r*3+g*6+b)/10+145;return color(value,white,white,white+4);
             default: return value;
         }
     }
@@ -88,6 +89,9 @@ final class PetiteAppearance {
             case 1: return color(value,r+24,g+22,b+21);
             case 2: return color(value,r*81/100,g*72/100,b*66/100);
             case 3: return color(value,r*56/100,g*45/100,b*43/100);
+            case 4: {int l=(r*3+g*6+b)/10;return color(value,l*42/100,l*44/100,l*49/100);}
+            case 5: {int l=(r*3+g*6+b)/10;return color(value,l*53/100,l*42/100,l*65/100);}
+            case 6: {int l=(r*3+g*6+b)/10;return color(value,l*43/100,l*53/100,l*65/100);}
             default: return value;
         }
     }

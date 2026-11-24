@@ -355,20 +355,24 @@ final class OriginCreatorView extends FrameLayout {
     }
 
     private void raceFields(LinearLayout fields){
-        select(fields,"Elf subrace",new String[]{"High Elf","Wood Elf"},hero.race.displayName(),value->{
-            RaceDefinition selected="Wood Elf".equals(value)?RaceDefinition.WOOD_ELF:RaceDefinition.HIGH_ELF;
+        select(fields,"Race",new String[]{"Elf"},"Elf",value->{});
+        select(fields,"Subrace",new String[]{"High Elf","Wood Elf","Drow"},hero.race.displayName(),value->{
+            RaceDefinition selected="Drow".equals(value)?RaceDefinition.DROW:"Wood Elf".equals(value)?RaceDefinition.WOOD_ELF:RaceDefinition.HIGH_ELF;
             if(hero.race!=selected){
                 hero.race=selected;
-                hero.cantrip=selected.cantripAbility.isEmpty()?"":PlayerCharacter.CANTRIPS[0];
-                hero.petite=selected==RaceDefinition.WOOD_ELF?new PetiteAppearance("Pointed elf","Chestnut","Warm brown"):PetiteAppearance.DEFAULT;
+                hero.cantrip=selected==RaceDefinition.DROW?"Dancing Lights":selected==RaceDefinition.HIGH_ELF?PlayerCharacter.CANTRIPS[0]:"";
+                hero.petite=selected==RaceDefinition.DROW?new PetiteAppearance("Pointed elf","White","Charcoal"):selected==RaceDefinition.WOOD_ELF?new PetiteAppearance("Pointed elf","Chestnut","Warm brown"):PetiteAppearance.DEFAULT;
                 hero.normalizeProficiencies();
                 refresh();scene.invalidate();onChange.run();showStep(RACE);
             }
         });
-        fields.addView(text(hero.race==RaceDefinition.WOOD_ELF?"Dexterity +2 · Wisdom +1":"Dexterity +2 · Intelligence +1",14,true));
-        fields.addView(text("Walking speed: "+hero.race.speedFeet+" ft\nDarkvision: "+hero.race.darkvisionFeet+" ft\nPerception proficiency\nCommon and Elvish\nElf Weapon Training\nFey Ancestry\nTrance",13,false));
+        fields.addView(text(hero.race==RaceDefinition.DROW?"Dexterity +2 · Charisma +1":hero.race==RaceDefinition.WOOD_ELF?"Dexterity +2 · Wisdom +1":"Dexterity +2 · Intelligence +1",14,true));
+        fields.addView(text("Walking speed: "+hero.race.speedFeet+" ft\nDarkvision: "+hero.race.darkvisionFeet+" ft\nPerception proficiency\nCommon and Elvish\n"+(hero.race==RaceDefinition.DROW?"Drow Weapon Training":"Elf Weapon Training")+"\nFey Ancestry\nTrance",13,false));
         if(hero.race==RaceDefinition.WOOD_ELF)fields.addView(text("Mask of the Wild — stealth integration pending",13,false));
-        else select(fields,"Wizard cantrip",PlayerCharacter.CANTRIPS,hero.cantrip,value->{hero.cantrip=value;onChange.run();});
+        else if(hero.race==RaceDefinition.DROW){
+            fields.addView(text("Sunlight Sensitivity",14,true));
+            fields.addView(text("Drow Magic (Charisma)\nLevel 1: Dancing Lights\nLevel 3: Faerie Fire (once per long rest)\nLevel 5: Darkness (once per long rest)",13,false));
+        }else select(fields,"Wizard cantrip",PlayerCharacter.CANTRIPS,hero.cantrip,value->{hero.cantrip=value;onChange.run();});
     }
     private String avatarName() {
         String name=hero.name.trim();

@@ -10,7 +10,13 @@ final class RaceDefinition {
         Arrays.asList("perception"),Arrays.asList("common","elvish"),
         Arrays.asList("darkvision","keen_senses","fey_ancestry","trance","elf_weapon_training","high_elf_cantrip","extra_language"));
     static final RaceDefinition WOOD_ELF=new RaceDefinition("wood_elf","elf",new int[]{0,2,0,0,1,0},35,0,60,"medium","",Arrays.asList("longsword","shortsword","shortbow","longbow"),Arrays.asList("perception"),Arrays.asList("common","elvish"),Arrays.asList("darkvision","keen_senses","fey_ancestry","trance","elf_weapon_training","mask_of_the_wild"));
-    String displayName(){return this==WOOD_ELF?"Wood Elf":"High Elf";}
+    static final RaceDefinition DROW=new RaceDefinition("drow","elf",new int[]{0,2,0,0,0,1},30,0,120,"medium","charisma",Arrays.asList("rapier","shortsword","hand_crossbow"),Arrays.asList("perception"),Arrays.asList("common","elvish"),Arrays.asList("superior_darkvision","keen_senses","fey_ancestry","trance","drow_weapon_training","sunlight_sensitivity","drow_magic"));
+    List<String> racialSpells(int level){
+        List<String> spells=new java.util.ArrayList<>();
+        if(this==DROW){spells.add("Dancing Lights");if(level>=3)spells.add("Faerie Fire");if(level>=5)spells.add("Darkness");}
+        return Collections.unmodifiableList(spells);
+    }
+    String displayName(){return this==DROW?"Drow":this==WOOD_ELF?"Wood Elf":"High Elf";}
     final String id, family;
     private final int[] bonuses;
     final int speedFeet;
@@ -24,7 +30,7 @@ final class RaceDefinition {
     final int bonusLanguages, darkvisionFeet;
     final String size, cantripAbility;
     final List<String> weaponProficiencies;
-    static RaceDefinition fromId(String id){return WOOD_ELF.id.equals(id)?WOOD_ELF:HIGH_ELF;}
+    static RaceDefinition fromId(String id){return DROW.id.equals(id)?DROW:WOOD_ELF.id.equals(id)?WOOD_ELF:HIGH_ELF;}
     float movementFactor(){return speedFeet/30f;}
     int bonus(int index){return bonuses[index];}
 }
