@@ -324,7 +324,7 @@ final class OriginCreatorView extends FrameLayout {
         panel.weight=appearance?1.28f:1f;
         panel.setMargins(dp(appearance?3:12),dp(appearance?39:0),0,dp(appearance?109:12));
         options.setLayoutParams(panel);
-        options.setBackground(appearance?ornate(PANEL,GOLD,2):null);
+        options.setBackground(ornate(PANEL,GOLD,2));
         scene.invalidate();
     }
 
@@ -442,6 +442,15 @@ final class OriginCreatorView extends FrameLayout {
         hero.normalizeProficiencies();
         backgroundChoices.removeAllViews();
         LinearLayout gear=section(backgroundChoices,"Starting Equipment & Tools");
+        String[] supplied;
+        switch(hero.background){
+            case "Acolyte": supplied=new String[]{"Holy symbol","Incense ×5","Vestments","Common clothes"};break;
+            case "Outlander": supplied=new String[]{"Quarterstaff","Hunting trap","Animal trophy","Traveler’s clothes"};break;
+            case "Soldier": supplied=new String[]{"Rank insignia","Enemy trophy","Common clothes"};break;
+            case "Archaeologist": supplied=new String[]{"Map case","Bullseye lantern","Miner’s pick","Traveler’s clothes","Shovel","Two-person tent","Excavation trinket"};break;
+            default: supplied=new String[]{"Guild letter","Traveler’s clothes"};
+        }
+        for(String item:supplied){TextView row=text("✓  "+item,12,true);row.setPadding(dp(8),dp(5),dp(8),dp(5));row.setBackground(ornate(CARD,0xFF668183,2));LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,-2);lp.topMargin=dp(3);gear.addView(row,lp);}
         LinearLayout languages=section(backgroundChoices,"Languages");
         LinearLayout skills=hero.replacementCount()>0?section(backgroundChoices,"Proficiency Selection"):backgroundChoices;
         if(hero.background.equals("Acolyte"))
@@ -570,6 +579,7 @@ final class OriginCreatorView extends FrameLayout {
                 c.drawRect(0,0,w,h,p);p.setShader(null);
                 c.save();
                 c.translate(w*.015f,h*.68f);
+                c.clipRect(0,0,w*.23f,h*.20f);
                 c.scale(.24f,.24f);
             }
             float x=w*.37f,y=h*.68f;
