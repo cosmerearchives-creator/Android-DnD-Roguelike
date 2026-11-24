@@ -1,7 +1,6 @@
 package com.cosmerearchives.dndroguelike;
 
 import android.app.Activity;
-import android.app.AlertDialog;
 import android.content.Intent;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
@@ -19,9 +18,7 @@ import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
-import android.widget.HorizontalScrollView;
 import android.widget.ScrollView;
-import android.widget.SeekBar;
 import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.AdapterView;
@@ -29,23 +26,18 @@ import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.List;
-import java.util.Random;
 
 /** Autosaving character creation for a new Wildlands adventure. */
 public final class CharacterCreatorActivity extends Activity {
     private PlayerCharacter hero;
     private LinearLayout root, contents;
-    private TextView summary, appearanceLabel;
     private CharacterPreviewView preview;
-    private boolean previewGame=false, previewOriginalShoulders=false;
+    private boolean previewGame;
     private int previewDirection=0,previewAnimation=0;
     private int tab=0;
-    private boolean building=false, originPreview=true;
-    private final Random random=new Random();
-    private final String[] tabs={"Identity","Abilities","Background","Class","Equipment","Review"};
+    private boolean building;
+    private static final String[] TABS={"Appearance","Review"};
     private static final int BG=0xFF13212A, INK=0xFFF3E0B7, BRASS=0xFFC7A96D;
     private static final int PANEL=0xFF1A2D35, SLATE=0xFF30494E, FOREST=0xFF365D50;
     private static final Typeface SERIF=Typeface.create("serif",Typeface.BOLD);
@@ -54,26 +46,23 @@ public final class CharacterCreatorActivity extends Activity {
         WindowCompat.setDecorFitsSystemWindows(getWindow(),false);
         getWindow().setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
         hero=PlayerCharacter.loadDraft(this);
+        if (hero==null) hero=PlayerCharacter.loadCompleted(this);
+        if (hero==null) hero=new PlayerCharacter();
+        hero.completed=false;
         if(saved!=null){
-            tab=saved.getInt("step");
-            originPreview=saved.getBoolean("originPreview",true);
+            tab=saved.getBoolean("avatarReview") ? 1 : 0;
             previewDirection=saved.getInt("facing");
             previewAnimation=saved.getInt("motion");
             previewGame=saved.getBoolean("smallPreview");
-            previewOriginalShoulders=saved.getBoolean("originalShoulders");
         }
-        if(hero==null){hero=new PlayerCharacter();hero.rolls.add(PlayerCharacter.rollScores(random));hero.base=hero.rolls.get(0).clone();}
-        if(hero.rolls.isEmpty())hero.rolls.add(hero.base.clone());
         show();
     }
     @Override protected void onSaveInstanceState(Bundle state){
         super.onSaveInstanceState(state);
-        state.putInt("step",tab);
-        state.putBoolean("originPreview",originPreview);
+        state.putBoolean("avatarReview",tab==1);
         state.putInt("facing",previewDirection);
         state.putInt("motion",previewAnimation);
         state.putBoolean("smallPreview",previewGame);
-        state.putBoolean("originalShoulders",previewOriginalShoulders);
     }
 
     private TextView text(String value,int size){
@@ -87,22 +76,8 @@ public final class CharacterCreatorActivity extends Activity {
     private void persist(){
         if(building)return;
         hero.save(this);
-        summary.setText(stats());
     }
 
-    private void cycleAppearance(int direction){
-        boolean wasPetite=hero.appearance==ElfAppearance.PETITE;
-        hero.appearance=hero.appearance.cycle(direction);
-        preview.appearance(hero.appearance);
-        appearanceLabel.setText(appearanceText());
-        persist();
-        if (wasPetite!=(hero.appearance==ElfAppearance.PETITE)) show();
-    }
-
-    private String appearanceText(){
-        int inches=hero.appearance.heightInches;
-        return hero.appearance.label+"  ·  "+inches/12+"′"+inches%12+"″";
-    }
     private int dp(float n){return Math.round(TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP,n,getResources().getDisplayMetrics()));}
     private GradientDrawable panel(int color,float radius){
         GradientDrawable d=new GradientDrawable();d.setColor(color);d.setCornerRadius(dp(radius));
@@ -118,21 +93,6 @@ public final class CharacterCreatorActivity extends Activity {
         LinearLayout l=new LinearLayout(this);l.setOrientation(LinearLayout.HORIZONTAL);l.setGravity(Gravity.CENTER_VERTICAL);return l;
     }
     private void show(){
-        if(originPreview){
-            OriginCreatorView origin=new OriginCreatorView(this,hero,()->hero.save(this),this::finish,()->{
-                originPreview=false;
-                tab=0;
-                show();
-            });
-            ViewCompat.setOnApplyWindowInsetsListener(origin,(view,insets)->{
-                Insets safe=insets.getInsets(WindowInsetsCompat.Type.systemBars()|WindowInsetsCompat.Type.displayCutout());
-                view.setPadding(safe.left,safe.top,safe.right,safe.bottom);
-                return WindowInsetsCompat.CONSUMED;
-            });
-            setContentView(origin);
-            ViewCompat.requestApplyInsets(origin);
-            return;
-        }
         building=true;
         boolean landscape=getResources().getConfiguration().orientation==Configuration.ORIENTATION_LANDSCAPE;
         root=vertical();
@@ -145,30 +105,23 @@ public final class CharacterCreatorActivity extends Activity {
             view.setPadding(safe.left+dp(12),safe.top+dp(6),safe.right+dp(12),safe.bottom+dp(8));
             return WindowInsetsCompat.CONSUMED;
         });
-        TextView headline=text("Create your High Elf",26);
+        TextView headline=text("Create your Avatar",26);
         headline.setTypeface(SERIF);
         root.addView(headline);
         View rule=new View(this);
         rule.setBackgroundColor(BRASS);
         root.addView(rule,new LinearLayout.LayoutParams(-1,dp(1)));
-        HorizontalScrollView steps=new HorizontalScrollView(this);
-        steps.setHorizontalScrollBarEnabled(false);
-        steps.setFillViewport(true);
         LinearLayout nav=horizontal();
-        Button activeStep=null;
-        for(int i=0;i<tabs.length;i++){
+        for (int i=0;i<TABS.length;i++) {
             final int step=i;
-            Button chip=button(tabs[i],()->{tab=step;show();});
+            Button chip=button(TABS[i],()->{tab=step;show();});
             chip.setBackground(buttonBackground(tab==i?FOREST:PANEL));
             chip.setSelected(tab==i);
-            if(tab==i)activeStep=chip;
-            LinearLayout.LayoutParams cp=new LinearLayout.LayoutParams(-2,dp(44),1f);
-            cp.setMargins(dp(2),dp(7),dp(2),dp(7));nav.addView(chip,cp);
+            LinearLayout.LayoutParams size=new LinearLayout.LayoutParams(0,dp(44),1);
+            size.setMargins(dp(2),dp(7),dp(2),dp(7));
+            nav.addView(chip,size);
         }
-        steps.addView(nav);
-        root.addView(steps);
-        Button selected=activeStep;
-        steps.post(()->steps.scrollTo(selected.getLeft()-dp(8),0));
+        root.addView(nav);
         LinearLayout work=horizontal();
         work.setGravity(Gravity.TOP);
         root.addView(work,new LinearLayout.LayoutParams(-1,0,1));
@@ -185,34 +138,10 @@ public final class CharacterCreatorActivity extends Activity {
             LinearLayout.LayoutParams pp=new LinearLayout.LayoutParams(-1,dp(258));
             pp.setMargins(0,0,0,dp(8));column.addView(stage,pp);
         }
-        LinearLayout appearanceControls=horizontal();
-        Button previousAppearance=button("‹",()->cycleAppearance(-1));
-        previousAppearance.setContentDescription("Previous appearance");
-        appearanceControls.addView(previousAppearance,new LinearLayout.LayoutParams(dp(44),dp(40)));
-        appearanceLabel=text(appearanceText(),14);
-        appearanceLabel.setGravity(Gravity.CENTER);
-        appearanceLabel.setTypeface(SERIF);
-        appearanceLabel.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);
-        appearanceControls.addView(appearanceLabel,new LinearLayout.LayoutParams(0,-2,1));
-        Button compareShoulders=button(previewOriginalShoulders?"BASE":"FIT",null);
-        compareShoulders.setTextSize(11);
-        compareShoulders.setContentDescription("Compare original and character-specific shoulder fit");
-        compareShoulders.setOnClickListener(view->{
-            previewOriginalShoulders=!previewOriginalShoulders;
-            preview.shouldersOriginal(previewOriginalShoulders);
-            compareShoulders.setText(previewOriginalShoulders?"BASE":"FIT");
-        });
-        appearanceControls.addView(compareShoulders,new LinearLayout.LayoutParams(dp(58),dp(40)));
-        Button nextAppearance=button("›",()->cycleAppearance(1));
-        nextAppearance.setContentDescription("Next appearance");
-        appearanceControls.addView(nextAppearance,new LinearLayout.LayoutParams(dp(44),dp(40)));
-        stage.addView(appearanceControls);
-        if(preview==null)preview=new CharacterPreviewView(this,hero.appearance);
+        if(preview==null)preview=new CharacterPreviewView(this);
         else ((ViewGroup)preview.getParent()).removeView(preview);
-        preview.appearance(hero.appearance);
         preview.petite(hero.petite);
         preview.mode(previewGame);preview.direction(previewDirection);preview.animation(previewAnimation);
-        preview.shouldersOriginal(previewOriginalShoulders);
         stage.addView(preview,new LinearLayout.LayoutParams(-1,0,1));
         LinearLayout previewControls=horizontal();
         Button mode=button(previewGame?"SMALL":"FULL BODY",null);
@@ -243,23 +172,18 @@ public final class CharacterCreatorActivity extends Activity {
         work.addView(scroll,landscape
             ? new LinearLayout.LayoutParams(0,-1,1.1f)
             : new LinearLayout.LayoutParams(-1,-1));
-        heading(tabs[tab]);
-        if(tab==0)identity();
-        if(tab==1)abilities();
-        if(tab==2)background();
-        if(tab==3)fighter();
-        if(tab==4)equipment();
-        if(tab==5)review();
+        if (tab==0) appearance();
+        else review();
         LinearLayout footer=vertical();footer.setBackground(panel(PANEL,8));
         footer.setPadding(dp(6),dp(4),dp(6),dp(6));
-        summary=text(stats(),13);summary.setGravity(Gravity.CENTER);summary.setTextColor(0xFFE5D2A9);footer.addView(summary);
         LinearLayout actions=horizontal();
-        Button previous=button("Previous",()->{if(tab>0){tab--;show();}});
-        previous.setEnabled(tab>0);
-        actions.addView(previous,new LinearLayout.LayoutParams(0,dp(45),1));
-        previous.setAlpha(tab==0?.55f:1f);
-        Button next=button(tab==tabs.length-1?"Start adventure":"Next step",()->{
-            if(tab<tabs.length-1){tab++;show();}else finishCharacter();
+        Button next=button(tab==0?"Review":"Enter Hub",()->{
+            if (tab==0) {
+                tab=1;
+                show();
+            } else {
+                startAdventure();
+            }
         });
         next.setBackground(buttonBackground(FOREST));
         LinearLayout.LayoutParams nextParams=new LinearLayout.LayoutParams(0,dp(45),1.2f);
@@ -306,172 +230,55 @@ public final class CharacterCreatorActivity extends Activity {
         });
         field.addView(spinner);contents.addView(field,fieldParams);
     }
-    private void identity(){
-        note("Level 1  ·  Draft autosaves");
-        if (hero.appearance==ElfAppearance.PETITE) {
-            select("Ear shape",PetiteAppearance.EARS,hero.petite.ears,
-                value->setPetite(new PetiteAppearance(value,hero.petite.hair,hero.petite.skin)));
-            select("Hair color",PetiteAppearance.HAIR,hero.petite.hair,
-                value->setPetite(new PetiteAppearance(hero.petite.ears,value,hero.petite.skin)));
-            select("Skin tone",PetiteAppearance.SKIN,hero.petite.skin,
-                value->setPetite(new PetiteAppearance(hero.petite.ears,hero.petite.hair,value)));
-        } else {
-            contents.addView(button("Customize Petite Pale",()->{
-                hero.appearance=ElfAppearance.PETITE;
-                persist();
-                show();
-            }));
-        }
-        contents.addView(text("Character name",15));
-        EditText name=new EditText(this);name.setSingleLine(true);name.setText(hero.name);
-        name.setHint("Enter your character's name");name.setTextColor(INK);name.setHintTextColor(0xFF87919D);
+    private void appearance() {
+        heading("Appearance");
+        contents.addView(text("Avatar name",15));
+        EditText name=new EditText(this);
+        name.setSingleLine(true);name.setText(hero.name);name.setHint("Avatar");
+        name.setTextColor(INK);name.setHintTextColor(0xFF87919D);
         name.addTextChangedListener(new TextWatcher(){
             public void beforeTextChanged(CharSequence s,int start,int count,int after){}
-            public void onTextChanged(CharSequence s,int start,int before,int count){hero.name=s.toString();persist();}
+            public void onTextChanged(CharSequence s,int start,int before,int count){
+                hero.name=s.toString();
+                persist();
+            }
             public void afterTextChanged(Editable e){}
-        });contents.addView(name);
-        select("Alignment",new String[]{"Lawful Good","Neutral Good","Chaotic Good","Lawful Neutral","True Neutral","Chaotic Neutral","Lawful Evil","Neutral Evil","Chaotic Evil"},hero.alignment,v->hero.alignment=v);
-        TextView ageLabel=text("Age: "+hero.age+" years",15);
-        contents.addView(ageLabel);
-        SeekBar age=new SeekBar(this);age.setMax(650);age.setProgress(hero.age-100);
-        age.setOnSeekBarChangeListener(seek(v->{
-            hero.age=100+v;
-            ageLabel.setText("Age: "+hero.age+" years");
-            persist();
-        }));contents.addView(age);
+        });
+        contents.addView(name);
+        select("Ear shape",PetiteAppearance.EARS,hero.petite.ears,
+            value->setPetite(new PetiteAppearance(value,hero.petite.hair,hero.petite.skin)));
+        select("Hair color",PetiteAppearance.HAIR,hero.petite.hair,
+            value->setPetite(new PetiteAppearance(hero.petite.ears,value,hero.petite.skin)));
+        select("Skin tone",PetiteAppearance.SKIN,hero.petite.skin,
+            value->setPetite(new PetiteAppearance(hero.petite.ears,hero.petite.hair,value)));
     }
 
     private void setPetite(PetiteAppearance value) {
         hero.petite=value;
         preview.petite(value);
     }
-    private SeekBar.OnSeekBarChangeListener seek(java.util.function.IntConsumer changed){
-        return new SeekBar.OnSeekBarChangeListener(){
-            public void onProgressChanged(SeekBar s,int v,boolean fromUser){if(fromUser)changed.accept(v);}
-            public void onStartTrackingTouch(SeekBar s){}
-            public void onStopTrackingTouch(SeekBar s){}
-        };
-    }
-    private void abilities(){
-        heading("Ability rolls: 4d6, drop lowest");
-        note("Generate up to four complete sets, choose one, then assign its six scores without duplicates. High Elf +2 DEX and +1 INT apply afterward.");
-        for(int j=0;j<hero.rolls.size();j++){
-            final int index=j;int[] set=hero.rolls.get(j);
-            contents.addView(button("Set "+(j+1)+": "+Arrays.toString(set),()->assignSet(index)));
-        }
-        if(hero.rolls.size()<4)contents.addView(button("Reroll full set ("+(4-hero.rolls.size())+" remaining)",()->{
-            hero.rolls.add(PlayerCharacter.rollScores(random));hero.base=hero.rolls.get(hero.rolls.size()-1).clone();persist();show();
-        }));
-        note("Currently assigned base scores: "+Arrays.toString(hero.base));
-        for(int i=0;i<6;i++){
-            final int ability=i;
-            String[] opts=new String[6];for(int k=0;k<6;k++)opts[k]=PlayerCharacter.ABILITIES[k]+" = "+hero.base[k];
-            // Swap two ability slots to preserve exactly one instance of each rolled score.
-            contents.addView(text(PlayerCharacter.ABILITIES[i]+": "+hero.score(i)+" (base "+hero.base[i]+")",15));
-            Spinner s=new Spinner(this);s.setAdapter(new ArrayAdapter<>(this,android.R.layout.simple_spinner_dropdown_item,PlayerCharacter.ABILITIES));
-            s.setSelection(i);
-            s.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener(){
-                boolean initialized=false;
-                public void onNothingSelected(AdapterView<?> parent){}
-                public void onItemSelected(AdapterView<?> parent,View v,int position,long id){
-                    if(!initialized){initialized=true;return;}
-                    if(position==ability)return;
-                    int tmp=hero.base[ability];hero.base[ability]=hero.base[position];hero.base[position]=tmp;
-                    persist();show();
-                }
-            });contents.addView(s);
-        }
-    }
-    private void assignSet(int index){hero.base=hero.rolls.get(index).clone();persist();show();}
-    private void background(){
-        heading("Background");
-        select("Background",PlayerCharacter.BACKGROUNDS,hero.background,v->{hero.background=v;hero.save(this);show();});
-        note("Background skills: "+Arrays.toString(hero.backgroundSkills()));
-        select("High Elf bonus language",PlayerCharacter.LANGUAGES,hero.languageOne,v->hero.languageOne=v);
-        if(hero.background.equals("Acolyte")||!hero.background.equals("Caravan Guard"))
-            select("Background language",PlayerCharacter.LANGUAGES,hero.languageTwo,v->hero.languageTwo=v);
-        if(hero.background.equals("Acolyte"))select("Second Acolyte language",PlayerCharacter.LANGUAGES,hero.languageThree,v->hero.languageThree=v);
-        if(hero.background.equals("Wilderness Pathfinder")||hero.background.equals("Relic Seeker")){
-            select("Background tool",hero.background.equals("Wilderness Pathfinder")?
-                new String[]{"cartographer_tools","herbalism_kit"}:
-                new String[]{"cartographer_tools","calligrapher_supplies"},hero.toolChoice,v->hero.toolChoice=v);
-        }
-        if(hero.background.equals("Caravan Guard"))
-            select("Gaming set",new String[]{"dice_set","playing_cards","dragonchess","three_dragon_ante"},hero.gamingChoice,v->hero.gamingChoice=v);
-        if(hero.background.equals("Guild Apprentice"))
-            select("Artisan's tools",new String[]{"smith_tools","carpenter_tools","brewer_supplies","cook_utensils","weaver_tools","tinker_tools","jeweler_tools","mason_tools","painter_supplies","potter_tools","leatherworker_tools","woodcarver_tools","cobbler_tools","glassblower_tools","alchemist_supplies","calligrapher_supplies_artisan","cartographer_tools_artisan"},hero.artisanChoice,v->hero.artisanChoice=v);
-    }
-    private void fighter(){
-        select("Starting class",PlayerCharacter.STARTING_CLASSES,hero.startingClass,v->hero.startingClass=v);
-        heading("Fighter choices");
-        select("Fighting Style",PlayerCharacter.STYLES,hero.style,v->hero.style=v);
-        select("First skill proficiency",PlayerCharacter.FIGHTER_SKILLS,hero.skillOne,v->hero.skillOne=v);
-        select("Second skill proficiency",PlayerCharacter.FIGHTER_SKILLS,hero.skillTwo,v->hero.skillTwo=v);
-        select("High Elf wizard cantrip (INT)",PlayerCharacter.CANTRIPS,hero.cantrip,v->hero.cantrip=v);
-        note("Fighter saving throw proficiencies: Strength and Constitution. Level 1 feature: Second Wind.");
-        if(hero.skillOne.equals(hero.skillTwo))note("Choose two different Fighter skills before completing.");
-    }
-    private void equipment(){
-        heading("Fighter starting equipment");
-        select("Armor selection",new String[]{"chain_mail","leather_armor"},hero.armorChoice,v->{hero.armorChoice=v;show();});
-        note("Leather Armor includes a Longbow with unlimited ordinary arrows.");
-        List<String> martial=new ArrayList<>();
-        for(Equipment.Item item:Equipment.catalog()){
-            if(item.weapon()&&!item.id.equals("club")&&!item.id.equals("dagger")
-                 &&!item.id.equals("handaxe")&&!item.id.equals("javelin")&&!item.id.equals("light_hammer")
-                 &&!item.id.equals("quarterstaff")&&!item.id.equals("spear")&&!item.id.equals("mace")
-                 &&!item.id.equals("sickle")&&!item.id.equals("greatclub")&&!item.id.equals("dart")
-                 &&!item.id.equals("shortbow")&&!item.id.equals("sling")&&!item.id.equals("light_crossbow"))martial.add(item.id);
-        }
-        select("Martial weapon",martial.toArray(new String[0]),hero.martialOne,v->{hero.martialOne=v;show();});
-        List<String> other=new ArrayList<>();other.add("shield");other.addAll(martial);
-        select("Shield or second martial weapon",other.toArray(new String[0]),hero.martialTwo,v->{hero.martialTwo=v;show();});
-        select("Light crossbow or two handaxes",new String[]{"light_crossbow","handaxes"},hero.rangedChoice,v->{hero.rangedChoice=v;show();});
-        select("Adventuring pack",new String[]{"explorer","dungeon"},hero.packChoice,v->{hero.packChoice=v;show();});
-        Equipment.Bag preview=hero.loadout();
-        note(preview.summary()+"\nCoins: "+preview.gold+" gp (weightless)");
-        note("Background wardrobe unlocks remain cosmetic and weightless. Equipped armor, shield, and main-hand weapon are reflected in the preview.");
-    }
-    private String stats(){
-        return "STR "+hero.score(0)+"  DEX "+hero.score(1)+"  CON "+hero.score(2)+
-            "  INT "+hero.score(3)+"  WIS "+hero.score(4)+"  CHA "+hero.score(5)+
-            "\nHP "+hero.maxHp()+"  AC "+hero.loadout().armorClass()+
-            "  Speed 30 ft  •  Carry "+hero.maxCarry()+" lb";
-    }
-    private void review(){
-        heading("Final review");
-        note("Name: "+hero.name+"  •  High Elf  •  "+hero.startingClass+" 1");
-        if (hero.appearance==ElfAppearance.PETITE)
-            note(hero.petite.ears+" ears  •  "+hero.petite.hair+" hair  •  "+hero.petite.skin+" skin");
-        note("Background: "+hero.background+"  •  Style: "+hero.style);
-        note("High Elf language: "+hero.languageOne);
-        note("Skills: "+hero.skillOne+", "+hero.skillTwo+"  •  Cantrip: "+hero.cantrip);
-        note("Fey Ancestry, Darkvision 60 ft, Trance, Keen Senses, Elven Weapon Training");
-        note(stats()+"\n"+hero.loadout().summary());
 
-    }
-    private void finishCharacter(){
-        if(!hero.valid()){
-            new AlertDialog.Builder(this).setTitle("Incomplete character")
-                .setMessage("Choose a name and two different Fighter skills before starting.")
-                .setPositiveButton("OK",null).show();return;
-        }
-        if(PlayerCharacter.loadCompleted(this)!=null){
-            new AlertDialog.Builder(this).setTitle("Start a new adventure?")
-                .setMessage("Starting will replace the active character with "+hero.name+".")
-                .setNegativeButton("Cancel",null)
-                .setPositiveButton("Start adventure",(dialog,which)->startAdventure()).show();
-            return;
-        }
-        startAdventure();
+    private void review() {
+        heading("Review");
+        note(avatarName());
+        note(hero.petite.ears+" ears  •  "+hero.petite.hair+" hair  •  "+hero.petite.skin+" skin");
     }
 
-    private void startAdventure(){
-        hero.completed=true;hero.save(this);
-        boolean petite=hero.appearance==ElfAppearance.PETITE;
-        if (petite) getSharedPreferences("wildlands_world",MODE_PRIVATE).edit()
-            .putInt("hero_style_index",1).putBoolean("petite_style",true).apply();
-        startActivity(new Intent(this,petite ? PrototypeWorldActivity.class : OutdoorActivity.class));
+    private String avatarName() {
+        String name=hero.name.trim();
+        return name.isEmpty() ? "Avatar" : name;
+    }
+
+    private void startAdventure() {
+        hero.name=avatarName();
+        hero.completed=true;
+        hero.save(this);
+        getSharedPreferences("wildlands_world",MODE_PRIVATE).edit()
+            .putFloat("town_player_x",TownHub.SPAWN_X)
+            .putFloat("town_player_y",TownHub.SPAWN_Y)
+            .putBoolean("town_quest_active",false).apply();
+        startActivity(new Intent(this,PrototypeWorldActivity.class)
+            .putExtra(PrototypeWorldActivity.EXTRA_TOWN,true));
         finish();
     }
 }

@@ -13,14 +13,12 @@ import android.os.Build;
 import android.os.SystemClock;
 import android.view.View;
 
-/** Uses the same appearance, facing art and animated rig as the Wildlands. */
+/** Previews the same Avatar sprites used in Free Roam. */
 final class CharacterPreviewView extends View {
-    private final RiggedElf rig;
     private final Bitmap terrain;
     private final Rect terrainTile=new Rect();
     private final RectF backdrop=new RectF();
     private final Paint terrainPaint=new Paint(Paint.FILTER_BITMAP_FLAG);
-    private ElfAppearance appearance;
     private PetiteAppearance petite=PetiteAppearance.DEFAULT;
     private final Bitmap[] petiteSheets=new Bitmap[3];
     private final Rect animationCell=new Rect();
@@ -30,10 +28,8 @@ final class CharacterPreviewView extends View {
     private int direction, animation;
     private long animationStart;
 
-    CharacterPreviewView(Context context, ElfAppearance appearance) {
+    CharacterPreviewView(Context context) {
         super(context);
-        this.appearance = appearance;
-        rig = new RiggedElf(context, appearance);
         terrain = loadTerrain(context);
         if (terrain != null) {
             int tile = terrain.getWidth() / 4;
@@ -53,13 +49,6 @@ final class CharacterPreviewView extends View {
         }
     }
 
-    void appearance(ElfAppearance value) {
-        if (value == appearance) return;
-        rig.setAppearance(value);
-        appearance = value;
-        invalidate();
-    }
-
     void petite(PetiteAppearance value) {
         if (petite==value) return;
         petite=value;
@@ -67,14 +56,14 @@ final class CharacterPreviewView extends View {
         invalidate();
     }
 
-    private boolean drawPetite(Canvas canvas,float seconds,float progress,float scale) {
+    private void drawPetite(Canvas canvas,float seconds,float progress,float scale) {
         if (petiteSheets[animation]==null) {
             String motion=new String[]{"idle","walk","punch"}[animation];
             Bitmap source=PetiteAppearance.load(getContext(),"blender_world/petite_detail_"+motion+".png");
             petiteSheets[animation]=petite.apply(getContext(),source,motion);
         }
         Bitmap sheet=petiteSheets[animation];
-        if (sheet==null) return false;
+        if (sheet==null) return;
         int frame=animation==1 ? Math.floorMod((int)(seconds*12.4f),8)
             : animation==2 ? Math.min(4,(int)(progress*5)) : 0;
         int facing=(direction*2+1)%8;
@@ -82,12 +71,6 @@ final class CharacterPreviewView extends View {
         float x=getWidth()*.5f,y=getHeight()*.92f;
         animationBounds.set(x-84*scale,y-160*scale,x+84*scale,y+32*scale);
         canvas.drawBitmap(sheet,animationCell,animationBounds,animationPaint);
-        return true;
-    }
-
-    void shouldersOriginal(boolean original) {
-        rig.setShoulderFitEnabled(!original);
-        invalidate();
     }
 
     void mode(boolean value) {
@@ -108,11 +91,10 @@ final class CharacterPreviewView extends View {
 
     @Override protected void onDraw(Canvas canvas) {
         float seconds = (SystemClock.uptimeMillis() - animationStart) / 1000f;
-        boolean walking = animation == 1;
         float progress = animation == 2 ? (seconds % (RigAttackPose.DURATION + .55f))
             / RigAttackPose.DURATION : 0f;
         if (progress >= 1f) progress = 0f;
-        float scale = Math.min(getHeight() / 205f, getWidth() / 172f) * appearance.heightScale;
+        float scale = Math.min(getHeight() / 205f, getWidth() / 172f);
         if (worldScale) scale *= .40f;
         if (scale <= 0f) return;
         canvas.drawColor(0xFF13222B);
@@ -122,11 +104,7 @@ final class CharacterPreviewView extends View {
             backdrop.set(0f,(getHeight()-size)*.5f,size,(getHeight()+size)*.5f);
             canvas.drawBitmap(terrain,terrainTile,backdrop,terrainPaint);
         }
-        if (appearance!=ElfAppearance.PETITE || !drawPetite(canvas,seconds,progress,scale)) {
-            rig.draw(canvas, getWidth() * .5f, getHeight() * .92f, scale, direction,
-            walking ? seconds * 1.55f : 0f, walking ? 1f : 0f, seconds,
-            progress, false, getWidth());
-        }
+        drawPetite(canvas,seconds,progress,scale);
         postInvalidateOnAnimation();
     }
 }

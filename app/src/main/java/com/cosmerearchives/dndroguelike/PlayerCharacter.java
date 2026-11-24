@@ -23,7 +23,7 @@ final class PlayerCharacter {
     static final String[] CANTRIPS={"Fire Bolt","Ray of Frost","Shocking Grasp"};
     static final String[] FIGHTER_SKILLS={"Acrobatics","Animal Handling","Athletics","History","Insight","Intimidation","Perception","Survival"};
     static final String[] LANGUAGES={"Dwarvish","Giant","Gnomish","Goblin","Halfling","Orc","Abyssal","Celestial","Draconic","Deep Speech","Infernal","Primordial","Sylvan","Undercommon"};
-    ElfAppearance appearance=ElfAppearance.CLASSIC;
+    final ElfAppearance appearance=ElfAppearance.PETITE;
     PetiteAppearance petite=PetiteAppearance.DEFAULT;
     String startingClass=STARTING_CLASSES[0];
     String name="";String background=BACKGROUNDS[0],style=STYLES[0],cantrip=CANTRIPS[0];
@@ -120,7 +120,6 @@ final class PlayerCharacter {
     static PlayerCharacter fromJson(JSONObject o){
         PlayerCharacter p=new PlayerCharacter();
         p.name=o.optString("name",p.name);
-        p.appearance=ElfAppearance.fromId(o.optString("appearance"));
         p.petite=new PetiteAppearance(o.optString("petiteEars"),o.optString("petiteHair"),o.optString("petiteSkin"));
         String savedClass=o.optString("class");
         for(String option:STARTING_CLASSES){

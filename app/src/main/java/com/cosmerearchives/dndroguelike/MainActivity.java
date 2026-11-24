@@ -58,26 +58,12 @@ public class MainActivity extends Activity {
         intro.setPadding(0,pad,0,pad);
         root.addView(intro);
         continueGame = new Button(this);
-        continueGame.setOnClickListener(v -> startActivity(new Intent(this, PrototypeWorldActivity.class)));
+        continueGame.setOnClickListener(v -> startActivity(new Intent(this, PrototypeWorldActivity.class)
+            .putExtra(PrototypeWorldActivity.EXTRA_TOWN,true)));
         root.addView(continueGame);
         create = new Button(this);
         create.setOnClickListener(v -> startActivity(new Intent(this, CharacterCreatorActivity.class)));
         root.addView(create);
-        Button explore = new Button(this);
-        explore.setText("Explore Wildlands · Isometric");
-        explore.setOnClickListener(v -> startActivity(new Intent(this, PrototypeWorldActivity.class)
-            .putExtra(OutdoorActivity.EXTRA_FREE_EXPLORE, true)));
-        root.addView(explore);
-        Button town = new Button(this);
-        town.setText("Town Hub");
-        town.setOnClickListener(v -> startActivity(new Intent(this, PrototypeWorldActivity.class)
-            .putExtra(OutdoorActivity.EXTRA_FREE_EXPLORE, true)
-            .putExtra(PrototypeWorldActivity.EXTRA_TOWN, true)));
-        root.addView(town);
-        Button isometricRoom = new Button(this);
-        isometricRoom.setText("Isometric Test Room");
-        isometricRoom.setOnClickListener(v -> startActivity(new Intent(this, IsometricRoomActivity.class)));
-        root.addView(isometricRoom);
         check = new Button(this);
         check.setText("Check for updates");
         check.setOnClickListener(v -> checkUpdates());
@@ -269,7 +255,7 @@ public class MainActivity extends Activity {
         PlayerCharacter saved = PlayerCharacter.loadCompleted(this);
         continueGame.setVisibility(saved == null ? View.GONE : View.VISIBLE);
         if (saved != null) continueGame.setText("Continue as " + saved.name);
-        create.setText(PlayerCharacter.loadDraft(this) == null ? "New game" : "Resume character creation");
+        create.setText(saved == null ? "Create Avatar" : "Edit Avatar");
         if(awaitingPermission) {
             awaitingPermission=false;
             if(getPackageManager().canRequestPackageInstalls()) install();
