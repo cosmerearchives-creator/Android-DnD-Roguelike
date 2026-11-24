@@ -204,7 +204,7 @@ final class PlayerCharacter {
                 bag.add("holy_symbol",1);bag.add(prayerChoice.equals("prayer_wheel")?"prayer_wheel":"prayer_book",1);
                 bag.add("incense",5);bag.add("vestments",1);bag.add("common_clothes",1);bag.gold=15;break;
             case "Outlander":
-                bag.add("walking_staff",1);bag.add("hunting_trap",1);bag.add("animal_trophy",1);
+                bag.add("quarterstaff",1);bag.add("hunting_trap",1);bag.add("animal_trophy",1);
                 bag.add("travelers_clothes",1);bag.gold=10;break;
             case "Soldier":
                 bag.add(gamingChoice,1);bag.add("rank_insignia",1);bag.add("enemy_trophy",1);
