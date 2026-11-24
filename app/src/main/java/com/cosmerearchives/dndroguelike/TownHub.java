@@ -20,7 +20,7 @@ final class TownHub {
     private static final float HEIGHT_SCALE=85f;
     private static final float BUILDING_SCALE=(float)Math.sqrt(2)*HALF_W/36f;
 
-    private enum Kind { BUILDING, WALL, GATE, BOARD, DUMMY, NPC, TABLE, BAR }
+    private enum Kind { BUILDING, WALL, GATE, BOARD, DUMMY, TABLE, BAR }
     private static final class Prop {
         final Kind kind;
         final float x,y,w,h;
@@ -36,9 +36,6 @@ final class TownHub {
     interface Actor {
         void draw(Canvas canvas);
     }
-    interface Person {
-        void draw(Canvas canvas,float px,float py,int style);
-    }
     private final Paint paint=new Paint(Paint.ANTI_ALIAS_FLAG|Paint.FILTER_BITMAP_FLAG);
     private final Path polygon=new Path();
     private final RectF bounds=new RectF();
@@ -53,7 +50,6 @@ final class TownHub {
         for (int i=0;i<homes.length;i++) {
             float[] b=homes[i];
             town.add(new Prop(Kind.BUILDING,b[0],b[1],b[2],b[3],i));
-            town.add(new Prop(Kind.NPC,b[0]+1.1f,b[1]-b[3]/2-.75f,.35f,.35f,i%4));
             try (InputStream in=context.getAssets().open("town/building_"+i+".webp")) {
                 facades[i]=BitmapFactory.decodeStream(in);
             } catch (IOException ignored) {
@@ -72,12 +68,8 @@ final class TownHub {
         town.add(new Prop(Kind.BOARD,BOARD_X,BOARD_Y,.85f,.3f,0));
         town.add(new Prop(Kind.DUMMY,DUMMY_X,DUMMY_Y,.40f,.40f,0));
         tavern.add(new Prop(Kind.BAR,1.4f,4.8f,.65f,3,0));
-        tavern.add(new Prop(Kind.NPC,.78f,4.9f,.35f,.35f,2));
         tavern.add(new Prop(Kind.TABLE,4.8f,4.9f,1.3f,1.1f,0));
         tavern.add(new Prop(Kind.TABLE,5.6f,2.8f,1.3f,1.1f,0));
-        tavern.add(new Prop(Kind.NPC,4.0f,5.3f,.35f,.35f,1));
-        tavern.add(new Prop(Kind.NPC,5.7f,5.3f,.35f,.35f,0));
-        tavern.add(new Prop(Kind.NPC,6.4f,2.6f,.35f,.35f,3));
         town.sort(Comparator.comparingDouble(Prop::depth));
         tavern.sort(Comparator.comparingDouble(Prop::depth));
     }
@@ -125,16 +117,16 @@ final class TownHub {
             }
         }
     }
-    void props(Canvas c,float cx,float cy,float heroDepth,Actor hero,Person person) {
+    void props(Canvas c,float cx,float cy,float heroDepth,Actor hero) {
         boolean drawn=false;
         for (Prop p:inside?tavern:town) {
             if (Math.abs(p.x-cx)>13 || Math.abs(p.y-cy)>13) continue;
             if (!drawn && p.depth()>heroDepth) {hero.draw(c); drawn=true;}
-            draw(c,p,cx,cy,person);
+            draw(c,p,cx,cy);
         }
         if (!drawn) hero.draw(c);
     }
-    private void draw(Canvas c,Prop p,float cx,float cy,Person person) {
+    private void draw(Canvas c,Prop p,float cx,float cy) {
         float px=x(p.x,p.y,cx,cy), py=y(p.x,p.y,cx,cy);
         switch (p.kind) {
             case BUILDING:
@@ -160,7 +152,6 @@ final class TownHub {
                 break;
             case TABLE: block(c,p,cx,cy,.48f,0xFF5E3623,0xFF9E6A3C);break;
             case BAR: block(c,p,cx,cy,.64f,0xFF4D2E20,0xFF825534);break;
-            case NPC: person.draw(c,px,py,p.index);break;
             case BOARD:
                 paint.setColor(0xFF503320);
                 c.drawRect(px-31,py-83,px-25,py+1,paint);

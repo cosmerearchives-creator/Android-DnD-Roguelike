@@ -69,16 +69,12 @@ public final class PrototypeWorldActivity extends Activity {
         private boolean onQuest;
         private int questKills, dummyHp=20;
         private final TownHub.Actor townHero=this::drawHero;
-        private final TownHub.Person townPerson=this::drawTownPerson;
         private final Bitmap atlas;
         private final Bitmap vegetation;
         private final float[] trunkCenter = {.5f,.5f,.5f,.5f};
         private final float[] trunkWidth = {.15f,.15f,.15f,.15f};
         private final Bitmap[][] factoryProps = new Bitmap[4][4];
         private final Bitmap bakedElf, bakedWalk, bakedPunch;
-        private final Bitmap classicElf, classicWalk, classicPunch;
-        private final Bitmap[] maleClassic = new Bitmap[3], malePetite = new Bitmap[3];
-        private int styleIndex;
         private final Bitmap goblinIdle, goblinWalk, goblinAttack;
         private final WeaponTrials weaponTrials;
         private final WeaponTrials.Motion[] motions=WeaponTrials.Motion.values();
@@ -103,17 +99,14 @@ public final class PrototypeWorldActivity extends Activity {
         private float spawnCooldown=2f,playerRecharge,punchX,punchY;
         private boolean hostile,playerImpact;
         private final Bitmap prototypeFloor, prototypeTree, prototypeLedge;
-        private final Bitmap prototypeIdle, prototypeWalk, prototypePunch;
         private final boolean bakedEnvironment;
-        private final RiggedElf character;
-        private final ElfAppearance appearance;
         private final float movementFactor;
         private final GaitModel gait = new GaitModel();
         private float x, y, cameraX, cameraY, stickX, stickY;
         private float screenStickX, screenStickY;
         private float stickCenterX, stickCenterY;
         private boolean stickActive;
-        private float idleTime, walkCycles, attackRemaining, blend;
+        private float walkCycles, attackRemaining, blend;
         private static final float AUTO_SHEATHE_SECONDS=6f;
         private float weaponQuietSeconds=AUTO_SHEATHE_SECONDS;
         private boolean weaponDrawn;
@@ -124,13 +117,12 @@ public final class PrototypeWorldActivity extends Activity {
         private float messageRemaining;
         private long lastFrame;
         private final RectF joystick = new RectF(), runButton = new RectF(), attackButton = new RectF();
-        private final RectF exitButton = new RectF(), styleButton = new RectF();
-        private boolean petiteStyle;
+        private final RectF exitButton = new RectF();
         private float zoom = 1f;
 
         World(Context context, PlayerCharacter hero,boolean townSession) {
             super(context);
-            PetiteAppearance petite=hero!=null && hero.appearance==ElfAppearance.PETITE
+            PetiteAppearance petite=hero!=null
                 ? hero.petite : PetiteAppearance.DEFAULT;
             weaponTrials=new WeaponTrials(context,petite);
             dexterityModifier=hero==null ? 0 : PlayerCharacter.modifier(hero.score(1));
@@ -152,11 +144,6 @@ public final class PrototypeWorldActivity extends Activity {
             health=save.getInt("hero_health",100);
             experience=save.getInt("hero_experience",0);
             gold=save.getInt("hero_gold",0);
-            appearance = hero == null ? ElfAppearance.COILED : hero.appearance;
-            styleIndex=Math.floorMod(save.getInt("hero_style_index",
-                save.getBoolean("petite_style",appearance==ElfAppearance.PETITE)?1:0),4);
-            petiteStyle=(styleIndex%2)==1;
-            character = new RiggedElf(context, appearance);
             movementFactor = hero == null ? 1f : hero.loadout().movementFactor();
             playerAttackBonus = hero == null ? 2 : hero.attackBonus();
             playerDamage = hero == null ? 1 : Math.max(1, 1 + PlayerCharacter.modifier(hero.score(0)));
@@ -181,20 +168,9 @@ public final class PrototypeWorldActivity extends Activity {
             bakedElf = petite.apply(context,load(context,"blender_world/petite_detail_idle.png"),"idle");
             bakedWalk = petite.apply(context,load(context,"blender_world/petite_detail_walk.png"),"walk");
             bakedPunch = petite.apply(context,load(context,"blender_world/petite_detail_punch.png"),"punch");
-            classicElf = load(context, "blender_world/classic_idle.png");
-            classicWalk = load(context, "blender_world/classic_walk.png");
-            classicPunch = load(context, "blender_world/classic_punch.png");
-            String[] animations={"idle","walk","punch"};
-            for (int i=0;i<animations.length;i++) {
-                maleClassic[i]=load(context,"blender_world/classic_male_"+animations[i]+".png");
-                malePetite[i]=load(context,"blender_world/petite_male_"+animations[i]+".png");
-            }
             prototypeFloor = load(context,"isometric_lab/floor.png");
             prototypeTree = load(context,"isometric_lab/tree.png");
             prototypeLedge = load(context,"isometric_lab/ledge.png");
-            prototypeIdle = load(context,"isometric_lab/idle.png");
-            prototypeWalk = load(context,"isometric_lab/walk.png");
-            prototypePunch = load(context,"isometric_lab/punch.png");
             setFocusable(true);
         }
         // Blender's orthographic PNGs contain substantial transparent space
@@ -288,14 +264,6 @@ public final class PrototypeWorldActivity extends Activity {
             } else if (town.atGate(x,y)) {
                 combatMessage("The town gates are closed");
             }
-        }
-        private void drawTownPerson(Canvas c,float px,float py,int style) {
-            Bitmap npc=style==0 ? classicElf : style==1 ? bakedElf : style==2 ? maleClassic[0] : malePetite[0];
-            if (npc==null) return;
-            source.set(0,192,168,384);
-            destination.set(px-67.2f,py-128f,px+67.2f,py+25.6f);
-            paint.setColor(Color.WHITE);
-            c.drawBitmap(npc,source,destination,paint);
         }
         private float sx(float wx, float wy) { return (wx - cameraX + wy - cameraY) * HALF_W; }
         private float sy(float wx, float wy) { return (wx - cameraX - (wy - cameraY)) * HALF_H; }
@@ -602,7 +570,6 @@ public final class PrototypeWorldActivity extends Activity {
         }
         private void update(float dt) {
             if (paused) return;
-            idleTime+=dt;
             messageRemaining=Math.max(0,messageRemaining-dt);
             playerRecharge=Math.max(0,playerRecharge-dt);
             arrowTime=Math.max(0,arrowTime-dt);
@@ -817,7 +784,7 @@ public final class PrototypeWorldActivity extends Activity {
             }
             float heroDepth=x-y;
             if (inTown()) {
-                town.props(c,cameraX,cameraY,heroDepth,townHero,townPerson);
+                town.props(c,cameraX,cameraY,heroDepth,townHero);
                 if (arrowTime>0f) drawArrow(c);
                 c.restore();
                 drawControls(c);
@@ -869,60 +836,31 @@ public final class PrototypeWorldActivity extends Activity {
         }
         private void drawHero(Canvas c) {
             float px=sx(x,y),py=sy(x,y)-elevation(x,y);
-            // Both selectable styles use their own Blender-baked 8-direction
-            // character; never silently substitute the old Coiled Puff prototype.
-            Bitmap idle = styleIndex==3 ? malePetite[0] : styleIndex==2 ? maleClassic[0] : petiteStyle ? bakedElf : classicElf;
-            Bitmap walk = styleIndex==3 ? malePetite[1] : styleIndex==2 ? maleClassic[1] : petiteStyle ? bakedWalk : classicWalk;
-            Bitmap punch = styleIndex==3 ? malePetite[2] : styleIndex==2 ? maleClassic[2] : petiteStyle ? bakedPunch : classicPunch;
             WeaponTrials.Motion motion=attackRemaining>0 ? activeMotion : motions[motionIndex];
             String weapon=attackRemaining>0 ? activeWeapon : selectedWeapon();
             if (motion!=WeaponTrials.Motion.UNARMED && (attackRemaining>0 || weaponDrawn)) {
                 float progress=0f;
                 if (attackRemaining>0) progress=1-attackRemaining/RigAttackPose.DURATION;
-                else if (styleIndex==1 && blend>.15f)
+                else if (blend>.15f)
                     progress=-1f-(walkCycles-(float)Math.floor(walkCycles));
                 paint.setColor(Color.WHITE);
-                if (weaponTrials.draw(c,paint,styleIndex,motion,weapon,facing,progress,px,py,
-                    (petiteStyle ? 1f : 1.12f)*192f/164f,attackRemaining<=0f)) return;
+                if (weaponTrials.draw(c,paint,1,motion,weapon,facing,progress,px,py,
+                    192f/164f,attackRemaining<=0f)) return;
             }
-            if (idle!=null && walk!=null && punch!=null) {
-                Bitmap sheet=idle;
-                int frame=0;
-                if (attackRemaining>0) {
-                    sheet=punch;
-                    frame=Math.min(4,(int)(5*(1-attackRemaining/RigAttackPose.DURATION)));
-                } else if (blend>.15f) {
-                    sheet=walk;
-                    frame=Math.floorMod((int)(walkCycles*8),8);
-                }
-                source.set(frame*168,facing*192,(frame+1)*168,(facing+1)*192);
-                float size = petiteStyle ? 1f : 1.12f;
-                destination.set(px-84*size,py-160*size,px+84*size,py+32*size);
-                paint.setColor(Color.WHITE);
-                c.drawBitmap(sheet,source,destination,paint);
-                return;
+            Bitmap sheet=bakedElf;
+            int frame=0;
+            if (attackRemaining>0) {
+                sheet=bakedPunch;
+                frame=Math.min(4,(int)(5*(1-attackRemaining/RigAttackPose.DURATION)));
+            } else if (blend>.15f) {
+                sheet=bakedWalk;
+                frame=Math.floorMod((int)(walkCycles*8),8);
             }
-            if (prototypeIdle!=null
-                    && prototypeWalk!=null && prototypePunch!=null) {
-                Bitmap sheet=prototypeIdle;
-                int frame=Math.floorMod((int)(idleTime*2f),4);
-                if(attackRemaining>0){
-                    sheet=prototypePunch;
-                    frame=Math.min(6,(int)(7*(1-attackRemaining/RigAttackPose.DURATION)));
-                } else if(blend>.15f){
-                    sheet=prototypeWalk;
-                    frame=Math.floorMod((int)(walkCycles*8),8);
-                }
-                int cardinal=(facing+1)/2%4;
-                source.set(frame*144,cardinal*160,(frame+1)*144,(cardinal+1)*160);
-                destination.set(px-72,py-135.303f,px+72,py+24.697f);
-                paint.setColor(Color.WHITE);
-                c.drawBitmap(sheet,source,destination,paint);
-                return;
-            }
-            character.draw(c,px,py,.75f*appearance.heightScale,(facing+1)/2%4,walkCycles,
-                blend,idleTime,attackRemaining>0?1-attackRemaining/RigAttackPose.DURATION:0,
-                false,0f);
+            if (sheet==null) return;
+            source.set(frame*168,facing*192,(frame+1)*168,(facing+1)*192);
+            destination.set(px-84,py-160,px+84,py+32);
+            paint.setColor(Color.WHITE);
+            c.drawBitmap(sheet,source,destination,paint);
         }
         private void interact() {
             if (inTown()) {
@@ -966,7 +904,6 @@ public final class PrototypeWorldActivity extends Activity {
             runButton.set(getWidth()-125*d,bottom-111*d,getWidth()-18*d,bottom-70*d);
             attackButton.set(getWidth()-125*d,bottom-59*d,getWidth()-18*d,bottom);
             exitButton.set(getWidth()-94*d,18*d,getWidth()-12*d,54*d);
-            styleButton.set(getWidth()-153*d,62*d,getWidth()-12*d,100*d);
             motionButton.set(getWidth()-175*d,106*d,getWidth()-12*d,141*d);
             weaponButton.set(getWidth()-175*d,146*d,getWidth()-12*d,181*d);
             if (!stickActive) {stickCenterX=joystick.centerX();stickCenterY=joystick.centerY();}
@@ -986,7 +923,6 @@ public final class PrototypeWorldActivity extends Activity {
                 c.drawCircle(attackButton.right-12*d,attackButton.centerY(),4*d,paint);
             }
             button(c,exitButton,"MENU");
-            button(c,styleButton,new String[]{"F: CLASSIC","F: PETITE","M: CLASSIC","M: PETITE"}[styleIndex]);
             button(c,motionButton,motions[motionIndex].title+" ›");
             Equipment.Item selection=Equipment.get(selectedWeapon());
             button(c,weaponButton,selection==null ? "Bare hands" : selection.name+" ›");
@@ -1057,13 +993,6 @@ public final class PrototypeWorldActivity extends Activity {
                 }
                 if (weaponButton.contains(px,py)) {
                     selectedWeapons[motionIndex]=(selectedWeapons[motionIndex]+1)%motions[motionIndex].weapons.length;
-                    return true;
-                }
-                if(styleButton.contains(px,py)){
-                    styleIndex=(styleIndex+1)%4;
-                    petiteStyle=(styleIndex%2)==1;
-                    save.edit().putInt("hero_style_index",styleIndex)
-                        .putBoolean("petite_style",petiteStyle).apply();
                     return true;
                 }
                 if(runButton.contains(px,py)){if(!hostile)running=!running;return true;}
