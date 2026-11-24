@@ -103,7 +103,8 @@ final class OriginCreatorView extends FrameLayout {
         steps.setPadding(0,dp(56),0,0);
         body.addView(steps,new LinearLayout.LayoutParams(dp(84),-1));
         for(int i=0;i<STEPS.length;i++){
-            TextView label=text(STEP_ICONS[i]+"  "+STEPS[i],i==5?11:13,true);
+            TextView label=text(STEPS[i],i==5?11:13,true);
+            decorate(label,STEPS[i],"",14);
             label.setGravity(Gravity.CENTER);
             label.setBackground(ornate(i==0?0xF03D4C49:PANEL,i==0?0xFFFFD88C:0xFF577074,i==0?4:1));
             label.setSelected(i==0);
@@ -329,7 +330,8 @@ final class OriginCreatorView extends FrameLayout {
     }
 
     private void updateBackgroundPicker(){
-        backgroundToggle.setText(hero.background+"   "+(backgroundsExpanded?"▴":"▾"));
+        backgroundToggle.setText(hero.background);
+        decorate(backgroundToggle,hero.background,backgroundsExpanded?"▴":"▾",20);
         backgroundList.setVisibility(backgroundsExpanded?VISIBLE:GONE);
     }
 
@@ -341,6 +343,7 @@ final class OriginCreatorView extends FrameLayout {
         lp.topMargin=dp(7);
         parent.addView(section,lp);
         TextView heading=text(title,16,true);
+        decorate(heading,title,"",17);
         section.addView(heading);
         View rule=new View(getContext());
         rule.setBackgroundColor(0x997F8C80);
@@ -393,7 +396,7 @@ final class OriginCreatorView extends FrameLayout {
                 TextView view=(TextView)super.getView(position,item,parent);
                 view.setTextColor(INK);
                 view.setTextSize(13);
-                view.setText(view.getText()+"  ▾");
+                decorate(view,label+" "+options[position],"▾",17);
                 return view;
             }
         };
@@ -437,6 +440,7 @@ final class OriginCreatorView extends FrameLayout {
                 selected?0xFFFFD68A:0xFF4E6C70,selected?3:2));
         }
         updateBackgroundPicker();
+        decorate(feature,hero.background,"",20);
         feature.setText(hero.backgroundFeature()+"\nSkills: "+String.join(", ",hero.backgroundSkills())+
             "\nBonus languages: "+hero.backgroundLanguageCount());
         hero.normalizeProficiencies();
@@ -450,7 +454,7 @@ final class OriginCreatorView extends FrameLayout {
             case "Archaeologist": supplied=new String[]{"Map case","Bullseye lantern","Miner’s pick","Traveler’s clothes","Shovel","Two-person tent","Excavation trinket"};break;
             default: supplied=new String[]{"Guild letter","Traveler’s clothes"};
         }
-        for(String item:supplied){TextView row=text("✓  "+item,12,true);row.setPadding(dp(8),dp(5),dp(8),dp(5));row.setBackground(ornate(CARD,0xFF668183,2));LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,-2);lp.topMargin=dp(3);gear.addView(row,lp);}
+        for(String item:supplied){TextView row=text(item,12,true);decorate(row,item,"✓",17);row.setPadding(dp(8),dp(5),dp(8),dp(5));row.setBackground(ornate(CARD,0xFF668183,2));LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,-2);lp.topMargin=dp(3);gear.addView(row,lp);}
         LinearLayout languages=section(backgroundChoices,"Languages");
         LinearLayout skills=hero.replacementCount()>0?section(backgroundChoices,"Proficiency Selection"):backgroundChoices;
         if(hero.background.equals("Acolyte"))
@@ -472,6 +476,48 @@ final class OriginCreatorView extends FrameLayout {
             select(skills,"Replacement skill proficiency",hero.replacementOptions(hero.replacementCount()>1?hero.replacementTwo:""),hero.replacementOne,v->{hero.replacementOne=v;refresh();onChange.run();});
         if(hero.replacementCount()>1)
             select(skills,"Second replacement skill proficiency",hero.replacementOptions(hero.replacementOne),hero.replacementTwo,v->{hero.replacementTwo=v;refresh();onChange.run();});
+    }
+
+    private void decorate(TextView view,String key,String right,int size){
+        String k=key.toLowerCase(java.util.Locale.ROOT);
+        String glyph="◆";
+        if(k.contains("language")) glyph="▤";
+        else if(k.contains("proficiency")||k.equals("skills")) glyph="✥";
+        else if(k.contains("instrument")||k.contains("lute")) glyph="♫";
+        else if(k.contains("quarterstaff")||k.contains("shovel")) glyph="⚒";
+        else if(k.contains("trap")) glyph="⌗";
+        else if(k.contains("trophy")||k.contains("animal")) glyph="♞";
+        else if(k.contains("clothes")||k.contains("vestment")) glyph="♜";
+        else if(k.contains("equipment")||k.contains("tent")) glyph="▣";
+        else if(k.contains("guild")||k.contains("tool")||k.contains("pick")) glyph="⚒";
+        else if(k.contains("soldier")||k.equals("race")) glyph="⚔";
+        else if(k.contains("acolyte")||k.contains("holy")||k.contains("prayer")) glyph="✦";
+        else if(k.contains("outlander")) glyph="♠";
+        else if(k.contains("archaeologist")||k.contains("map")||k.contains("letter")) glyph="▤";
+        else if(k.contains("lantern")||k.contains("incense")) glyph="♨";
+        else if(k.equals("origin")) glyph="♟";
+        else if(k.equals("class")) glyph="✦";
+        else if(k.equals("abilities")) glyph="⬡";
+        else if(k.equals("appearance")) glyph="✶";
+        else if(k.equals("review")) glyph="✓";
+        view.setCompoundDrawablePadding(dp(5));
+        view.setCompoundDrawables(symbol(glyph,size),null,right.isEmpty()?null:symbol(right,12),null);
+    }
+
+    private Drawable symbol(String glyph,int size){
+        Drawable d=new Drawable(){
+            final Paint paint=new Paint(Paint.ANTI_ALIAS_FLAG);
+            @Override public void draw(Canvas c){
+                Rect b=getBounds();
+                paint.setColor(GOLD);paint.setTypeface(Typeface.create("sans-serif",Typeface.NORMAL));
+                paint.setTextSize(dp(size));paint.setTextAlign(Paint.Align.CENTER);
+                c.drawText(glyph,b.exactCenterX(),b.exactCenterY()-(paint.ascent()+paint.descent())/2,paint);
+            }
+            @Override public void setAlpha(int a){}
+            @Override public void setColorFilter(ColorFilter f){}
+            @Override public int getOpacity(){return PixelFormat.TRANSLUCENT;}
+        };
+        d.setBounds(0,0,dp(size+3),dp(size+3));return d;
     }
 
     private int dp(float value) {
