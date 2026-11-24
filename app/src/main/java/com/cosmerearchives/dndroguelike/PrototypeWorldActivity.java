@@ -91,7 +91,28 @@ public final class PrototypeWorldActivity extends Activity {
         private boolean activeTwoHands;
         private final java.util.Random combatDice = new java.util.Random();
         private static final int MAX_GOBLINS=5;
+        private enum Cantrip {
+            FIRE("Fire Bolt",24f,10,0xFFFF7934),
+            FROST("Ray of Frost",12f,8,0xFF79E4FF),
+            SHOCK("Shocking Grasp",1f,8,0xFFC7AAFF);
+            final String title;
+            final float range;
+            final int die,color;
+            Cantrip(String title,float range,int die,int color) {
+                this.title=title;this.range=range;this.die=die;this.color=color;
+            }
+        }
+        private final Cantrip knownCantrip;
+        private final int spellBonus, spellDice;
+        private Cantrip casting, missile;
+        private boolean spellSelected, spellAttack;
+        private final android.text.TextPaint hudText=new android.text.TextPaint();
+        private float spellX,spellY,spellStartX,spellStartY,spellDx,spellDy,spellTravel,spellFlash;
+        private final RectF hud=new RectF(), innerFrame=new RectF();
+        private final Path hudPath=new Path();
+
         private static final class Goblin {
+            float frost;
             float x,y,homeX,homeY,walkCycle,swing,recharge;
             int facing,hp=GOBLIN_HP;
             WeaponTrials.Motion motion=WeaponTrials.Motion.THRUST;
@@ -132,6 +153,15 @@ public final class PrototypeWorldActivity extends Activity {
             PetiteAppearance petite=hero!=null
                 ? hero.petite : PetiteAppearance.DEFAULT;
             weaponTrials=new WeaponTrials(context,petite);
+            Cantrip known=null;
+            if (hero!=null && hero.race==RaceDefinition.HIGH_ELF) {
+                for (Cantrip spell:Cantrip.values()) if (spell.title.equals(hero.cantrip)) known=spell;
+            }
+            knownCantrip=known;
+            int wizardModifier=hero==null?0:PlayerCharacter.modifier(hero.score(3));
+            spellBonus=hero==null?2:hero.proficiency()+wizardModifier;
+            int level=hero==null?1:hero.level;
+            spellDice=level>=17?4:level>=11?3:level>=5?2:1;
             dexterityModifier=hero==null ? 0 : PlayerCharacter.modifier(hero.score(1));
             strengthModifier=hero==null ? 0 : PlayerCharacter.modifier(hero.score(0));
             athleticsBonus=hero==null ? 0 : hero.skillBonus("Athletics",0);
@@ -229,6 +259,10 @@ public final class PrototypeWorldActivity extends Activity {
             hostile=false;
             attackRemaining=0f;
             playerImpact=false;
+            casting=null;
+            spellAttack=false;
+            missile=null;
+            spellFlash=0;
             arrowTime=0f;
             weaponDrawn=false;
             weaponQuietSeconds=0f;
@@ -257,12 +291,9 @@ public final class PrototypeWorldActivity extends Activity {
                 beginPunch();
             } else if (town.atBoard(x,y)) {
                 releaseStick();
-                new android.app.AlertDialog.Builder(getContext())
-                    .setTitle("Defeat 10 goblins")
-                    .setMessage("Travel to the Wildlands. Defeat ten goblins to return to the quest board.")
-                    .setNegativeButton("Not now",null)
-                    .setPositiveButton("Accept",(dialog,which)->startTownQuest())
-                    .show();
+                WildlandsUi.choose(getContext(),"Defeat 10 goblins",
+                    "Travel to the Wildlands. Defeat ten goblins to return to the quest board.",
+                    new String[]{"Accept quest"},-1,which->startTownQuest());
             } else if (town.atTavern(x,y)) {
                 town.setInside(true);
                 moveTo(3f,1.35f);
@@ -397,6 +428,17 @@ public final class PrototypeWorldActivity extends Activity {
         private void beginPunch() {
             if (!spendAttack()) return;
             pendingShove=0;
+            casting=spellSelected?knownCantrip:null;
+            spellAttack=casting!=null;
+            if (casting!=null) {
+                weaponDrawn=false;
+                activeMotion=WeaponTrials.Motion.UNARMED;
+                activeWeapon="";
+                double heading=facing*Math.PI/4;
+                punchX=x+(float)Math.sin(heading)*casting.range;
+                punchY=y-(float)Math.cos(heading)*casting.range;
+                return;
+            }
             activeMotion=motions[motionIndex];
             activeWeapon=selectedWeapon();
             Equipment.Item selected=Equipment.get(activeWeapon);
@@ -404,7 +446,8 @@ public final class PrototypeWorldActivity extends Activity {
             if(selected!=null){
                 if(combatBag.find(activeWeapon)==null && freeWeaponTrials)combatBag.add(activeWeapon,1);
                 if(combatBag.find(activeWeapon)==null){attackRemaining=0;playerRecharge=0;playerImpact=false;combatMessage("Weapon not in inventory");return;}
-                if(activeTwoHands && combatBag.slots[1]!=null){attackRemaining=0;playerRecharge=0;playerImpact=false;new android.app.AlertDialog.Builder(getContext()).setTitle("Two-handed grip").setMessage("Unequip your off-hand item to use this weapon?").setNegativeButton("Cancel",null).setPositiveButton("Unequip",(dialog,which)->{combatBag.slots[1]=null;}).show();return;}
+                if(activeTwoHands && combatBag.slots[1]!=null){attackRemaining=0;playerRecharge=0;playerImpact=false;WildlandsUi.choose(getContext(),"Two-handed grip","Unequip your off-hand item to use this weapon?",
+                    new String[]{"Unequip"},-1,which->combatBag.slots[1]=null);return;}
                 combatBag.equip(activeWeapon,Equipment.Slot.MAIN_HAND);
                 if(selected.versatile)combatBag.setTwoHanded(activeTwoHands);
             }
@@ -434,13 +477,14 @@ public final class PrototypeWorldActivity extends Activity {
         private void chooseShove() {
             if (inTown() || attackRemaining>0 || playerRecharge>0) return;
             releaseStick();
-            new android.app.AlertDialog.Builder(getContext()).setTitle("Shove · one attack")
-                .setItems(new String[]{"Push 5 feet","Knock prone"},(dialog,which)->{
+            WildlandsUi.choose(getContext(),"Shove · one attack",null,
+                new String[]{"Push 5 feet","Knock prone"},-1,which->{
                     if (!spendAttack()) return;
+                    casting=null;
                     pendingShove=which+1;
                     activeMotion=WeaponTrials.Motion.UNARMED;
                     activeWeapon="";
-                }).setNegativeButton("Cancel",null).show();
+                });
         }
         private void resolveShove(int mode) {
             Goblin target=null;
@@ -476,6 +520,68 @@ public final class PrototypeWorldActivity extends Activity {
             }
             combatMessage("Goblin pushed");
         }
+        private void releaseCantrip() {
+            missile=casting;
+            casting=null;
+            double angle=facing*Math.PI/4;
+            spellDx=(float)Math.sin(angle);
+            spellDy=-(float)Math.cos(angle);
+            spellX=spellStartX=x;
+            spellY=spellStartY=y;
+            spellTravel=0;
+            spellFlash=0;
+        }
+
+        private void updateCantrip(float dt) {
+            spellFlash=Math.max(0,spellFlash-dt);
+            if (missile==null || spellFlash>0) return;
+            if (spellTravel>=missile.range) { missile=null;return; }
+            // Substeps sweep the narrow hitbox so fast effects cannot tunnel.
+            float advance=Math.min(missile.range-spellTravel,
+                missile==Cantrip.SHOCK ? missile.range : dt*(missile==Cantrip.FROST?60f:25f));
+            int steps=Math.max(1,(int)Math.ceil(advance/.10f));
+            for (int i=0;i<steps;i++) {
+                spellTravel+=advance/steps;
+                spellX=spellStartX+spellDx*spellTravel;
+                spellY=spellStartY+spellDy*spellTravel;
+                if (inTown() && town.training(spellStartX,spellStartY)
+                    && squaredDistance(spellX,spellY,TownHub.DUMMY_X,TownHub.DUMMY_Y)<.32f*.32f) {
+                    int damage=cantripDamage();
+                    dummyHp-=damage;
+                    combatMessage(missile.title+" · "+damage+" damage"+(dummyHp<=0?" · Reset":" · "+dummyHp+"/20"));
+                    if (dummyHp<=0) dummyHp=20;
+                    finishCantrip();
+                    return;
+                }
+                if (!clear(spellX,spellY,spellX,spellY,.025f)) {finishCantrip();return;}
+                if (!inTown()) {
+                    for (Goblin target:goblins) {
+                        if (squaredDistance(spellX,spellY,target.x,target.y)>.29f*.29f) continue;
+                        int armor=target.motion==WeaponTrials.Motion.THRUST?GOBLIN_AC:13;
+                        int roll=combatDice.nextInt(20)+1;
+                        if (roll==20 || (roll!=1 && roll+spellBonus>=armor)) {
+                            if (missile==Cantrip.FROST) target.frost=6f;
+                            damageGoblin(target,cantripDamage()+(roll==20?cantripDamage():0));
+                        } else combatMessage(missile.title+" missed");
+                        if (missile!=null) finishCantrip();
+                        return;
+                    }
+                }
+            }
+            if (spellTravel>=missile.range-.001f) finishCantrip();
+        }
+
+        private int cantripDamage() {
+            int total=0;
+            for (int i=0;i<spellDice;i++) total+=combatDice.nextInt(missile.die)+1;
+            return total;
+        }
+
+        private void finishCantrip() {
+            spellTravel=missile.range;
+            spellFlash=.22f;
+        }
+
         private void resolvePunch() {
             if (inTown()) {
                 if (!town.training(x,y)) return;
@@ -523,6 +629,12 @@ public final class PrototypeWorldActivity extends Activity {
                 combatMessage("Attack missed");return;
             }
             int damage=item==null ? playerDamage : rollDamage(item,ability,activeTwoHands);
+            damageGoblin(target,damage);
+        }
+        private void damageGoblin(Goblin target,int damage) {
+            target.aggro=true;
+            hostile=true;
+            running=false;
             target.hp=Math.max(0,target.hp-damage);
             if (target.hp>0) {
                 combatMessage("Goblin hit · "+damage+" damage");return;
@@ -546,6 +658,7 @@ public final class PrototypeWorldActivity extends Activity {
             hostile=false;
             for (Goblin goblin:goblins) {
                 goblin.moving=false;
+                goblin.frost=Math.max(0,goblin.frost-dt);
                 if(goblin.prone>0){goblin.prone=Math.max(0,goblin.prone-dt);hostile=true;running=false;continue;}
                 float distance=distanceToGoblin(goblin);
                 goblin.aggro=distance<=(goblin.aggro?COMBAT_LEASH:COMBAT_NOTICE);
@@ -593,7 +706,7 @@ public final class PrototypeWorldActivity extends Activity {
                     }
                     continue;
                 }
-                float delta=Math.max(0f,Math.min(distance-.83f,dt*WALK_SPEED));
+                float delta=Math.max(0f,Math.min(distance-.83f,dt*WALK_SPEED*(goblin.frost>0?2f/3f:1f)));
                 float nextX=goblin.x+(x-goblin.x)*delta/distance;
                 float nextY=goblin.y+(y-goblin.y)*delta/distance;
                 float oldX=goblin.x,oldY=goblin.y;
@@ -653,9 +766,11 @@ public final class PrototypeWorldActivity extends Activity {
                 if (playerImpact && attackRemaining<=IMPACT_TIME) {
                     playerImpact=false;
                     if(pendingShove!=0){int mode=pendingShove;pendingShove=0;resolveShove(mode);}
+                    else if (casting!=null) releaseCantrip();
                     else resolvePunch();
                 }
             }
+            updateCantrip(dt);
             if (!inTown()) updateGoblins(dt);
             // Combat keeps the weapon ready. After six peaceful seconds
             // following the last attack, the sheathed state is just idle art.
@@ -853,7 +968,7 @@ public final class PrototypeWorldActivity extends Activity {
             int cx=(int)Math.floor(cameraX),cy=(int)Math.floor(cameraY);
             if (inTown()) town.ground(c,cameraX,cameraY);
             else ground(c);
-            if (attackRemaining>0f) {
+            if (attackRemaining>0f && !spellAttack) {
                 float markerX=sx(punchX,punchY),markerY=sy(punchX,punchY);
                 paint.setColor(0x98F2C774);
                 c.drawOval(markerX-17f,markerY-8f,markerX+17f,markerY+8f,paint);
@@ -862,6 +977,7 @@ public final class PrototypeWorldActivity extends Activity {
             if (inTown()) {
                 town.props(c,cameraX,cameraY,heroDepth,townHero);
                 if (arrowTime>0f) drawArrow(c);
+                drawCantrip(c);
                 c.restore();
                 drawControls(c);
                 postInvalidateOnAnimation();
@@ -895,9 +1011,39 @@ public final class PrototypeWorldActivity extends Activity {
             for (Goblin goblin:goblins)
                 if(!goblin.drawn)drawGoblin(c,goblin);
             if (arrowTime>0f) drawArrow(c);
+            drawCantrip(c);
             c.restore();
             drawControls(c);
             postInvalidateOnAnimation();
+        }
+        private void drawCantrip(Canvas c) {
+            if (casting!=null) {
+                float width=5f+10f*(1f-attackRemaining/RigAttackPose.DURATION);
+                paint.setColor(casting.color);
+                c.drawCircle(sx(x,y)+8f,sy(x,y)-92f,width,paint);
+            }
+            if (missile==null) return;
+            float xx=sx(spellX,spellY),yy=sy(spellX,spellY)-83f;
+            float ax=sx(spellStartX,spellStartY)+8f,ay=sy(spellStartX,spellStartY)-92f;
+            paint.setColor(missile.color);
+            if (missile==Cantrip.FIRE) {
+                c.drawCircle(xx,yy,9f,paint);
+                paint.setColor(0xFFFFEDA4);
+                c.drawCircle(xx,yy,4f,paint);
+            } else {
+                paint.setStrokeWidth(missile==Cantrip.FROST?5f:3f);
+                if (missile==Cantrip.SHOCK) {
+                    float midX=(ax+xx)*.5f,midY=(ay+yy)*.5f-13f;
+                    c.drawLine(ax,ay,midX,midY,paint);c.drawLine(midX,midY,xx,yy,paint);
+                } else c.drawLine(ax,ay,xx,yy,paint);
+                paint.setStrokeWidth(1f);
+            }
+            if (spellFlash>0) {
+                paint.setColor(missile.color);
+                paint.setAlpha((int)(200*spellFlash/.22f));
+                c.drawCircle(xx,yy,10f+11f*(1f-spellFlash/.22f),paint);
+                paint.setAlpha(255);
+            }
         }
         private void drawArrow(Canvas c) {
             float progress=1f-arrowTime/.19f;
@@ -943,7 +1089,7 @@ public final class PrototypeWorldActivity extends Activity {
                 interactInTown();
                 return;
             }
-            if (motions[motionIndex]!=WeaponTrials.Motion.UNARMED || hostile || !goblins.isEmpty()) {
+            if (spellSelected || motions[motionIndex]!=WeaponTrials.Motion.UNARMED || hostile || !goblins.isEmpty()) {
                 beginPunch();
                 return;
             }
@@ -985,13 +1131,26 @@ public final class PrototypeWorldActivity extends Activity {
             motionButton.set(getWidth()-175*d,106*d,getWidth()-12*d,141*d);
             weaponButton.set(getWidth()-175*d,146*d,getWidth()-12*d,181*d);
             if (!stickActive) {stickCenterX=joystick.centerX();stickCenterY=joystick.centerY();}
-            paint.setColor(0x99354B52);c.drawCircle(stickCenterX,stickCenterY,55*d,paint);
+            paint.setColor(0xD7132E35);c.drawCircle(stickCenterX,stickCenterY,49*d,paint);
+            paint.setStyle(Paint.Style.STROKE);
+            paint.setColor(WildlandsUi.GOLD);paint.setStrokeWidth(d);
+            c.drawCircle(stickCenterX,stickCenterY,50*d,paint);
+            c.drawCircle(stickCenterX,stickCenterY,46*d,paint);
+            paint.setStyle(Paint.Style.FILL);
+            for (int mark=0;mark<4;mark++) {
+                double angle=mark*Math.PI/2;
+                float mx=stickCenterX+50*d*(float)Math.cos(angle);
+                float my=stickCenterY+50*d*(float)Math.sin(angle);
+                hudPath.reset();hudPath.moveTo(mx,my-4*d);hudPath.lineTo(mx+4*d,my);
+                hudPath.lineTo(mx,my+4*d);hudPath.lineTo(mx-4*d,my);hudPath.close();
+                c.drawPath(hudPath,paint);
+            }
             paint.setColor(0xFFB7D6C7);
             c.drawCircle(stickCenterX+screenStickX*36*d,stickCenterY+screenStickY*36*d,19*d,paint);
-            button(c,runButton,hostile?"IN COMBAT":running?"RUN ON":"RUN");
+            button(c,runButton,hostile?"In Combat":running?"Run On":"Run");
             boolean training=inTown() && town.training(x,y);
-            button(c,attackButton,inTown() ? training ? "ATTACK" : "INTERACT"
-                : hostile || onQuest || motionIndex!=0 ? "ATTACK" : "ATTACK / USE");
+            button(c,attackButton,inTown() ? training ? spellSelected?"Cast":"Attack" : "Interact"
+                : spellSelected ? "Cast" : hostile || onQuest || motionIndex!=0 ? "Attack" : "Attack / Use");
             paint.setColor(0xFFF1D8AA);
             if ((!inTown() || training) && playerRecharge>0) {
                 paint.setStyle(Paint.Style.STROKE);
@@ -1000,11 +1159,15 @@ public final class PrototypeWorldActivity extends Activity {
             } else if (!inTown() || training) {
                 c.drawCircle(attackButton.right-12*d,attackButton.centerY(),4*d,paint);
             }
-            button(c,exitButton,"MENU");
-            button(c,motionButton,motions[motionIndex].title+" ›");
+            button(c,exitButton,"☰  Menu");
+            button(c,motionButton,(spellSelected?"Magic":motions[motionIndex].title)+"  ▾");
             Equipment.Item selection=Equipment.get(selectedWeapon());
-            button(c,weaponButton,selection==null ? "Bare hands" : selection.name+(selection.versatile?(motions[motionIndex]==WeaponTrials.Motion.HEAVY?" (2H)":" (1H)"):"")+" ›");
-            paint.setTextSize(13*d);paint.setColor(0xFFF1D8AA);
+            button(c,weaponButton,spellSelected?knownCantrip.title:selection==null ? "Bare hands" : selection.name+(selection.versatile?(motions[motionIndex]==WeaponTrials.Motion.HEAVY?" (2H)":" (1H)"):"")+" ›");
+            hud.set(8*d,15*d,Math.min(getWidth()-105*d,236*d),60*d);
+            WildlandsUi.plate(c,paint,hudPath,hud,7*d,WildlandsUi.TEAL,WildlandsUi.GOLD,d);
+            paint.setTypeface(WildlandsUi.SERIF);
+            paint.setTextSize(12*d);paint.setColor(WildlandsUi.INK);
+            c.drawLine(15*d,37*d,hud.right-7*d,37*d,paint);
             c.drawText(inTown() ? town.isInside() ? "WILDLANDS · TAVERN" : "WILDLANDS · TOWN"
                 : "WILDLANDS · FREE ROAM",15*d,32*d,paint);
             c.drawText("HP "+health+"   XP "+experience+"   GOLD "+gold,15*d,50*d,paint);
@@ -1017,11 +1180,22 @@ public final class PrototypeWorldActivity extends Activity {
                 paint.setTextSize(25*d);
                 c.drawText("PAUSED",getWidth()*.38f,getHeight()*.35f,paint);
             }
+            paint.setTypeface(android.graphics.Typeface.DEFAULT);
         }
         private void button(Canvas c,RectF bounds,String label) {
-            paint.setColor(0xCC304952);c.drawRoundRect(bounds,9,9,paint);
-            paint.setColor(0xFFF1D8AA);paint.setTextSize(13*getResources().getDisplayMetrics().density);
-            c.drawText(label,bounds.left+12,bounds.centerY()+5,paint);
+            float d=getResources().getDisplayMetrics().density;
+            WildlandsUi.plate(c,paint,hudPath,bounds,8*d,WildlandsUi.TEAL,WildlandsUi.GOLD,d);
+            innerFrame.set(bounds);
+            innerFrame.inset(3*d,3*d);
+            WildlandsUi.plate(c,paint,hudPath,innerFrame,6*d,Color.TRANSPARENT,0x909E895E,d);
+            paint.setColor(WildlandsUi.INK);paint.setTextSize(13*d);
+            paint.setTypeface(WildlandsUi.SERIF);
+            boolean reserveDot=bounds==attackButton;
+            hudText.set(paint);
+            String visible=android.text.TextUtils.ellipsize(label,hudText,
+                bounds.width()-(reserveDot?27:16)*d,android.text.TextUtils.TruncateAt.END).toString();
+            c.drawText(visible,bounds.left+8*d,bounds.centerY()-(paint.ascent()+paint.descent())*.5f,paint);
+            paint.setTypeface(android.graphics.Typeface.DEFAULT);
         }
         private void stick(float px,float py) {
             float d=getResources().getDisplayMetrics().density;
@@ -1066,12 +1240,28 @@ public final class PrototypeWorldActivity extends Activity {
                     ((Activity)getContext()).finish();return true;
                 }
                 if (motionButton.contains(px,py)) {
-                    motionIndex=(motionIndex+1)%motions.length;
+                    releaseStick();
+                    String[] styles=new String[motions.length+(knownCantrip==null?0:1)];
+                    for (int i=0;i<motions.length;i++) styles[i]=motions[i].title;
+                    if (knownCantrip!=null) styles[motions.length]=knownCantrip.title;
+                    WildlandsUi.choose(getContext(),"Attack style",null,styles,spellSelected?motions.length:motionIndex,which->{
+                        spellSelected=which==motions.length;
+                        if (!spellSelected) motionIndex=which;
+                    });
                     return true;
                 }
                 if (weaponButton.contains(px,py)) {
-                    
-                    selectedWeapons[motionIndex]=(selectedWeapons[motionIndex]+1)%motions[motionIndex].weapons.length;
+
+                    if (spellSelected) return true;
+                    releaseStick();
+                    String[] ids=motions[motionIndex].weapons;
+                    String[] names=new String[ids.length];
+                    for (int i=0;i<ids.length;i++) {
+                        Equipment.Item item=Equipment.get(ids[i]);
+                        names[i]=item==null?"Bare hands":item.name;
+                    }
+                    WildlandsUi.choose(getContext(),"Choose equipment",null,names,selectedWeapons[motionIndex],
+                        which->selectedWeapons[motionIndex]=which);
                     return true;
                 }
                 if(!inTown() && shoveButton.contains(px,py)){chooseShove();return true;}

@@ -18,13 +18,10 @@ import android.view.Gravity;
 import android.view.View;
 import android.text.Editable;
 import android.text.TextWatcher;
-import android.widget.AdapterView;
-import android.widget.ArrayAdapter;
 import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
-import android.widget.Spinner;
 import android.widget.TextView;
 import java.io.IOException;
 import java.io.InputStream;
@@ -475,34 +472,20 @@ final class OriginCreatorView extends FrameLayout {
         TextView heading=text(label,12,true);
         heading.setPadding(0,dp(9),0,0);
         if(showLabel)fields.addView(heading);
-        Spinner choices=new Spinner(getContext());
-        choices.setContentDescription(label);
+        TextView choices=text("",14,true);
+        choices.setGravity(Gravity.CENTER_VERTICAL);
+        choices.setPadding(dp(11),0,dp(8),0);
         choices.setBackground(ornate(CARD,0xFF668183,2));
-        choices.setPadding(dp(8),0,dp(8),0);
-        ArrayAdapter<String> adapter=new ArrayAdapter<String>(getContext(),
-                android.R.layout.simple_spinner_dropdown_item,options) {
-            @Override public View getView(int position,View item,android.view.ViewGroup parent) {
-                TextView view=(TextView)super.getView(position,item,parent);
-                view.setTextColor(INK);
-                view.setTextSize(13);
-                decorate(view,label+" "+options[position],"▾",17);
-                if(label.equals("Select a Race")||label.equals("Subrace")||label.equals("Wizard cantrip"))view.setTypeface(Typeface.create("serif",Typeface.NORMAL));
-                return view;
-            }
-        };
-        choices.setAdapter(adapter);
-        int initial=java.util.Arrays.asList(options).indexOf(current);
-        choices.setSelection(initial);
-        choices.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
-            private int selected=initial;
-            public void onNothingSelected(AdapterView<?> parent) {}
-            public void onItemSelected(AdapterView<?> parent,View item,int position,long id) {
-                if (position==selected) return;
-                selected=position;
-                change.accept(options[position]);
-            }
-        });
-        fields.addView(choices,new LinearLayout.LayoutParams(-1,dp(38)));
+        int[] selected={Math.max(0,java.util.Arrays.asList(options).indexOf(current))};
+        choices.setText("◆  "+options[selected[0]]+"  ▾");
+        choices.setContentDescription(label+", "+options[selected[0]]);
+        choices.setOnClickListener(v->WildlandsUi.choose(getContext(),label,null,options,selected[0],index->{
+            selected[0]=index;
+            choices.setText("◆  "+options[index]+"  ▾");
+            choices.setContentDescription(label+", "+options[index]);
+            change.accept(options[index]);
+        }));
+        fields.addView(choices,new LinearLayout.LayoutParams(-1,dp(46)));
     }
 
     private void updateAppearance(PetiteAppearance value) {

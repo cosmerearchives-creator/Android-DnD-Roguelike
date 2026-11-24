@@ -188,11 +188,13 @@ final class TownHub {
     private void label(Canvas c,String text,float x,float y) {
         paint.setTextSize(18);
         paint.setTextAlign(Paint.Align.CENTER);
-        paint.setColor(0xE9202829);
-        float half=paint.measureText(text)*.5f+6;
-        c.drawRoundRect(x-half,y-19,x+half,y+4,5,5,paint);
-        paint.setColor(0xFFF7E6C7);
+        paint.setTypeface(WildlandsUi.SERIF);
+        float half=paint.measureText(text)*.5f+12;
+        bounds.set(x-half,y-21,x+half,y+6);
+        WildlandsUi.plate(c,paint,polygon,bounds,6,WildlandsUi.TEAL,WildlandsUi.GOLD,1.5f);
+        paint.setColor(WildlandsUi.INK);
         c.drawText(text,x,y,paint);
+        paint.setTypeface(android.graphics.Typeface.DEFAULT);
         paint.setTextAlign(Paint.Align.LEFT);
     }
     private void face(Canvas c,float ax,float ay,float bx,float by,float cx,float cy,float dx,float dy) {

@@ -1,7 +1,6 @@
 package com.cosmerearchives.dndroguelike;
 
 import android.app.Activity;
-import android.app.AlertDialog;
 import android.content.Intent;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
@@ -124,10 +123,8 @@ public class MainActivity extends Activity {
                     busy=false;
                     check.setEnabled(true);
                     status.setText("Version "+name+" is available.");
-                    new AlertDialog.Builder(this).setTitle("Update available")
-                        .setMessage("Download version "+name+"?")
-                        .setNegativeButton("Later",null)
-                        .setPositiveButton("Download",(dialog,which)->download(url,hash,code)).show();
+                    WildlandsUi.choose(this,"Update available","Download version "+name+"?",
+                        new String[]{"Download"},-1,which->download(url,hash,code));
                 });
             } catch (NotPublished e) { finishWork("No releases published yet."); }
             catch (Exception e) { finishWork("Couldn’t check for updates. Check your connection and try again."); }
@@ -229,13 +226,12 @@ public class MainActivity extends Activity {
     private void install() {
         if(readyApk==null || !readyApk.exists()) return;
         if(!getPackageManager().canRequestPackageInstalls()) {
-            new AlertDialog.Builder(this).setTitle("Allow app updates")
-                .setMessage("Enable ‘Allow from this source’ for Android DnD Roguelike, then return here to install.")
-                .setNegativeButton("Later",(d,w)->status.setText("Update downloaded. Check again when you’re ready."))
-                .setPositiveButton("Open settings",(d,w)-> {
+            WildlandsUi.choose(this,"Allow app updates",
+                "Enable ‘Allow from this source’, then return here to install.",
+                new String[]{"Open settings"},-1,which->{
                     awaitingPermission=true;
                     startActivity(new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,Uri.parse("package:"+getPackageName())));
-                }).show();
+                });
             return;
         }
         try {
