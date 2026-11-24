@@ -52,6 +52,11 @@ final class OriginCreatorView extends FrameLayout {
     private final Scene scene;
     private final TextView direction;
     private final LinearLayout options, originFields;
+    private final FrameLayout stage;
+    private final LinearLayout rotation;
+    private final LinearLayout backgroundList;
+    private final TextView backgroundToggle;
+    private boolean backgroundsExpanded=false;
     private final TextView panelTitle, nextButton;
     private final View progress;
     private final Runnable back, enterHub;
@@ -122,9 +127,9 @@ final class OriginCreatorView extends FrameLayout {
             }
         }
 
-        FrameLayout stage=new FrameLayout(context);
+        stage=new FrameLayout(context);
         body.addView(stage,new LinearLayout.LayoutParams(0,-1,1));
-        LinearLayout rotation=new LinearLayout(context);
+        rotation=new LinearLayout(context);
         rotation.setGravity(Gravity.CENTER);
         FrameLayout.LayoutParams turnPosition=new FrameLayout.LayoutParams(-1,dp(48),Gravity.BOTTOM);
         turnPosition.bottomMargin=dp(53);
@@ -171,6 +176,13 @@ final class OriginCreatorView extends FrameLayout {
         ScrollView scroll=new ScrollView(context);
         LinearLayout list=column();
         scroll.addView(list);
+        backgroundToggle=text("",14,true);
+        backgroundToggle.setPadding(dp(10),dp(9),dp(10),dp(9));
+        backgroundToggle.setBackground(ornate(CARD,0xFF668183,2));
+        backgroundToggle.setOnClickListener(v->{backgroundsExpanded=!backgroundsExpanded;updateBackgroundPicker();});
+        list.addView(backgroundToggle);
+        backgroundList=column();
+        list.addView(backgroundList);
         originFields.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));
         for(int i=0;i<cards.length;i++) {
             final int index=i;
@@ -196,13 +208,14 @@ final class OriginCreatorView extends FrameLayout {
             item.setMinimumHeight(dp(43));
             item.setOnClickListener(view->{
                 hero.background=PlayerCharacter.BACKGROUNDS[index];
+                backgroundsExpanded=false;
                 refresh();
                 onChange.run();
             });
             cards[i]=item;
             LinearLayout.LayoutParams card=new LinearLayout.LayoutParams(-1,-2);
             card.bottomMargin=dp(4);
-            list.addView(item,card);
+            backgroundList.addView(item,card);
         }
         LinearLayout featureBox=column();
         featureBox.setPadding(dp(8),dp(6),dp(8),dp(8));
@@ -255,6 +268,7 @@ final class OriginCreatorView extends FrameLayout {
         footer.addView(nextButton,new LinearLayout.LayoutParams(dp(108),-1));
         refresh();
         refreshFacing();
+        applyLayout();
     }
 
     int step() { return step; }
@@ -274,6 +288,7 @@ final class OriginCreatorView extends FrameLayout {
     void showStep(int target) {
         if (target!=APPEARANCE && target!=REVIEW) target=ORIGIN;
         step=target;
+        applyLayout();
         panelTitle.setText(STEPS[step]);
         for (int i=0;i<stepViews.length;i++) {
             boolean active=i==step;
@@ -300,6 +315,37 @@ final class OriginCreatorView extends FrameLayout {
         nextButton.setText(step==REVIEW?"Enter Hub  ❯":step==APPEARANCE?"Review  ❯":"Next  ❯");
         progress.setContentDescription(STEPS[step]);
         progress.invalidate();
+    }
+
+    private void applyLayout() {
+        boolean appearance=step==APPEARANCE;
+        stage.setVisibility(appearance?VISIBLE:GONE);
+        LinearLayout.LayoutParams panel=(LinearLayout.LayoutParams)options.getLayoutParams();
+        panel.weight=appearance?1.28f:1f;
+        panel.setMargins(dp(appearance?3:12),dp(appearance?39:0),0,dp(appearance?109:12));
+        options.setLayoutParams(panel);
+        options.setBackground(appearance?ornate(PANEL,GOLD,2):null);
+        scene.invalidate();
+    }
+
+    private void updateBackgroundPicker(){
+        backgroundToggle.setText(hero.background+"   "+(backgroundsExpanded?"▴":"▾"));
+        backgroundList.setVisibility(backgroundsExpanded?VISIBLE:GONE);
+    }
+
+    private LinearLayout section(LinearLayout parent,String title){
+        LinearLayout section=column();
+        section.setPadding(dp(9),dp(8),dp(9),dp(9));
+        section.setBackground(ornate(PANEL,GOLD,2));
+        LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,-2);
+        lp.topMargin=dp(7);
+        parent.addView(section,lp);
+        TextView heading=text(title,16,true);
+        section.addView(heading);
+        View rule=new View(getContext());
+        rule.setBackgroundColor(0x997F8C80);
+        section.addView(rule,new LinearLayout.LayoutParams(-1,dp(1)));
+        return section;
     }
 
     private String avatarName() {
@@ -334,17 +380,20 @@ final class OriginCreatorView extends FrameLayout {
 
     private void select(LinearLayout fields,String label,String[] options,String current,
                         java.util.function.Consumer<String> change) {
-        TextView heading=text(label,14,true);
+        TextView heading=text(label,12,true);
         heading.setPadding(0,dp(9),0,0);
         fields.addView(heading);
         Spinner choices=new Spinner(getContext());
         choices.setContentDescription(label);
+        choices.setBackground(ornate(CARD,0xFF668183,2));
+        choices.setPadding(dp(8),0,dp(8),0);
         ArrayAdapter<String> adapter=new ArrayAdapter<String>(getContext(),
                 android.R.layout.simple_spinner_dropdown_item,options) {
             @Override public View getView(int position,View item,android.view.ViewGroup parent) {
                 TextView view=(TextView)super.getView(position,item,parent);
                 view.setTextColor(INK);
                 view.setTextSize(13);
+                view.setText(view.getText()+"  ▾");
                 return view;
             }
         };
@@ -387,29 +436,33 @@ final class OriginCreatorView extends FrameLayout {
             cards[i].setBackground(ornate(selected?0xFF454C43:CARD,
                 selected?0xFFFFD68A:0xFF4E6C70,selected?3:2));
         }
+        updateBackgroundPicker();
         feature.setText(hero.backgroundFeature()+"\nSkills: "+String.join(", ",hero.backgroundSkills())+
             "\nBonus languages: "+hero.backgroundLanguageCount());
         hero.normalizeProficiencies();
         backgroundChoices.removeAllViews();
+        LinearLayout gear=section(backgroundChoices,"Starting Equipment & Tools");
+        LinearLayout languages=section(backgroundChoices,"Languages");
+        LinearLayout skills=hero.replacementCount()>0?section(backgroundChoices,"Proficiency Selection"):backgroundChoices;
         if(hero.background.equals("Acolyte"))
-            select(backgroundChoices,"Prayer item",new String[]{"prayer_book","prayer_wheel"},hero.prayerChoice,v->{hero.prayerChoice=v;onChange.run();});
+            select(gear,"Prayer item",new String[]{"prayer_book","prayer_wheel"},hero.prayerChoice,v->{hero.prayerChoice=v;onChange.run();});
         if(hero.background.equals("Outlander"))
-            select(backgroundChoices,"Instrument proficiency",new String[]{"Bagpipes","Drum","Dulcimer","Flute","Lute","Lyre","Horn","Pan flute","Shawm","Viol"},hero.instrumentChoice,v->{hero.instrumentChoice=v;onChange.run();});
+            select(gear,"Instrument proficiency",new String[]{"Bagpipes","Drum","Dulcimer","Flute","Lute","Lyre","Horn","Pan flute","Shawm","Viol"},hero.instrumentChoice,v->{hero.instrumentChoice=v;onChange.run();});
         if(hero.background.equals("Soldier"))
-            select(backgroundChoices,"Gaming set",new String[]{"dice_set","playing_cards","dragonchess","three_dragon_ante"},hero.gamingChoice,v->{hero.gamingChoice=v;onChange.run();});
+            select(gear,"Gaming set",new String[]{"dice_set","playing_cards","dragonchess","three_dragon_ante"},hero.gamingChoice,v->{hero.gamingChoice=v;onChange.run();});
         if(hero.background.equals("Archaeologist"))
-            select(backgroundChoices,"Tool proficiency",new String[]{"cartographer_tools","navigator_tools"},hero.toolChoice,v->{hero.toolChoice=v;onChange.run();});
+            select(gear,"Tool proficiency",new String[]{"cartographer_tools","navigator_tools"},hero.toolChoice,v->{hero.toolChoice=v;onChange.run();});
         if(hero.background.equals("Guild Artisan"))
-            select(backgroundChoices,"Artisan tools",new String[]{"alchemist_supplies","brewer_supplies","calligrapher_supplies_artisan","carpenter_tools","cartographer_tools_artisan","cobbler_tools","cook_utensils","glassblower_tools","jeweler_tools","leatherworker_tools","mason_tools","painter_supplies","potter_tools","smith_tools","tinker_tools","weaver_tools","woodcarver_tools"},hero.artisanChoice,v->{hero.artisanChoice=v;onChange.run();});
-        select(backgroundChoices,"High Elf bonus language",hero.languageOptions(0),hero.languageOne,v->{hero.languageOne=v;refresh();onChange.run();});
+            select(gear,"Artisan tools",new String[]{"alchemist_supplies","brewer_supplies","calligrapher_supplies_artisan","carpenter_tools","cartographer_tools_artisan","cobbler_tools","cook_utensils","glassblower_tools","jeweler_tools","leatherworker_tools","mason_tools","painter_supplies","potter_tools","smith_tools","tinker_tools","weaver_tools","woodcarver_tools"},hero.artisanChoice,v->{hero.artisanChoice=v;onChange.run();});
+        select(languages,"High Elf bonus language",hero.languageOptions(0),hero.languageOne,v->{hero.languageOne=v;refresh();onChange.run();});
         if(hero.backgroundLanguageCount()>0)
-            select(backgroundChoices,"Background language 1",hero.languageOptions(1),hero.languageTwo,v->{hero.languageTwo=v;refresh();onChange.run();});
+            select(languages,"Background language 1",hero.languageOptions(1),hero.languageTwo,v->{hero.languageTwo=v;refresh();onChange.run();});
         if(hero.backgroundLanguageCount()>1)
-            select(backgroundChoices,"Background language 2",hero.languageOptions(2),hero.languageThree,v->{hero.languageThree=v;refresh();onChange.run();});
+            select(languages,"Background language 2",hero.languageOptions(2),hero.languageThree,v->{hero.languageThree=v;refresh();onChange.run();});
         if(hero.replacementCount()>0)
-            select(backgroundChoices,"Replacement skill proficiency",hero.replacementOptions(hero.replacementCount()>1?hero.replacementTwo:""),hero.replacementOne,v->{hero.replacementOne=v;refresh();onChange.run();});
+            select(skills,"Replacement skill proficiency",hero.replacementOptions(hero.replacementCount()>1?hero.replacementTwo:""),hero.replacementOne,v->{hero.replacementOne=v;refresh();onChange.run();});
         if(hero.replacementCount()>1)
-            select(backgroundChoices,"Second replacement skill proficiency",hero.replacementOptions(hero.replacementOne),hero.replacementTwo,v->{hero.replacementTwo=v;refresh();onChange.run();});
+            select(skills,"Second replacement skill proficiency",hero.replacementOptions(hero.replacementOne),hero.replacementTwo,v->{hero.replacementTwo=v;refresh();onChange.run();});
     }
 
     private int dp(float value) {
@@ -510,11 +563,20 @@ final class OriginCreatorView extends FrameLayout {
             } catch (IOException e) { return null; }
         }
         @Override protected void onDraw(Canvas c) {
-            float w=getWidth(),h=getHeight(),x=w*.37f,y=h*.68f;
+            float w=getWidth(),h=getHeight();
+            boolean miniature=step!=APPEARANCE;
+            if(miniature){
+                p.setShader(new android.graphics.LinearGradient(0,0,0,h,0xFF102D35,0xFF123C3D,android.graphics.Shader.TileMode.CLAMP));
+                c.drawRect(0,0,w,h,p);p.setShader(null);
+                c.save();
+                c.translate(w*.015f,h*.68f);
+                c.scale(.24f,.24f);
+            }
+            float x=w*.37f,y=h*.68f;
             p.setShader(new android.graphics.LinearGradient(0,0,0,h,
                 new int[]{0xFF13272E,0xFF294337,0xFF415A3D,0xFF21352D},
                 null,android.graphics.Shader.TileMode.CLAMP));
-            c.drawRect(0,0,w,h,p);
+            if(!miniature)c.drawRect(0,0,w,h,p);
             p.setShader(null);
             art(c,trees,-.17f*w,-.06f*h,.62f*w,.65f*h);
             art(c,trees2,.24f*w,-.16f*h,.78f*w,.62f*h);
@@ -547,6 +609,7 @@ final class OriginCreatorView extends FrameLayout {
                 p.setColor(0xFFFFFFFF);
                 c.drawBitmap(person,sprite,box,p);
             }
+            if(miniature)c.restore();
         }
         private void art(Canvas c,Bitmap b,float l,float t,float r,float bottom) {
             if (b==null) return;
