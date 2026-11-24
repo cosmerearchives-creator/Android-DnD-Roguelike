@@ -16,9 +16,15 @@ import android.graphics.ColorFilter;
 import android.graphics.BlurMaskFilter;
 import android.view.Gravity;
 import android.view.View;
+import android.text.Editable;
+import android.text.TextWatcher;
+import android.widget.AdapterView;
+import android.widget.ArrayAdapter;
+import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
+import android.widget.Spinner;
 import android.widget.TextView;
 import java.io.IOException;
 import java.io.InputStream;
@@ -44,13 +50,20 @@ final class OriginCreatorView extends FrameLayout {
     private final TextView[] stepViews=new TextView[STEPS.length];
     private final Scene scene;
     private final TextView direction;
+    private final LinearLayout options, originFields;
+    private final TextView panelTitle, nextButton;
+    private final View progress;
+    private final Runnable back, enterHub;
+    private static final int ORIGIN=0, APPEARANCE=5, REVIEW=6;
+    private int step;
     private int facing=2;
 
-    OriginCreatorView(Context context,PlayerCharacter hero,Runnable onChange,Runnable back,Runnable next) {
+    OriginCreatorView(Context context,PlayerCharacter hero,Runnable onChange,Runnable back,Runnable enterHub) {
         super(context);
         this.hero=hero;this.onChange=onChange;
+        this.back=back;this.enterHub=enterHub;
         setBackgroundColor(0xFF14292E);
-        scene=new Scene(context,hero.appearance==ElfAppearance.PETITE ? "petite" : "classic");
+        scene=new Scene(context);
         addView(scene,new FrameLayout.LayoutParams(-1,-1));
 
         LinearLayout layout=column();
@@ -88,6 +101,12 @@ final class OriginCreatorView extends FrameLayout {
             label.setGravity(Gravity.CENTER);
             label.setBackground(ornate(i==0?0xF03D4C49:PANEL,i==0?0xFFFFD88C:0xFF577074,i==0?4:1));
             label.setSelected(i==0);
+            if (i==ORIGIN || i==APPEARANCE || i==REVIEW) {
+                int target=i;
+                label.setOnClickListener(view->showStep(target));
+            } else {
+                label.setAlpha(.58f);
+            }
             stepViews[i]=label;
             LinearLayout.LayoutParams size=new LinearLayout.LayoutParams(-1,dp(32));
             size.bottomMargin=dp(8);
@@ -124,7 +143,7 @@ final class OriginCreatorView extends FrameLayout {
         right.setBackgroundColor(0x00000000);
         rotation.addView(right,new LinearLayout.LayoutParams(0,-1,1));
 
-        LinearLayout options=column();
+        options=column();
         options.setPadding(dp(7),dp(8),dp(7),dp(8));
         options.setBackground(ornate(PANEL,GOLD,2));
         LinearLayout.LayoutParams panel=new LinearLayout.LayoutParams(0,-1,1.28f);
@@ -132,7 +151,7 @@ final class OriginCreatorView extends FrameLayout {
         body.addView(options,panel);
         LinearLayout panelHeader=new LinearLayout(context);
         panelHeader.setGravity(Gravity.CENTER_VERTICAL);
-        TextView panelTitle=text("Origin",19,true);
+        panelTitle=text("Origin",19,true);
         panelTitle.setPadding(dp(5),0,0,dp(8));
         panelHeader.addView(panelTitle,new LinearLayout.LayoutParams(0,-2,1));
         TextView dice=text("⚄",20,true);
@@ -141,15 +160,17 @@ final class OriginCreatorView extends FrameLayout {
         options.addView(panelHeader);
         View separator=new View(context);separator.setBackgroundColor(0x997F8C80);
         options.addView(separator,new LinearLayout.LayoutParams(-1,dp(1)));
+        originFields=column();
+        options.addView(originFields,new LinearLayout.LayoutParams(-1,0,1));
         if (hero.background==null) hero.background=PlayerCharacter.BACKGROUNDS[0];
         TextView prompt=text("Choose a Background",13,true);
         prompt.setSingleLine(true);
         prompt.setPadding(dp(5),dp(10),0,dp(9));
-        options.addView(prompt);
+        originFields.addView(prompt);
         ScrollView scroll=new ScrollView(context);
         LinearLayout list=column();
         scroll.addView(list);
-        options.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));
+        originFields.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));
         for(int i=0;i<cards.length;i++) {
             final int index=i;
             LinearLayout item=new LinearLayout(context);
@@ -195,39 +216,154 @@ final class OriginCreatorView extends FrameLayout {
         feature=text("",11,false);
         feature.setPadding(dp(4),dp(3),dp(2),dp(3));
         featureBox.addView(feature);
-        options.addView(featureBox);
+        originFields.addView(featureBox);
         LinearLayout footer=new LinearLayout(context);
         footer.setPadding(dp(6),dp(6),dp(6),dp(6));
         footer.setGravity(Gravity.CENTER_VERTICAL);
         footer.setBackground(ornate(PANEL,GOLD,2));
         layout.addView(footer,new LinearLayout.LayoutParams(-1,dp(53)));
-        TextView backButton=action("❮  Back",back);
+        TextView backButton=action("❮  Back",this::goBack);
         backButton.setBackground(ornate(CARD,GOLD,2));
         footer.addView(backButton,new LinearLayout.LayoutParams(dp(78),-1));
-        View progress=new View(context){
+        progress=new View(context){
             private final Paint ink=new Paint(Paint.ANTI_ALIAS_FLAG);
             @Override protected void onDraw(Canvas canvas){
                 float pad=dp(13), y=getHeight()*.5f;
-                float stride=Math.max(0f,getWidth()-2*pad)/4f;
+                float stride=Math.max(0f,getWidth()-2*pad)/(STEPS.length-1);
                 ink.setColor(0xFF879695);
                 ink.setStrokeWidth(dp(1));
-                canvas.drawLine(pad,y,pad+4*stride,y,ink);
-                for(int i=0;i<5;i++){
-                    float x=pad+i*stride, radius=dp(i==0?5:4);
-                    ink.setColor(i==0?GOLD:0xFF879695);
+                canvas.drawLine(pad,y,pad+(STEPS.length-1)*stride,y,ink);
+                for(int i=0;i<STEPS.length;i++){
+                    float x=pad+i*stride, radius=dp(i==step?5:4);
+                    ink.setColor(i==step?GOLD:0xFF879695);
                     canvas.drawCircle(x,y,radius,ink);
-                    ink.setColor(i==0?0xFFFFE7AE:PANEL|0xFF000000);
+                    ink.setColor(i==step?0xFFFFE7AE:PANEL|0xFF000000);
                     canvas.drawCircle(x,y,radius-dp(1),ink);
                 }
             }
         };
         progress.setContentDescription("Step 1 of 7");
         footer.addView(progress,new LinearLayout.LayoutParams(0,-1,1));
-        TextView nextButton=action("Next  ❯",next);
+        nextButton=action("Next  ❯",()->{
+            if (step==REVIEW) enterHub.run();
+            else showStep(step==ORIGIN?APPEARANCE:REVIEW);
+        });
         nextButton.setBackground(ornate(CARD,GOLD,2));
-        footer.addView(nextButton,new LinearLayout.LayoutParams(dp(78),-1));
+        footer.addView(nextButton,new LinearLayout.LayoutParams(dp(108),-1));
         refresh();
         refreshFacing();
+    }
+
+    int step() { return step; }
+    int facing() { return facing; }
+    void facing(int value) {
+        facing=Math.floorMod(value,8);
+        refreshFacing();
+        scene.invalidate();
+    }
+
+    void goBack() {
+        if (step==REVIEW) showStep(APPEARANCE);
+        else if (step==APPEARANCE) showStep(ORIGIN);
+        else back.run();
+    }
+
+    void showStep(int target) {
+        if (target!=APPEARANCE && target!=REVIEW) target=ORIGIN;
+        step=target;
+        panelTitle.setText(STEPS[step]);
+        for (int i=0;i<stepViews.length;i++) {
+            boolean active=i==step;
+            stepViews[i].setSelected(active);
+            stepViews[i].setBackground(ornate(active?0xF03D4C49:PANEL,
+                active?0xFFFFD88C:0xFF577074,active?4:1));
+        }
+        if (options.getChildCount()>3) options.removeViewAt(3);
+        originFields.setVisibility(step==ORIGIN?VISIBLE:GONE);
+        if (step!=ORIGIN) {
+            ScrollView scroll=new ScrollView(getContext());
+            LinearLayout fields=column();
+            fields.setPadding(dp(5),dp(6),dp(5),dp(8));
+            scroll.addView(fields);
+            options.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));
+            if (step==APPEARANCE) appearanceFields(fields);
+            else {
+                fields.addView(text("Avatar",16,true));
+                fields.addView(text(avatarName(),16,false));
+                fields.addView(text(hero.petite.ears+" ears\n"+hero.petite.hair+" hair\n"
+                    +hero.petite.skin+" skin",13,false));
+            }
+        }
+        nextButton.setText(step==REVIEW?"Enter Hub  ❯":step==APPEARANCE?"Review  ❯":"Next  ❯");
+        progress.setContentDescription(STEPS[step]);
+        progress.invalidate();
+    }
+
+    private String avatarName() {
+        String name=hero.name.trim();
+        return name.isEmpty()?"Avatar":name;
+    }
+
+    private void appearanceFields(LinearLayout fields) {
+        fields.addView(text("Avatar name",14,true));
+        EditText name=new EditText(getContext());
+        name.setSingleLine(true);
+        name.setTextColor(INK);
+        name.setHintTextColor(MUTED);
+        name.setHint("Avatar");
+        name.setText(hero.name);
+        name.addTextChangedListener(new TextWatcher() {
+            public void beforeTextChanged(CharSequence s,int start,int count,int after) {}
+            public void onTextChanged(CharSequence s,int start,int before,int count) {
+                hero.name=s.toString();
+                onChange.run();
+            }
+            public void afterTextChanged(Editable value) {}
+        });
+        fields.addView(name);
+        select(fields,"Ear shape",PetiteAppearance.EARS,hero.petite.ears,
+            value->updateAppearance(new PetiteAppearance(value,hero.petite.hair,hero.petite.skin)));
+        select(fields,"Hair color",PetiteAppearance.HAIR,hero.petite.hair,
+            value->updateAppearance(new PetiteAppearance(hero.petite.ears,value,hero.petite.skin)));
+        select(fields,"Skin tone",PetiteAppearance.SKIN,hero.petite.skin,
+            value->updateAppearance(new PetiteAppearance(hero.petite.ears,hero.petite.hair,value)));
+    }
+
+    private void select(LinearLayout fields,String label,String[] options,String current,
+                        java.util.function.Consumer<String> change) {
+        TextView heading=text(label,14,true);
+        heading.setPadding(0,dp(9),0,0);
+        fields.addView(heading);
+        Spinner choices=new Spinner(getContext());
+        choices.setContentDescription(label);
+        ArrayAdapter<String> adapter=new ArrayAdapter<String>(getContext(),
+                android.R.layout.simple_spinner_dropdown_item,options) {
+            @Override public View getView(int position,View item,android.view.ViewGroup parent) {
+                TextView view=(TextView)super.getView(position,item,parent);
+                view.setTextColor(INK);
+                view.setTextSize(13);
+                return view;
+            }
+        };
+        choices.setAdapter(adapter);
+        int initial=java.util.Arrays.asList(options).indexOf(current);
+        choices.setSelection(initial);
+        choices.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            private int selected=initial;
+            public void onNothingSelected(AdapterView<?> parent) {}
+            public void onItemSelected(AdapterView<?> parent,View item,int position,long id) {
+                if (position==selected) return;
+                selected=position;
+                change.accept(options[position]);
+            }
+        });
+        fields.addView(choices,new LinearLayout.LayoutParams(-1,dp(38)));
+    }
+
+    private void updateAppearance(PetiteAppearance value) {
+        hero.petite=value;
+        scene.updateAppearance();
+        onChange.run();
     }
 
     private void rotate(int delta) {
@@ -325,17 +461,23 @@ final class OriginCreatorView extends FrameLayout {
 
     private final class Scene extends View {
         private final Paint p=new Paint(Paint.ANTI_ALIAS_FLAG|Paint.FILTER_BITMAP_FLAG);
-        private final Bitmap trees,trees2,bush,rock,person;
+        private final Bitmap trees,trees2,bush,rock,avatarSprite;
+        private Bitmap person;
         private final Rect sprite=new Rect();
         private final RectF box=new RectF();
         private final Path path=new Path();
-        Scene(Context context,String style) {
+        Scene(Context context) {
             super(context);
             trees=asset("factory_world/trees_00.png");
             trees2=asset("factory_world/trees_02.png");
             bush=asset("factory_world/bushes_01.png");
             rock=asset("factory_world/rocks_00.png");
-            person=asset("blender_world/"+style+"_idle.png");
+            avatarSprite=asset("blender_world/petite_detail_idle.png");
+            updateAppearance();
+        }
+        void updateAppearance() {
+            person=hero.petite.apply(getContext(),avatarSprite,"idle");
+            invalidate();
         }
         private Bitmap asset(String file) {
             try (InputStream in=getContext().getAssets().open(file)) {
