@@ -467,7 +467,7 @@ final class OriginCreatorView extends FrameLayout {
             select(gear,"Tool proficiency",new String[]{"cartographer_tools","navigator_tools"},hero.toolChoice,v->{hero.toolChoice=v;onChange.run();});
         if(hero.background.equals("Guild Artisan"))
             select(gear,"Artisan tools",new String[]{"alchemist_supplies","brewer_supplies","calligrapher_supplies_artisan","carpenter_tools","cartographer_tools_artisan","cobbler_tools","cook_utensils","glassblower_tools","jeweler_tools","leatherworker_tools","mason_tools","painter_supplies","potter_tools","smith_tools","tinker_tools","weaver_tools","woodcarver_tools"},hero.artisanChoice,v->{hero.artisanChoice=v;onChange.run();});
-        select(languages,"High Elf bonus language",hero.languageOptions(0),hero.languageOne,v->{hero.languageOne=v;refresh();onChange.run();});
+        if(hero.race.bonusLanguages>0)select(languages,"Racial bonus language",hero.languageOptions(0),hero.languageOne,v->{hero.languageOne=v;refresh();onChange.run();});
         if(hero.backgroundLanguageCount()>0)
             select(languages,"Background language 1",hero.languageOptions(1),hero.languageTwo,v->{hero.languageTwo=v;refresh();onChange.run();});
         if(hero.backgroundLanguageCount()>1)

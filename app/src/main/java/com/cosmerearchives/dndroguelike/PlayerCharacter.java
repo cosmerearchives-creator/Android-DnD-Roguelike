@@ -22,8 +22,8 @@ final class PlayerCharacter {
     static final String[] STYLES={"Archery","Defense","Dueling","Great Weapon Fighting","Protection","Two-Weapon Fighting"};
     static final String[] CANTRIPS={"Fire Bolt","Ray of Frost","Shocking Grasp"};
     static final String[] FIGHTER_SKILLS={"Acrobatics","Animal Handling","Athletics","History","Insight","Intimidation","Perception","Survival"};
-    static final String[] LANGUAGES={"Dwarvish","Giant","Gnomish","Goblin","Halfling","Orc","Abyssal","Celestial","Draconic","Deep Speech","Infernal","Primordial","Sylvan","Undercommon"};
-    final RaceDefinition race=RaceDefinition.HIGH_ELF;
+    static final String[] LANGUAGES={"Common","Elvish","Dwarvish","Giant","Gnomish","Goblin","Halfling","Orc","Abyssal","Celestial","Draconic","Deep Speech","Infernal","Primordial","Sylvan","Undercommon"};
+    RaceDefinition race=RaceDefinition.HIGH_ELF;
     final ElfAppearance appearance=ElfAppearance.PETITE;
     PetiteAppearance petite=PetiteAppearance.DEFAULT;
     String startingClass=STARTING_CLASSES[0];
@@ -110,8 +110,8 @@ final class PlayerCharacter {
         java.util.Set<String> used=new java.util.HashSet<>();
         String[] choices={languageOne,languageTwo,languageThree};
         for(int i=0;i<race.bonusLanguages+backgroundLanguageCount();i++){
-            if(!java.util.Arrays.asList(LANGUAGES).contains(choices[i])||used.contains(choices[i])){
-                for(String option:LANGUAGES)if(!used.contains(option)){choices[i]=option;break;}
+            if(!java.util.Arrays.asList(LANGUAGES).contains(choices[i])||race.languages.contains(skillTag(choices[i]))||used.contains(choices[i])){
+                for(String option:LANGUAGES)if(!used.contains(option)&&!race.languages.contains(skillTag(option))){choices[i]=option;break;}
             }
             used.add(choices[i]);
         }
@@ -123,7 +123,7 @@ final class PlayerCharacter {
         for(String option:LANGUAGES){
             boolean used=false;
             for(int i=0;i<race.bonusLanguages+backgroundLanguageCount();i++)if(i!=slot&&option.equals(choices[i]))used=true;
-            if(!used)options.add(option);
+            if(!used&&!race.languages.contains(skillTag(option)))options.add(option);
         }
         return options.toArray(new String[0]);
     }
@@ -252,6 +252,7 @@ final class PlayerCharacter {
     }
     static PlayerCharacter fromJson(JSONObject o){
         PlayerCharacter p=new PlayerCharacter();
+        p.race=RaceDefinition.fromId(o.optString("race","high_elf"));
         p.name=o.optString("name",p.name);
         p.petite=new PetiteAppearance(o.optString("petiteEars"),o.optString("petiteHair"),o.optString("petiteSkin"));
         String savedClass=o.optString("class");
