@@ -5,16 +5,12 @@ import android.content.Intent;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.Signature;
-import android.graphics.Color;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.provider.Settings;
-import android.view.Gravity;
 import android.view.View;
 import android.widget.Button;
-import android.widget.LinearLayout;
-import android.widget.ScrollView;
 import android.widget.TextView;
 import androidx.core.content.FileProvider;
 import org.json.JSONArray;
@@ -41,60 +37,38 @@ public class MainActivity extends Activity {
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
-        ScrollView scroll = new ScrollView(this);
-        LinearLayout root = new LinearLayout(this);
-        root.setOrientation(LinearLayout.VERTICAL);
-        root.setGravity(Gravity.CENTER_HORIZONTAL);
-        int pad = (int)(24 * getResources().getDisplayMetrics().density);
-        root.setPadding(pad, pad * 2, pad, pad);
-        root.setBackgroundColor(Color.rgb(21,23,32));
-        scroll.addView(root);
-        TextView title = text("Android DnD\nRoguelike", 30);
-        title.setGravity(Gravity.CENTER);
-        root.addView(title);
-        root.addView(text("v" + BuildConfig.VERSION_NAME, 16));
-        TextView intro = text("Your adventure starts here.", 20);
-        intro.setPadding(0,pad,0,pad);
-        root.addView(intro);
-        continueGame = new Button(this);
+        ForestMenu menu = new ForestMenu(this);
+        continueGame = menu.adventure;
         continueGame.setOnClickListener(v -> startActivity(new Intent(this, PrototypeWorldActivity.class)
-            .putExtra(PrototypeWorldActivity.EXTRA_TOWN,true)));
-        root.addView(continueGame);
-        create = new Button(this);
+            .putExtra(PrototypeWorldActivity.EXTRA_TOWN, true)));
+        create = menu.avatar;
         create.setOnClickListener(v -> startActivity(new Intent(this, CharacterCreatorActivity.class)));
-        root.addView(create);
-        check = new Button(this);
-        check.setText("Check for updates");
+        check = menu.updates;
         check.setOnClickListener(v -> checkUpdates());
-        root.addView(check);
-        status = text("Ready", 16);
-        status.setPadding(0,pad,0,pad);
-        root.addView(status);
-        setContentView(scroll);
+        status = menu.status;
+        setContentView(menu);
         checkUpdates();
-    }
-
-    private TextView text(String value, int size) {
-        TextView view = new TextView(this);
-        view.setText(value);
-        view.setTextSize(size);
-        view.setTextColor(Color.rgb(233,228,244));
-        return view;
     }
 
     private void ui(Runnable action) {
         runOnUiThread(() -> { if (!isFinishing() && !isDestroyed()) action.run(); });
     }
 
+    private void showStatus(String message) {
+        status.setText(message);
+        status.setCompoundDrawablesRelativeWithIntrinsicBounds(
+            "You’re up to date.".equals(message) ? R.drawable.menu_check : 0, 0, 0, 0);
+    }
+
     private void finishWork(String message) {
-        ui(() -> { busy=false; check.setEnabled(true); status.setText(message); });
+        ui(() -> { busy=false; check.setEnabled(true); showStatus(message); });
     }
 
     private void checkUpdates() {
         if (busy) return;
         busy=true;
         check.setEnabled(false);
-        status.setText("Checking for updates…");
+        showStatus("Checking for updates…");
         worker.execute(() -> {
             try {
                 JSONObject release = new JSONObject(read(API));
@@ -122,7 +96,7 @@ public class MainActivity extends Activity {
                 ui(() -> {
                     busy=false;
                     check.setEnabled(true);
-                    status.setText("Version "+name+" is available.");
+                    showStatus("Version "+name+" is available.");
                     WildlandsUi.choose(this,"Update available","Download version "+name+"?",
                         new String[]{"Download"},-1,which->download(url,hash,code));
                 });
@@ -162,7 +136,7 @@ public class MainActivity extends Activity {
         if(busy) return;
         busy=true;
         check.setEnabled(false);
-        status.setText("Downloading update…");
+        showStatus("Downloading update…");
         worker.execute(() -> {
             File folder=new File(getCacheDir(),"updates");
             File partial=new File(folder,"update.part");
@@ -185,7 +159,7 @@ public class MainActivity extends Activity {
                             int percent=length>0 ? (int)(total*100/length) : 0;
                             if(percent!=last) {
                                 last=percent; final int p=percent;
-                                ui(()->status.setText(length>0 ? "Downloading update: "+p+"%" : "Downloading update…"));
+                                ui(()->showStatus(length>0 ? "Downloading update: "+p+"%" : "Downloading update…"));
                             }
                         }
                     }
@@ -199,7 +173,7 @@ public class MainActivity extends Activity {
                 if(!partial.renameTo(target)) throw new IOException("Cannot save APK.");
                 ui(()->{
                     readyApk=target; busy=false; check.setEnabled(true);
-                    status.setText("Download verified. Ready to install.");
+                    showStatus("Download verified. Ready to install.");
                     install();
                 });
             } catch(Exception e) {
@@ -240,9 +214,9 @@ public class MainActivity extends Activity {
             intent.setDataAndType(uri,"application/vnd.android.package-archive");
             intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
             startActivity(intent);
-            status.setText("Finish installing in Android’s installer.");
+            showStatus("Finish installing in Android’s installer.");
         } catch(Exception e) {
-            status.setText("Couldn’t open installer. Please try again.");
+            showStatus("Couldn’t open installer. Please try again.");
         }
     }
 
@@ -250,12 +224,12 @@ public class MainActivity extends Activity {
         super.onResume();
         PlayerCharacter saved = PlayerCharacter.loadCompleted(this);
         continueGame.setVisibility(saved == null ? View.GONE : View.VISIBLE);
-        if (saved != null) continueGame.setText("Continue as " + saved.name);
+        continueGame.setContentDescription(saved == null ? null : "Continue adventure as " + saved.name);
         create.setText(saved == null ? "Create Avatar" : "Edit Avatar");
         if(awaitingPermission) {
             awaitingPermission=false;
             if(getPackageManager().canRequestPackageInstalls()) install();
-            else status.setText("Installation permission wasn’t enabled. Check again to retry.");
+            else showStatus("Installation permission wasn’t enabled. Check again to retry.");
         }
     }
     @Override protected void onDestroy() { worker.shutdownNow(); super.onDestroy(); }

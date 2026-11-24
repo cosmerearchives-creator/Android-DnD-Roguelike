@@ -1,0 +1,6 @@
+<resources>
+    <string name="app_name">Forests of Hell</string>
+    <string name="menu_subtitle">A D&amp;D Roguelike Adventure</string>
+    <string name="menu_continue">Continue Adventure</string>
+    <string name="menu_updates">Check for Updates</string>
+</resources>

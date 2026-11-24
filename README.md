@@ -1,4 +1,4 @@
-# Android DnD Roguelike
+# Forests of Hell
 
 ## v0.3.53 — Tawny Bob rear upper-arm gold-trim removal
 - Retouches ONLY `app/src/main/assets/elf_roster/bob/2.webp` to remove leftover gold clothing trim on both rear upper-arm sprites. Starts from the original v0.3.52 atlas and blends nearby original skin texture inside two small, independently masked areas.

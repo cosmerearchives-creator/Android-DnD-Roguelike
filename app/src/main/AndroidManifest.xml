@@ -1,7 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
-    <application android:label="Android DnD Roguelike" android:theme="@android:style/Theme.Material.NoActionBar" android:icon="@drawable/ic_launcher" android:allowBackup="true" android:usesCleartextTraffic="false" android:supportsRtl="true">
+    <application android:label="@string/app_name" android:theme="@android:style/Theme.Material.NoActionBar" android:icon="@drawable/ic_launcher" android:allowBackup="true" android:usesCleartextTraffic="false" android:supportsRtl="true">
         <activity android:name=".PrototypeWorldActivity" android:exported="false"/>
         <activity android:name=".IsometricOverworldActivity" android:exported="false" />
         <activity android:name=".IsometricRoomActivity" android:exported="false" />
