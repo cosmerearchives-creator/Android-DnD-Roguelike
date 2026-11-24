@@ -238,7 +238,7 @@ final class PlayerCharacter {
             o.put("toolTags",new JSONArray(toolTags()));
             o.put("languageTags",new JSONArray(languageTags()));
             o.put("replacementChoices",new JSONArray(chosenReplacements));
-            o.put("style",style);o.put("cantrip",cantrip);o.put("skillOne",skillOne);o.put("skillTwo",skillTwo);
+            o.put("style",style);o.put("cantrip",race.cantripAbility.isEmpty()?"":cantrip);o.put("skillOne",skillOne);o.put("skillTwo",skillTwo);
             o.put("languageChoices",new JSONArray(chosenLanguages));
             o.put("instrumentChoice",instrumentChoice);o.put("prayerChoice",prayerChoice);o.put("toolChoice",toolChoice);o.put("gamingChoice",gamingChoice);o.put("artisanChoice",artisanChoice);
             o.put("armorChoice",armorChoice);o.put("martialOne",martialOne);o.put("martialTwo",martialTwo);
@@ -262,7 +262,7 @@ final class PlayerCharacter {
         p.background=o.optString("background",p.background);
         switch(p.background){case "Wilderness Pathfinder":p.background="Outlander";break;case "Caravan Guard":p.background="Soldier";break;case "Relic Seeker":p.background="Archaeologist";break;case "Guild Apprentice":p.background="Guild Artisan";break;}
         p.instrumentChoice=o.optString("instrumentChoice",p.instrumentChoice);p.prayerChoice=o.optString("prayerChoice",p.prayerChoice);p.style=o.optString("style",p.style);
-        p.cantrip=o.optString("cantrip",p.cantrip);p.skillOne=o.optString("skillOne",p.skillOne);
+        p.cantrip=o.optString("cantrip",p.cantrip);if(p.race.cantripAbility.isEmpty())p.cantrip="";p.skillOne=o.optString("skillOne",p.skillOne);
         p.skillTwo=o.optString("skillTwo",p.skillTwo);p.languageOne=o.optString("languageOne",p.languageOne);
         p.languageTwo=o.optString("languageTwo",p.languageTwo);p.languageThree=o.optString("languageThree",p.languageThree);
         p.toolChoice=o.optString("toolChoice",p.toolChoice);p.gamingChoice=o.optString("gamingChoice",p.gamingChoice);

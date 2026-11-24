@@ -60,7 +60,7 @@ final class OriginCreatorView extends FrameLayout {
     private final TextView panelTitle, nextButton;
     private final View progress;
     private final Runnable back, enterHub;
-    private static final int ORIGIN=0, APPEARANCE=5, REVIEW=6;
+    private static final int ORIGIN=0, RACE=1, APPEARANCE=5, REVIEW=6;
     private int step;
     private int facing=2;
 
@@ -108,7 +108,7 @@ final class OriginCreatorView extends FrameLayout {
             label.setGravity(Gravity.CENTER);
             label.setBackground(ornate(i==0?0xF03D4C49:PANEL,i==0?0xFFFFD88C:0xFF577074,i==0?4:1));
             label.setSelected(i==0);
-            if (i==ORIGIN || i==APPEARANCE || i==REVIEW) {
+            if (i==ORIGIN || i==RACE || i==APPEARANCE || i==REVIEW) {
                 int target=i;
                 label.setOnClickListener(view->showStep(target));
             } else {
@@ -263,7 +263,7 @@ final class OriginCreatorView extends FrameLayout {
         footer.addView(progress,new LinearLayout.LayoutParams(0,-1,1));
         nextButton=action("Next  ❯",()->{
             if (step==REVIEW) enterHub.run();
-            else showStep(step==ORIGIN?APPEARANCE:REVIEW);
+            else showStep(step==ORIGIN?RACE:step==RACE?APPEARANCE:REVIEW);
         });
         nextButton.setBackground(ornate(CARD,GOLD,2));
         footer.addView(nextButton,new LinearLayout.LayoutParams(dp(108),-1));
@@ -282,12 +282,13 @@ final class OriginCreatorView extends FrameLayout {
 
     void goBack() {
         if (step==REVIEW) showStep(APPEARANCE);
-        else if (step==APPEARANCE) showStep(ORIGIN);
+        else if (step==APPEARANCE) showStep(RACE);
+        else if (step==RACE) showStep(ORIGIN);
         else back.run();
     }
 
     void showStep(int target) {
-        if (target!=APPEARANCE && target!=REVIEW) target=ORIGIN;
+        if (target!=RACE && target!=APPEARANCE && target!=REVIEW) target=ORIGIN;
         step=target;
         applyLayout();
         panelTitle.setText(STEPS[step]);
@@ -306,7 +307,9 @@ final class OriginCreatorView extends FrameLayout {
             scroll.addView(fields);
             options.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));
             if (step==APPEARANCE) appearanceFields(fields);
+            else if(step==RACE) raceFields(fields);
             else {
+                fields.addView(text(hero.race.displayName(),16,true));
                 fields.addView(text("Avatar",16,true));
                 fields.addView(text(avatarName(),16,false));
                 fields.addView(text(hero.petite.ears+" ears\n"+hero.petite.hair+" hair\n"
@@ -351,6 +354,22 @@ final class OriginCreatorView extends FrameLayout {
         return section;
     }
 
+    private void raceFields(LinearLayout fields){
+        select(fields,"Elf subrace",new String[]{"High Elf","Wood Elf"},hero.race.displayName(),value->{
+            RaceDefinition selected="Wood Elf".equals(value)?RaceDefinition.WOOD_ELF:RaceDefinition.HIGH_ELF;
+            if(hero.race!=selected){
+                hero.race=selected;
+                hero.cantrip=selected.cantripAbility.isEmpty()?"":PlayerCharacter.CANTRIPS[0];
+                hero.petite=selected==RaceDefinition.WOOD_ELF?new PetiteAppearance("Pointed elf","Chestnut","Warm brown"):PetiteAppearance.DEFAULT;
+                hero.normalizeProficiencies();
+                refresh();scene.invalidate();onChange.run();showStep(RACE);
+            }
+        });
+        fields.addView(text(hero.race==RaceDefinition.WOOD_ELF?"Dexterity +2 · Wisdom +1":"Dexterity +2 · Intelligence +1",14,true));
+        fields.addView(text("Walking speed: "+hero.race.speedFeet+" ft\nDarkvision: "+hero.race.darkvisionFeet+" ft\nPerception proficiency\nCommon and Elvish\nElf Weapon Training\nFey Ancestry\nTrance",13,false));
+        if(hero.race==RaceDefinition.WOOD_ELF)fields.addView(text("Mask of the Wild — stealth integration pending",13,false));
+        else select(fields,"Wizard cantrip",PlayerCharacter.CANTRIPS,hero.cantrip,value->{hero.cantrip=value;onChange.run();});
+    }
     private String avatarName() {
         String name=hero.name.trim();
         return name.isEmpty()?"Avatar":name;

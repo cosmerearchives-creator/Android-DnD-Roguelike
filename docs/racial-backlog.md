@@ -4,3 +4,6 @@ High Elf remains the only playable race. Existing saves default to High Elf. Tra
 High priority: integrate racial movement, darkvision, weapon training and full wizard cantrip selection.
 Medium priority: Fey Ancestry charm advantage and magical sleep immunity, Trance rest rules, dynamic language choices and race selection persistence.
 Next: Wood Elf and Drow after foundation verification. Separate avatar presets from racial rules; retain existing baked artwork.
+
+## Wood Elf
+- Mask of the Wild deferred until natural obscuration and hiding mechanics exist.
