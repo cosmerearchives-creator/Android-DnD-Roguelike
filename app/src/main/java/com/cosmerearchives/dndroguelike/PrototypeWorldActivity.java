@@ -148,6 +148,7 @@ public final class PrototypeWorldActivity extends Activity {
         private boolean weaponDrawn;
         private int facing, pointer = -1;
         private int pace;
+        private boolean sneaking;
         private boolean paused;
         private Goblin defeatSource;
         private int health, experience, gold;
@@ -948,7 +949,7 @@ public final class PrototypeWorldActivity extends Activity {
             if (magnitude>.08f && avatarActions.seated()) avatarActions.play(AvatarActions.Clip.STAND);
             if(jumping){advanceJump(dt);}
             else if (magnitude>.08f && attackRemaining==0 && avatarActions.allowsMotion()) {
-                float speed=WALK_SPEED*movementFactor*(pace==1?1.4f:pace==2?1.8f:1f);
+                float speed=WALK_SPEED*movementFactor*(sneaking?2f/3f:pace==1?1.4f:pace==2?1.8f:1f);
                 float dx=stickX*speed*dt, dy=stickY*speed*dt;
                 float oldX=x,oldY=y;
                 if (clear(x,y,x+dx,y,PLAYER_RADIUS)) x+=dx;
@@ -1234,8 +1235,19 @@ public final class PrototypeWorldActivity extends Activity {
             if (avatarActions.draw(c,px,py,facing)) return;
             if (spellAttack && attackRemaining>0f && avatarActions.drawCast(c,px,py,facing,attackRemaining)) return;
             boolean reacting=bakedHit!=null && hitRemaining>0f && attackRemaining<=0f;
-            if (!reacting && pace>0 && blend>.15f && attackRemaining<=0f
+            if (!reacting && !sneaking && pace>0 && blend>.15f && attackRemaining<=0f
                 && avatarActions.drawRun(c,px,py,facing,pace,walkCycles-(float)Math.floor(walkCycles))) return;
+            if(sneaking && !reacting && attackRemaining<=0f){
+                Bitmap sneakSheet=blend>.15f?bakedWalk:bakedElf;
+                if(sneakSheet!=null){
+                    int sneakFrame=blend>.15f?Math.floorMod((int)(walkCycles*8),8):0;
+                    source.set(sneakFrame*168,facing*192,(sneakFrame+1)*168,(facing+1)*192);
+                    destination.set(px-84,py-128,px+84,py+25.6f);
+                    paint.setColor(Color.WHITE);
+                    c.drawBitmap(sneakSheet,source,destination,paint);
+                    return;
+                }
+            }
             WeaponTrials.Motion motion=attackRemaining>0 ? activeMotion : motions[motionIndex];
             String weapon=attackRemaining>0 ? activeWeapon : selectedWeapon();
             if (!reacting && motion!=WeaponTrials.Motion.UNARMED && (attackRemaining>0 || weaponDrawn)) {
@@ -1350,7 +1362,7 @@ public final class PrototypeWorldActivity extends Activity {
             inventoryHud.set(14*d,bottom-43*d,w*.5f-5*d,bottom);
             pauseHud.set(w*.5f+5*d,bottom-43*d,w-14*d,bottom);
             hudControl(c,jumpHud,"↗","Jump",jumpCooldown<=0&&!jumping,d);
-            hudControl(c,crouchHud,"↓","Crouch",false,d);
+            hudControl(c,crouchHud,"↓","Sneak",sneaking,d);
             hudControl(c,attackButton,"⚔",inTown()&&!atPracticeTarget()?"Interact":spellSelected?"Cast":"Attack",playerRecharge<=0,d);
             hudControl(c,secondaryHud,"➶","Secondary",false,d);
             hudControl(c,inventoryHud,"▣","Inventory",false,d);
@@ -1474,7 +1486,8 @@ public final class PrototypeWorldActivity extends Activity {
                 if(targetButton.contains(px,py)){autoLock=!autoLock;if(autoLock)acquireTarget();else {lockedTarget=null;dummyLocked=false;}return true;}
                 if(autoAttackButton.contains(px,py)){autoAttack=!autoAttack;return true;}
                 if(jumpHud.contains(px,py)){startJump();return true;}
-                if(crouchHud.contains(px,py)||secondaryHud.contains(px,py)||inventoryHud.contains(px,py)||pauseHud.contains(px,py))return true;
+                if(crouchHud.contains(px,py)){sneaking=!sneaking;pace=0;return true;}
+                if(secondaryHud.contains(px,py)||inventoryHud.contains(px,py)||pauseHud.contains(px,py))return true;
                 if(attackButton.contains(px,py)){
                     interact();
                     return true;
