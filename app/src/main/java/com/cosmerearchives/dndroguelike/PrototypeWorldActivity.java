@@ -50,7 +50,7 @@ public final class PrototypeWorldActivity extends Activity {
         super.onPause();
     }
     @Override public void onBackPressed() {
-        if (view != null) {if(view.inventoryOpen)view.inventoryOpen=false;else view.togglePause();}
+        if (view != null) {if(view.inventoryOpen)view.closeInventory();else view.togglePause();}
     }
 
     static final class World extends View {
@@ -74,7 +74,7 @@ public final class PrototypeWorldActivity extends Activity {
         private final WorldTerrain terrain = new WorldTerrain();
         private final SharedPreferences save;
         private final TownHub town;
-        private boolean onQuest;
+        private boolean onQuest, questComplete, questTracked;
         private int questKills, dummyHp=20;
         private final TownHub.Actor townHero=this::drawHero;
         private final Bitmap atlas;
@@ -152,7 +152,8 @@ public final class PrototypeWorldActivity extends Activity {
         private final int jumpStrength;
         private float jumpCooldown,jumpElapsed,jumpDistance,jumpTravel,jumpDx,jumpDy,runUp;
         private boolean jumping;
-        private static final float JUMP_DURATION=.75f;
+        private static final float JUMP_DURATION=AvatarActions.Clip.JUMP_START.duration
+            +AvatarActions.Clip.JUMP_AIR.duration+AvatarActions.Clip.JUMP_LAND.duration;
         private static final float HIT_REACTION_SECONDS=.34f;
         private float hitRemaining;
         private static final float AUTO_SHEATHE_SECONDS=6f;
@@ -282,6 +283,9 @@ public final class PrototypeWorldActivity extends Activity {
                 }
             });
             onQuest=townSession && save.getBoolean("town_quest_active",false);
+            questComplete=save.getBoolean("town_quest_complete",false)
+                || !onQuest && save.getInt("town_quest_kills",0)>=TownHub.GOAL;
+            questTracked=save.getBoolean("town_quest_tracked",true);
             questKills=onQuest ? Math.max(0,Math.min(TownHub.GOAL-1,save.getInt("town_quest_kills",0))) : 0;
             String position=positionPrefix();
             x=save.getFloat(position+"_x",inTown()?TownHub.SPAWN_X:.5f);
@@ -377,7 +381,7 @@ public final class PrototypeWorldActivity extends Activity {
         }
 
         private void syncClock() {
-            boolean active = resumed && focused && !paused && !waiting;
+            boolean active = resumed && focused && !paused && !waiting && !inventoryOpen;
             if (!active) lastFrame = 0;
             long now = System.nanoTime();
             clock.setRunning(active, now);
@@ -425,7 +429,8 @@ public final class PrototypeWorldActivity extends Activity {
                 .putLong("clock_nanos",clock.time(System.nanoTime())).putString("weather",weather.name())
                 .putFloat(position+"_x",savedX).putFloat(position+"_y",savedY)
                 .putInt("hero_health",health).putInt("hero_experience",experience).putInt("hero_gold",gold);
-            if (town!=null) editor.putBoolean("town_quest_active",onQuest).putInt("town_quest_kills",questKills);
+            if (town!=null) editor.putBoolean("town_quest_active",onQuest).putInt("town_quest_kills",questKills)
+                .putBoolean("town_quest_complete",questComplete).putBoolean("town_quest_tracked",questTracked);
             saveExploration();
             editor.apply();
         }
@@ -453,6 +458,7 @@ public final class PrototypeWorldActivity extends Activity {
         private void startTownQuest() {
             if (!inTown() || !town.atBoard(x,y)) return;
             questKills=0;
+            questComplete=false;
             onQuest=true;
             goblins.clear();
             spawnCooldown=.7f;
@@ -462,6 +468,7 @@ public final class PrototypeWorldActivity extends Activity {
         }
         private void returnToTown() {
             onQuest=false;
+            questComplete=true;
             goblins.clear();
             town.setInside(false);
             moveTo(TownHub.SPAWN_X,TownHub.SPAWN_Y);
@@ -469,7 +476,11 @@ public final class PrototypeWorldActivity extends Activity {
             combatMessage("Quest complete · 10 goblins defeated");
         }
         private void interactInTown() {
-            if (town.training(x,y)) {
+            if (town.atBed(x,y)) {
+                openBed();
+            } else if (town.atTestChest(x,y)) {
+                openInventory(4);
+            } else if (town.training(x,y)) {
                 beginPunch();
             } else if (town.atBoard(x,y)) {
                 releaseStick();
@@ -482,8 +493,6 @@ public final class PrototypeWorldActivity extends Activity {
                 moveTo(3f,1.35f);
                 avatarActions.play(AvatarActions.Clip.INTERACT);
                 combatMessage("Tavern");
-            } else if (town.atBed(x,y)) {
-                openBed();
             } else if (town.atExit(x,y)) {
                 town.setInside(false);
                 moveTo(6f,1.8f);
@@ -851,7 +860,7 @@ public final class PrototypeWorldActivity extends Activity {
             return goblin!=null && goblin.hp>0 && sightAt(goblin.x,goblin.y,false)!=Senses.Sight.NONE;
         }
         private boolean atPracticeTarget() {
-            return inTown() && town.training(x,y)
+            return inTown() && !town.atBed(x,y) && !town.atTestChest(x,y) && town.training(x,y)
                 && sightAt(TownHub.DUMMY_X,TownHub.DUMMY_Y,false)!=Senses.Sight.NONE;
         }
         private Goblin nearestTarget() {
@@ -1358,7 +1367,7 @@ public final class PrototypeWorldActivity extends Activity {
         }
         private void advanceJump(float dt){
             jumpElapsed=Math.min(JUMP_DURATION,jumpElapsed+dt);
-            float phase=Math.max(0,Math.min(1,(jumpElapsed-.20f)/.33f));
+            float phase=Math.max(0,Math.min(1,(jumpElapsed-AvatarActions.Clip.JUMP_START.duration)/AvatarActions.Clip.JUMP_AIR.duration));
             float remaining=Math.max(0,jumpDistance*phase-jumpTravel);
             while(remaining>.0001f){
                 float step=Math.min(.08f,remaining);
@@ -1874,10 +1883,12 @@ public final class PrototypeWorldActivity extends Activity {
             invFrame(c,423,98,268,43,false);invText(c,"Day "+(WorldClock.day(currentWorldTime)+1)+" · "+WorldClock.format(currentWorldTime,false),557,127,23,true);
             invPath.reset();invPath.moveTo(4,196);invPath.lineTo(30,173);invPath.lineTo(75,173);invPath.quadTo(90,164,120,164);invPath.lineTo(205,164);invPath.quadTo(260,164,283,136);invPath.quadTo(354,87,426,136);invPath.quadTo(450,164,510,164);invPath.lineTo(630,164);invPath.lineTo(680,176);invPath.lineTo(704,199);invPath.lineTo(704,1503);invPath.lineTo(679,1527);invPath.lineTo(30,1527);invPath.lineTo(4,1503);invPath.close();
             invPaint.setShader(new android.graphics.LinearGradient(0,120,0,1530,0xFF10373F,0xFF06232C,android.graphics.Shader.TileMode.CLAMP));c.drawPath(invPath,invPaint);invPaint.setShader(null);invPaint.setStyle(Paint.Style.STROKE);invPaint.setColor(0xFFD4B87B);invPaint.setStrokeWidth(2);c.drawPath(invPath,invPaint);invPaint.setStyle(Paint.Style.FILL);
-            hudIcon(c,"▣",354,151,56);invText(c,"Inventory",354,214,35,true);invPaint.setColor(0xFFC5AA70);c.drawLine(109,202,218,202,invPaint);c.drawLine(491,202,600,202,invPaint);c.drawLine(235,234,473,234,invPaint);
+            hudIcon(c,"▣",354,151,56);invText(c,inventoryTab==4?"Test Chest":"Inventory",354,214,35,true);invPaint.setColor(0xFFC5AA70);c.drawLine(109,202,218,202,invPaint);c.drawLine(491,202,600,202,invPaint);c.drawLine(235,234,473,234,invPaint);
             invSlot(c,640,179,52,52,"×",false);
-            String[] tabs={"Equipment","Items","Materials","Quest"};float[] tx={24,209,369,546},tw={177,151,168,140};String[] ti={"➶","◉","◆","▤"};
-            for(int i=0;i<4;i++){invFrame(c,tx[i],253,tw[i],60,i==0);hudIcon(c,ti[i],tx[i]+31,283,32);invText(c,tabs[i],tx[i]+tw[i]/2+14,290,22,true);}
+            String[] tabs={"Equipment","Items","Materials","Quest"};String[] icons={"➶","◉","◆","▤"};
+            if(inventoryTab==4) invText(c,"Practice equipment · one of each",354,290,24,true);
+            else for(int i=0;i<4;i++){invFrame(c,TAB_X[i],253,TAB_W[i],60,i==inventoryTab);hudIcon(c,icons[i],TAB_X[i]+31,283,32);invText(c,tabs[i],TAB_X[i]+TAB_W[i]/2+14,290,22,true);}
+            if(inventoryTab!=0){drawInventoryBrowser(c);c.restore();return;}
             invFrame(c,22,324,665,501,false);
             invPaint.setStyle(Paint.Style.STROKE);invPaint.setColor(0xFF887B54);invPaint.setStrokeWidth(1.5f);c.drawOval(47,685,266,777,invPaint);c.drawOval(60,696,253,765,invPaint);invPaint.setStyle(Paint.Style.FILL);
             if(bakedElf!=null){source.set(0,inventoryFacing*192,168,(inventoryFacing+1)*192);invRect.set(-24,326,332,766);invPaint.setColor(Color.WHITE);c.drawBitmap(bakedElf,source,invRect,invPaint);}
@@ -1895,8 +1906,11 @@ public final class PrototypeWorldActivity extends Activity {
             invText(c,selected==null?"No item selected":selected.name,449,876,selected!=null&&selected.name.length()>17?19:24,false);
             if(selected!=null){invText(c,selected.kind.toString(),449,905,20,false);invText(c,selected.ac>0?"AC "+selected.ac:selected.weight+" lb",449,940,22,false);invText(c,selected.damage.isEmpty()?"Weight: "+selected.weight+" lb":"Damage: "+selected.damage+" "+selected.damageType,354,982,20,false);}
             invText(c,inventoryFeedback,354,1026,18,false);
-            invFrame(c,22,1068,665,440,false);hudIcon(c,"▣",59,1102,32);invText(c,"Inventory "+Math.round(combatBag.carriedWeight())+" / "+Math.round(combatBag.capacity()),85,1110,23,false);invFrame(c,550,1085,119,34,false);invText(c,"Sort ▾",610,1110,21,true);
-            java.util.List<Equipment.Stack> items=combatBag.all();
+            java.util.List<Equipment.Stack> items=equipmentItems();
+            invFrame(c,22,1068,665,440,false);hudIcon(c,"▣",59,1102,32);invText(c,"Inventory "+Math.round(combatBag.carriedWeight())+" / "+Math.round(combatBag.capacity()),85,1110,23,false);
+            int pages=Math.max(1,(items.size()+23)/24);
+            invFrame(c,550,1085,119,34,false);
+            invText(c,pages>1?"‹ "+(inventoryPage+1)+" / "+pages+" ›":"Sort ▾",610,1110,21,true);
             for(int i=0;i<24;i++){float xx=42+(i%6)*106,yy=1133+(i/6)*92;int index=inventoryPage*24+i;Equipment.Stack stack=index<items.size()?items.get(index):null;invItemSlot(c,xx,yy,97,83,stack==null?null:stack.item,"",stack!=null&&stack.item==selected,true);if(stack!=null){invText(c,""+stack.count,xx+82,yy+75,19,true);}}
             c.restore();
         }
@@ -1913,9 +1927,19 @@ public final class PrototypeWorldActivity extends Activity {
         private String inventoryFeedback="";
         private void inventoryTouch(float px,float py){
             float xx=px*709/getWidth(),yy=py*1536/getHeight();
-            if(xx>=630&&yy>=170&&yy<=240){inventoryOpen=false;inventoryEquipPending=false;return;}
+            if(xx>=630&&yy>=170&&yy<=240){closeInventory();return;}
+            if(inventoryTab!=4 && yy>=252&&yy<=314){
+                for(int i=0;i<4;i++) if(xx>=TAB_X[i]&&xx<TAB_X[i]+TAB_W[i]){selectInventoryTab(i);return;}
+            }
+            if(inventoryTab!=0){browseInventoryTouch(xx,yy);return;}
+            if(xx>=550&&xx<=669&&yy>=1085&&yy<=1119){
+                int pages=Math.max(1,(equipmentItems().size()+23)/24);
+                if(pages>1)inventoryPage=Math.floorMod(inventoryPage+(xx>=610?1:-1),pages);
+                else WildlandsUi.choose(getContext(),"Sort equipment",null,SORT_MODES,inventorySort,choice->inventorySort=choice);
+                return;
+            }
             if(yy>=775&&yy<=825&&xx<280){inventoryFacing=Math.floorMod(inventoryFacing+(xx<150?-1:1),8);return;}
-            if(yy>=1133&&yy<1501&&xx>=42&&xx<678){int col=(int)((xx-42)/106),row=(int)((yy-1133)/92);int index=inventoryPage*24+row*6+col;java.util.List<Equipment.Stack> items=combatBag.all();if(index<items.size()){inventorySelected=items.get(index).item;inventoryEquipPending=true;inventoryFeedback="Select equipment slot";}return;}
+            if(yy>=1133&&yy<1501&&xx>=42&&xx<678){int col=(int)((xx-42)/106),row=(int)((yy-1133)/92);int index=inventoryPage*24+row*6+col;java.util.List<Equipment.Stack> items=equipmentItems();if(index<items.size()){inventorySelected=items.get(index).item;inventoryEquipPending=true;inventoryFeedback="Select equipment slot";}return;}
             for(int i=0;i<inventorySlots.length;i++){
                 float[] q=inventorySlotRects[i];if(xx<q[0]||xx>q[0]+q[2]||yy<q[1]||yy>q[1]+q[3])continue;
                 Equipment.Slot slot=inventorySlots[i];
@@ -1927,6 +1951,292 @@ public final class PrototypeWorldActivity extends Activity {
             }
         }
         private Equipment.Slot lastInventorySlot;
+        private static final float[] TAB_X={24,209,369,546}, TAB_W={177,151,168,140};
+        private static final String[] ITEM_FILTERS={"All Items","Consumables","Tools","Supplies","Utility","Other"};
+        private static final String[] MATERIAL_FILTERS={"All Materials","Raw Materials","Plants & Herbs","Animal Parts","Ore & Gems","Crafting Parts","Other"};
+        private static final String[] QUEST_FILTERS={"All Quests","Main Story","Side Quests","Tasks","Completed"};
+        private static final String[] FILTER_ICONS={"▪","◆","⚒","▣","♧","•••","•••"};
+        private static final String[] SORT_MODES={"Name","Weight","Quantity"};
+        private static final int LIST_ROWS=8;
+        private int inventoryTab, inventoryFilter, inventoryOffset, inventorySort;
+        private float inventoryDownX,inventoryDownY;
+        private boolean inventoryDragged;
+        private Equipment.Stack browserSelection;
+        private final java.util.Map<Equipment.Item,Equipment.Stack> chestLoans=new java.util.HashMap<>();
+        private final java.util.List<Equipment.Stack> chestStock=new java.util.ArrayList<>();
+
+        private void openInventory(int tab) {
+            releaseStick();
+            inventoryOpen=true;
+            if(tab==4 && chestStock.isEmpty()){
+                for(Equipment.Item item:Equipment.catalog()) chestStock.add(new Equipment.Stack(item,1));
+            }
+            selectInventoryTab(tab);
+            syncClock();
+        }
+
+        private void closeInventory() {
+            inventoryOpen=false;
+            inventoryEquipPending=false;
+            syncClock();
+        }
+
+        private void selectInventoryTab(int tab) {
+            inventoryTab=tab;
+            inventoryPage=inventoryFilter=inventoryOffset=0;
+            inventoryEquipPending=false;
+            inventoryFeedback="";
+            lastInventorySlot=null;
+            inventorySelected=tab==0?Equipment.get(combatBag.slots[Equipment.Slot.BODY.ordinal()]):null;
+            browserSelection=null;
+        }
+
+        private java.util.List<Equipment.Stack> equipmentItems() {
+            java.util.List<Equipment.Stack> items=new java.util.ArrayList<>();
+            for(Equipment.Stack stack:combatBag.all()){
+                for(Equipment.Slot slot:Equipment.Slot.values()){
+                    if(combatBag.compatible(stack.item,slot)){items.add(stack);break;}
+                }
+            }
+            sortInventory(items);
+            return items;
+        }
+
+        private java.util.List<Equipment.Stack> browserItems() {
+            java.util.List<Equipment.Stack> items=new java.util.ArrayList<>();
+            if(inventoryTab==4) items.addAll(chestStock);
+            else for(Equipment.Stack stack:combatBag.all()){
+                Equipment.Item item=stack.item;
+                if(inventoryTab==2){
+                    if(item.kind==Equipment.Kind.MATERIAL
+                        &&(inventoryFilter==0||item.inventoryGroup().ordinal()
+                            ==Equipment.InventoryGroup.RAW.ordinal()+inventoryFilter-1)) items.add(stack);
+                }else if(item.kind!=Equipment.Kind.MATERIAL && !item.weapon()
+                    && item.kind!=Equipment.Kind.ARMOR && item.kind!=Equipment.Kind.SHIELD
+                    && !combatBag.compatible(item,Equipment.Slot.BODY)
+                    &&(inventoryFilter==0||item.inventoryGroup().ordinal()==inventoryFilter-1)){
+                    items.add(stack);
+                }
+            }
+            sortInventory(items);
+            return items;
+        }
+
+        private void sortInventory(java.util.List<Equipment.Stack> items){
+            java.util.Comparator<Equipment.Stack> names=java.util.Comparator.comparing(
+                stack->stack.item.name,String.CASE_INSENSITIVE_ORDER);
+            if(inventorySort==1) items.sort(java.util.Comparator.comparingDouble(Equipment.Stack::weight).reversed().thenComparing(names));
+            else if(inventorySort==2) items.sort(java.util.Comparator.comparingInt((Equipment.Stack stack)->stack.count).reversed().thenComparing(names));
+            else items.sort(names);
+        }
+
+        private void handleInventoryGesture(MotionEvent event) {
+            float xx=event.getX()*709/getWidth(),yy=event.getY()*1536/getHeight();
+            switch(event.getActionMasked()){
+                case MotionEvent.ACTION_DOWN:
+                    inventoryDownX=xx;
+                    inventoryDownY=yy;
+                    inventoryDragged=false;
+                    break;
+                case MotionEvent.ACTION_MOVE:
+                    if(Math.abs(yy-inventoryDownY)>24 || Math.abs(xx-inventoryDownX)>24)
+                        inventoryDragged=true;
+                    break;
+                case MotionEvent.ACTION_UP:
+                    if(!inventoryDragged && Math.abs(yy-inventoryDownY)<=24 && Math.abs(xx-inventoryDownX)<=24) {
+                        inventoryTouch(event.getX(),event.getY());
+                    }else if(inventoryTab==0 && inventoryDownY>=1133 && inventoryDownY<1501){
+                        int maxPage=Math.max(0,(equipmentItems().size()-1)/24);
+                        float delta=Math.abs(yy-inventoryDownY)>Math.abs(xx-inventoryDownX)
+                            ?inventoryDownY-yy:inventoryDownX-xx;
+                        inventoryPage=Math.max(0,Math.min(maxPage,inventoryPage+(delta>0?1:-1)));
+                    }else if(inventoryTab!=0 && inventoryTab!=3 && inventoryDownX>=217
+                        && inventoryDownY>=389 && inventoryDownY<1025 && Math.abs(yy-inventoryDownY)>24) {
+                        int delta=Math.max(1,Math.round(Math.abs(yy-inventoryDownY)/76));
+                        inventoryOffset=Math.max(0,Math.min(Math.max(0,browserItems().size()-LIST_ROWS),
+                            inventoryOffset+(yy<inventoryDownY?delta:-delta)));
+                    }
+                    break;
+                default: break;
+            }
+        }
+
+        private int filterStep() {return inventoryTab==3?64:73;}
+
+        private void browseInventoryTouch(float xx,float yy) {
+            if(inventoryTab!=4 && xx>=20&&xx<212&&yy>=359){
+                String[] filters=inventoryTab==3?QUEST_FILTERS:inventoryTab==2?MATERIAL_FILTERS:ITEM_FILTERS;
+                int index=(int)((yy-359)/filterStep());
+                if(index<filters.length){inventoryFilter=index;inventoryOffset=0;browserSelection=null;return;}
+            }
+            if(inventoryTab==3){
+                if(xx>=493&&xx<=674&&yy>=1428&&yy<=1485 && onQuest && showQuest()){
+                    questTracked=!questTracked;
+                    save();
+                }
+                return;
+            }
+            if(xx>=550&&xx<=672&&yy>=338&&yy<382){
+                WildlandsUi.choose(getContext(),"Sort inventory",null,SORT_MODES,inventorySort,choice->{
+                    inventorySort=choice;
+                    inventoryOffset=0;
+                });
+                return;
+            }
+            if(xx>=234&&xx<=665&&yy>=389&&yy<1013){
+                int row=(int)((yy-389)/78);
+                java.util.List<Equipment.Stack> items=browserItems();
+                int index=inventoryOffset+row;
+                if(index<items.size())browserSelection=items.get(index);
+                return;
+            }
+            if(inventoryTab==4 && yy>=1428&&yy<=1485){
+                if(xx>=326&&xx<=477){
+                    for(Equipment.Stack loan:chestLoans.values()) combatBag.returnTestLoan(loan);
+                    chestLoans.clear();
+                }else if(xx>=493&&xx<=674&&browserSelection!=null){
+                    Equipment.Item item=browserSelection.item;
+                    Equipment.Stack loan=chestLoans.remove(item);
+                    if(loan==null) chestLoans.put(item,combatBag.borrowForTesting(item));
+                    else combatBag.returnTestLoan(loan);
+                }
+            }
+        }
+
+        private boolean showQuest(){
+            return town!=null && (inventoryFilter==0 || inventoryFilter==2
+                || inventoryFilter==4 && questComplete);
+        }
+
+        private void drawInventoryBrowser(Canvas canvas){
+            if(inventoryTab==3){drawQuestJournal(canvas);return;}
+            boolean chest=inventoryTab==4, materials=inventoryTab==2;
+            java.util.List<Equipment.Stack> items=browserItems();
+            inventoryOffset=Math.min(inventoryOffset,Math.max(0,items.size()-LIST_ROWS));
+            if(browserSelection==null || !items.contains(browserSelection))
+                browserSelection=items.isEmpty()?null:items.get(0);
+            if(!chest)drawInventoryFilters(canvas,materials?MATERIAL_FILTERS:ITEM_FILTERS,1045);
+            else{
+                invFrame(canvas,16,326,198,719,false);
+                invText(canvas,"Test Chest",115,384,25,true);
+                invText(canvas,"One per item",115,432,21,true);
+                invText(canvas,"Session loans",115,465,20,true);
+            }
+            invFrame(canvas,218,326,472,719,false);
+            hudIcon(canvas,materials?"◆":"▣",258,358,30);
+            invText(canvas,(chest?"Catalog":materials?"Materials":"Items")+" ("+items.size()+")",285,367,25,false);
+            invFrame(canvas,550,340,120,38,false);
+            invText(canvas,"Sort ▾",610,367,22,true);
+            if(items.isEmpty()) invText(canvas,materials?"No materials in this category":"No items in this category",453,452,22,true);
+            for(int row=0;row<LIST_ROWS && inventoryOffset+row<items.size();row++){
+                Equipment.Stack stack=items.get(inventoryOffset+row);
+                float yy=389+row*78;
+                invFrame(canvas,235,yy,428,74,stack==browserSelection);
+                invItemSlot(canvas,243,yy+5,81,64,stack.item,"",false,false);
+                invFittedText(canvas,stack.item.name,339,yy+45,24,245);
+                String count=chest&&chestLoans.containsKey(stack.item)?"Out":"×"+stack.count;
+                invText(canvas,count,621,yy+45,23,true);
+            }
+            if(items.size()>LIST_ROWS){
+                float thumb=620f*LIST_ROWS/items.size();
+                float top=390+(620-thumb)*inventoryOffset/(items.size()-LIST_ROWS);
+                invPaint.setColor(0xFFDBC485);
+                canvas.drawRoundRect(673,top,680,top+thumb,4,4,invPaint);
+            }
+            invFrame(canvas,18,1062,671,338,false);
+            if(browserSelection!=null){
+                Equipment.Item item=browserSelection.item;
+                invItemSlot(canvas,42,1090,154,150,item,"",false,false);
+                invFittedText(canvas,item.name,211,1114,29,453);
+                invText(canvas,item.kind.toString(),211,1141,21,false);
+                invText(canvas,"Weight: "+item.weight+" lb each",211,1173,23,false);
+                invRule(canvas,211,1190,666);
+                String detail=item.protectedItem?"Protected keepsake":item.properties;
+                if(detail.isEmpty() && !item.damage.isEmpty())detail="Damage: "+item.damage+" "+item.damageType;
+                if(detail.isEmpty()) detail=chest?"Borrow this item for testing.":"Quantity carried: "+browserSelection.count;
+                invFittedText(canvas,detail,211,1222,21,450);
+            }else invText(canvas,"No item selected",354,1150,26,true);
+            drawInventoryFooter(canvas,chest?(browserSelection!=null&&chestLoans.containsKey(browserSelection.item)?"Return":"Borrow"):"Use",chest&&browserSelection!=null);
+            if(chest){
+                invFrame(canvas,326,1434,151,48,false);
+                invText(canvas,"Return all",402,1466,22,true);
+            }
+        }
+
+        private void drawInventoryFilters(Canvas canvas,String[] filters,float bottom){
+            invFrame(canvas,16,326,198,bottom-326,false);
+            int step=filterStep();
+            for(int i=0;i<filters.length;i++){
+                float y=359+i*step;
+                invFrame(canvas,23,y,184,step-11,i==inventoryFilter);
+                hudIcon(canvas,FILTER_ICONS[i],50,y+(step-11)/2f,26);
+                invFittedText(canvas,filters[i],80,y+(step-11)/2f+7,22,118);
+            }
+        }
+
+        private void drawQuestJournal(Canvas canvas){
+            boolean show=showQuest();
+            drawInventoryFilters(canvas,QUEST_FILTERS,876);
+            invFrame(canvas,220,326,471,550,false);
+            hudIcon(canvas,"▤",258,358,31);
+            invText(canvas,"Quests ("+(show?1:0)+")",289,367,25,false);
+            invFrame(canvas,18,892,671,506,false);
+            if(show){
+                invFrame(canvas,238,390,434,77,true);
+                hudIcon(canvas,"⚔",283,430,43);
+                invText(canvas,"Goblin Menace",332,425,25,false);
+                invText(canvas,questComplete?"Completed":onQuest?"Active · Side Quest":"Available · Side Quest",332,452,19,false);
+                invSlot(canvas,44,920,151,149,goblinIdle==null?"⚔":"",false);
+                if(goblinIdle!=null){
+                    source.set(0,2*192,168,3*192);
+                    invRect.set(49,923,190,1064);
+                    canvas.drawBitmap(goblinIdle,source,invRect,invPaint);
+                }
+                invText(canvas,"Goblin Menace",216,944,31,false);
+                invText(canvas,"Side Quest",216,973,23,false);
+                invRule(canvas,216,985,666);
+                invText(canvas,"Help the town clear the nearby woods.",216,1019,22,false);
+                invText(canvas,onQuest?"Defeat the goblins to return to town.":"Visit the town quest board to start.",216,1048,22,false);
+                invRule(canvas,45,1089,666);
+                invText(canvas,"◇  Objectives",55,1126,25,false);
+                invText(canvas,(questComplete?"✓  ":"□  ")+"Defeat Goblins ("+(questComplete?TownHub.GOAL:questKills)+" / "+TownHub.GOAL+")",60,1168,24,false);
+                invRule(canvas,45,1190,666);
+                invText(canvas,"Rewards",55,1232,25,false);
+                invText(canvas,"Earn XP for each goblin defeated.",55,1272,23,false);
+                invText(canvas,"Returns you to town on completion.",55,1305,23,false);
+            }else{
+                invText(canvas,"No quests in this category",455,451,23,true);
+                invText(canvas,"No quest selected",354,994,27,true);
+            }
+            drawInventoryFooter(canvas,onQuest&&questTracked?"Untrack":"Track",show&&onQuest);
+        }
+
+        private void drawInventoryFooter(Canvas canvas,String action,boolean enabled){
+            invFrame(canvas,18,1417,671,77,false);
+            hudIcon(canvas,"▣",59,1457,32);
+            invText(canvas,"Inventory "+Math.round(combatBag.carriedWeight())+" / "+Math.round(combatBag.capacity()),89,1466,25,false);
+            invFrame(canvas,493,1434,177,48,enabled);
+            if(enabled)invText(canvas,action,582,1466,24,true);
+            else{
+                invPaint.setColor(0xFFA29372);
+                invPaint.setTextAlign(Paint.Align.CENTER);
+                invPaint.setTypeface(WildlandsUi.SERIF);
+                invPaint.setTextSize(24);
+                canvas.drawText(action,582,1466,invPaint);
+            }
+        }
+
+        private void invRule(Canvas canvas,float left,float y,float right){
+            invPaint.setColor(0xFFAC9663);
+            invPaint.setStrokeWidth(1.5f);
+            canvas.drawLine(left,y,right,y,invPaint);
+        }
+
+        private void invFittedText(Canvas canvas,String value,float x,float y,float size,float width){
+            invPaint.setTypeface(WildlandsUi.SERIF);
+            invPaint.setTextSize(size);
+            invText(canvas,value,x,y,size*Math.min(1,width/Math.max(1,invPaint.measureText(value))),false);
+        }
         private void drawControls(Canvas c) {
             float w=getWidth(), h=getHeight(), d=w/360f;
             float top=h*.69f, bottom=h-12*d;
@@ -2002,8 +2312,8 @@ public final class PrototypeWorldActivity extends Activity {
             c.drawText(clockLabel,hud.centerX(),66*d,paint);
             paint.setTextAlign(Paint.Align.LEFT);
             paint.setTextSize(12*d);
-            if(onQuest)c.drawText("Goblins "+questKills+"/"+TownHub.GOAL,14*d,65*d,paint);
-            if(messageRemaining>0)c.drawText(worldMessage,14*d,(onQuest?80:65)*d,paint);
+            if(onQuest&&questTracked)c.drawText("Goblins "+questKills+"/"+TownHub.GOAL,14*d,65*d,paint);
+            if(messageRemaining>0)c.drawText(worldMessage,14*d,(onQuest&&questTracked?80:65)*d,paint);
             paint.setTypeface(android.graphics.Typeface.DEFAULT);
         }
         private void hudControl(Canvas c,RectF r,String icon,String label,boolean active,float d){
@@ -2103,7 +2413,7 @@ public final class PrototypeWorldActivity extends Activity {
         }
         @Override public boolean onTouchEvent(MotionEvent e) {
             int action=e.getActionMasked(),index=e.getActionIndex();
-            if(inventoryOpen){if(action==MotionEvent.ACTION_DOWN)inventoryTouch(e.getX(),e.getY());return true;}
+            if(inventoryOpen){handleInventoryGesture(e);return true;}
             int id=e.getPointerId(index);
             if(action==MotionEvent.ACTION_MOVE) {
                 int active=e.findPointerIndex(pointer);
@@ -2131,7 +2441,7 @@ public final class PrototypeWorldActivity extends Activity {
                 if(jumpHud.contains(px,py)){startJump();return true;}
                 if(crouchHud.contains(px,py)){sneaking=!sneaking;pace=0;return true;}
                 if(secondaryHud.contains(px,py)){chooseAttackMode();return true;}
-                if(inventoryHud.contains(px,py)){releaseStick();inventoryOpen=true;inventorySelected=Equipment.get(combatBag.slots[2]);return true;}
+                if(inventoryHud.contains(px,py)){openInventory(0);return true;}
                 if(attackButton.contains(px,py)){
                     interact();
                     return true;

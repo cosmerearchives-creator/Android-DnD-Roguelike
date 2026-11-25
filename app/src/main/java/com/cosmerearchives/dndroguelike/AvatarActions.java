@@ -13,8 +13,8 @@ final class AvatarActions {
     enum Clip {
         JOG("jog",.62f), SPRINT("sprint",.49f), INTERACT("interact",.65f),
         CAST_PREPARE("cast_prepare",.32f), CAST_RELEASE("cast_release",.28f),
-        CAST_RECOVER("cast_recover",.27f), JUMP_START("jump_start",.20f),
-        JUMP_AIR("jump_air",.33f), JUMP_LAND("jump_land",.22f),
+        CAST_RECOVER("cast_recover",.27f), JUMP_START("jump_start",.08f),
+        JUMP_AIR("jump_air",.24f), JUMP_LAND("jump_land",.13f),
         SIT("sit",.56f), SEATED("seated",1.25f), STAND("stand",.56f),
         ROLL("roll",.62f), DEFEAT("defeat",1.05f);
 
@@ -54,8 +54,8 @@ final class AvatarActions {
         if (elapsed<playing.duration) return false;
         boolean defeated=playing==Clip.DEFEAT;
         switch (playing) {
-            case JUMP_START: play(Clip.JUMP_AIR); break;
-            case JUMP_AIR: play(Clip.JUMP_LAND); break;
+            case JUMP_START: elapsed-=playing.duration; playing=Clip.JUMP_AIR; break;
+            case JUMP_AIR: elapsed-=playing.duration; playing=Clip.JUMP_LAND; break;
             case SIT:
             case SEATED: play(Clip.SEATED); break;
             default: play(null); break;

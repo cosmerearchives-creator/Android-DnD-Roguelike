@@ -7,7 +7,8 @@ import java.util.Locale;
 
 /** First playable equipment foundation. All weights are pounds; coins and cosmetic clothing are weightless. */
 final class Equipment {
-    enum Kind { WEAPON, ARMOR, SHIELD, CONTAINER, SUPPLY, TOOL, KEEPSAKE, MISC }
+    enum Kind { WEAPON, ARMOR, SHIELD, CONTAINER, SUPPLY, TOOL, KEEPSAKE, MISC, MATERIAL }
+    enum InventoryGroup { CONSUMABLE, TOOL, SUPPLY, UTILITY, OTHER, RAW, PLANT, ANIMAL, ORE, CRAFTING, MATERIAL_OTHER }
     enum Slot { MAIN_HAND, OFF_HAND, BODY, HEAD, EYES, EARS, NECK, CLOAK, WRISTS, HANDS, WAIST, LEGS, FEET, LEFT_RING, RIGHT_RING, RANGED, ACCESSORY }
     static final class Item {
         final String id, name, properties, damage, damageType;
@@ -36,12 +37,28 @@ final class Equipment {
             }
             return damage;
         }
+        InventoryGroup inventoryGroup() {
+            if (kind==Kind.MATERIAL) return InventoryGroup.MATERIAL_OTHER;
+            if (kind==Kind.KEEPSAKE || protectedItem) return InventoryGroup.OTHER;
+            switch (id) {
+                case "ration": case "oil": case "candle": case "incense":
+                    return InventoryGroup.CONSUMABLE;
+                case "torch": case "bullseye_lantern": case "tinderbox": case "waterskin":
+                case "rope_hemp": case "rope_silk": case "hunting_trap": case "walking_staff":
+                    return InventoryGroup.UTILITY;
+                default:
+                    if (kind==Kind.TOOL) return InventoryGroup.TOOL;
+                    if (kind==Kind.SUPPLY || kind==Kind.CONTAINER) return InventoryGroup.SUPPLY;
+                    return InventoryGroup.OTHER;
+            }
+        }
         boolean weapon(){return kind==Kind.WEAPON;}
         String detail(){return name+"  •  "+weight+" lb"+(damage.isEmpty()?"":"  •  "+damage+" "+damageType)+(properties.isEmpty()?"":"  •  "+properties);}
     }
     static final class Stack {
         final Item item;
         int count;
+        boolean testLoan;
         float remainingSeconds=-1;
         int filledPints=0;
         final List<Stack> contents=new ArrayList<>();
@@ -62,13 +79,13 @@ final class Equipment {
         int copper,silver,electrum,gold,platinum;
         Stack find(String id){return findIn(roots,id);}
         private Stack freshIn(List<Stack> list,String id){
-            for(Stack s:list){if(s.item.id.equals(id)&&s.remainingSeconds<0&&s.contents.isEmpty()&&s.filledPints==0)return s;Stack child=freshIn(s.contents,id);if(child!=null)return child;}return null;
+            for(Stack s:list){if(!s.testLoan&&s.item.id.equals(id)&&s.remainingSeconds<0&&s.contents.isEmpty()&&s.filledPints==0)return s;Stack child=freshIn(s.contents,id);if(child!=null)return child;}return null;
         }
         void consolidate(){consolidateIn(roots);}
         private void consolidateIn(List<Stack> list){
             for(int i=0;i<list.size();i++){Stack a=list.get(i);consolidateIn(a.contents);
-                if(!a.item.stackable||a.remainingSeconds>=0||!a.contents.isEmpty()||a.filledPints!=0)continue;
-                for(int j=list.size()-1;j>i;j--){Stack b=list.get(j);if(a.item.id.equals(b.item.id)&&b.remainingSeconds<0&&b.contents.isEmpty()&&b.filledPints==0){a.count+=b.count;list.remove(j);}}
+                if(a.testLoan||!a.item.stackable||a.remainingSeconds>=0||!a.contents.isEmpty()||a.filledPints!=0)continue;
+                for(int j=list.size()-1;j>i;j--){Stack b=list.get(j);if(!b.testLoan&&a.item.id.equals(b.item.id)&&b.remainingSeconds<0&&b.contents.isEmpty()&&b.filledPints==0){a.count+=b.count;list.remove(j);}}
             }
         }
         private Stack findIn(List<Stack> list,String id){
@@ -92,7 +109,7 @@ final class Equipment {
         }
         boolean moveToContainer(String id,String containerId){
             Stack s=find(id),container=find(containerId);
-            if(s==null||container==null||s==container||container.item.kind!=Kind.CONTAINER)return false;
+            if(s==null||container==null||s==container||container.testLoan||container.item.kind!=Kind.CONTAINER)return false;
             if(!s.contents.isEmpty())return false;
             if(container.contentsWeight()+s.weight()>container.item.capacity)return false;
             if(removeReference(roots,s)){container.contents.add(s);return true;}return false;
@@ -101,6 +118,22 @@ final class Equipment {
             if(list.remove(wanted))return true;
             for(Stack s:list)if(removeReference(s.contents,wanted))return true;
             return false;
+        }
+        Stack borrowForTesting(Item item) {
+            Stack loan=new Stack(item,1);
+            loan.testLoan=true;
+            roots.add(loan);
+            return loan;
+        }
+        void returnTestLoan(Stack loan) {
+            if(!loan.testLoan || !loan.contents.isEmpty() || !removeReference(roots,loan)) return;
+            int owned=0;
+            for(Stack stack:all()) if(stack.item==loan.item) owned+=stack.count;
+            for(Slot slot:Slot.values()) {
+                if(!loan.item.id.equals(slots[slot.ordinal()])) continue;
+                if(owned>0) owned--;
+                else unequip(slot);
+            }
         }
         boolean consume(String id){
             Stack s=find(id);if(s==null||s.count<1)return false;

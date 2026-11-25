@@ -20,9 +20,9 @@ final class TownHub {
     private static final float HEIGHT_SCALE=85f;
     private static final float BUILDING_SCALE=(float)Math.sqrt(2)*HALF_W/36f;
 
-    private static final float BED_X=6.7f, BED_Y=5.7f;
+    private static final float BED_X=15.8f, BED_Y=18.5f, CHEST_X=13f, CHEST_Y=14.4f;
 
-    private enum Kind { BUILDING, WALL, GATE, BOARD, DUMMY, TABLE, BAR, BED }
+    private enum Kind { BUILDING, WALL, GATE, BOARD, DUMMY, TABLE, BAR, BED, TEST_CHEST }
     private static final class Prop {
         final Kind kind;
         final float x,y,w,h;
@@ -74,7 +74,8 @@ final class TownHub {
         tavern.add(new Prop(Kind.BAR,1.4f,4.8f,.65f,3,0));
         tavern.add(new Prop(Kind.TABLE,4.8f,4.9f,1.3f,1.1f,0));
         tavern.add(new Prop(Kind.TABLE,5.6f,2.8f,1.3f,1.1f,0));
-        tavern.add(new Prop(Kind.BED,BED_X,BED_Y,1.65f,.9f,0));
+        town.add(new Prop(Kind.BED,BED_X,BED_Y,1.65f,.9f,0));
+        town.add(new Prop(Kind.TEST_CHEST,CHEST_X,CHEST_Y,1.05f,.75f,0));
         town.sort(Comparator.comparingDouble(Prop::depth));
         tavern.sort(Comparator.comparingDouble(Prop::depth));
     }
@@ -82,7 +83,8 @@ final class TownHub {
     boolean training(float x,float y) { return !inside && x>=11f && x<15f && y>=16.5f && y<20.5f; }
     boolean atBoard(float x,float y) { return !inside && distance(x,y,BOARD_X,BOARD_Y)<1.42f; }
     boolean atTavern(float x,float y) { return !inside && distance(x,y,6f,1.8f)<1.35f; }
-    boolean atBed(float x,float y) { return inside && distance(x,y,BED_X,BED_Y)<1.5f; }
+    boolean atBed(float x,float y) { return !inside && distance(x,y,BED_X,BED_Y)<1.5f; }
+    boolean atTestChest(float x,float y) { return !inside && distance(x,y,CHEST_X,CHEST_Y)<1.5f; }
     boolean atExit(float x,float y) { return inside && distance(x,y,3f,.75f)<1.4f; }
     boolean atGate(float x,float y) {
         return !inside && Math.abs(y-11f)<1.3f && (x<2.5f || x>WIDTH-2.5f);
@@ -184,6 +186,12 @@ final class TownHub {
                 c.drawLine(xx-2,base-18,xx+side+1,base+HALF_H-98,paint);
                 c.drawLine(xx-2,base-94,xx+side+1,base+HALF_H-18,paint);
                 paint.setStrokeWidth(1f);
+                break;
+            case TEST_CHEST:
+                block(c,p,cx,cy,.48f,0xFF624128,0xFFA46D38);
+                paint.setColor(0xFFD3A957);
+                c.drawRect(px-5,py-36,px+5,py-24,paint);
+                label(c,"Test Chest",px,py-70);
                 break;
             case BED:
                 block(c,p,cx,cy,.24f,0xFF694631,0xFFAA8258);

@@ -55,7 +55,8 @@ public final class CharacterCreatorActivity extends Activity {
             .putFloat("town_player_x",TownHub.SPAWN_X)
             .putFloat("town_player_y",TownHub.SPAWN_Y)
             .putBoolean("town_quest_active",false);
-        if (newCharacter) world.putLong("clock_nanos",WorldClock.START)
+        if (newCharacter) world.remove("town_quest_complete").remove("town_quest_tracked")
+            .remove("town_quest_kills").putLong("clock_nanos",WorldClock.START)
             .putString("weather",WorldLighting.Weather.CLEAR.name());
         world.apply();
         startActivity(new Intent(this,PrototypeWorldActivity.class)
