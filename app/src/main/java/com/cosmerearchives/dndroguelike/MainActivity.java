@@ -40,7 +40,8 @@ public class MainActivity extends Activity {
         ForestMenu menu = new ForestMenu(this);
         continueGame = menu.adventure;
         continueGame.setOnClickListener(v -> startActivity(new Intent(this, PrototypeWorldActivity.class)
-            .putExtra(PrototypeWorldActivity.EXTRA_TOWN, true)));
+            .putExtra(PrototypeWorldActivity.EXTRA_TOWN, true)
+            .putExtra("visibility_light",BuildConfig.DEBUG?getIntent().getIntExtra("visibility_light",0):0)));
         create = menu.avatar;
         create.setOnClickListener(v -> startActivity(new Intent(this, CharacterCreatorActivity.class)));
         check = menu.updates;

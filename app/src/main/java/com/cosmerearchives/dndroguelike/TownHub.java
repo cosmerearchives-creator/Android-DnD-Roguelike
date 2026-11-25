@@ -37,6 +37,8 @@ final class TownHub {
         void draw(Canvas canvas);
     }
     private final Paint paint=new Paint(Paint.ANTI_ALIAS_FLAG|Paint.FILTER_BITMAP_FLAG);
+    private final android.graphics.LightingColorFilter memoryTint =
+        new android.graphics.LightingColorFilter(0xFF595959,0);
     private final Path polygon=new Path();
     private final RectF bounds=new RectF();
     private final Bitmap[] facades=new Bitmap[6];
@@ -84,6 +86,21 @@ final class TownHub {
     void setInside(boolean value) { inside=value; }
     boolean isInside() { return inside; }
 
+    boolean visionClear(float ax,float ay,float bx,float by,boolean terrainTarget) {
+        if(bx<0 || by<0 || bx>=(inside?8:WIDTH) || by>=(inside?7:HEIGHT)) return false;
+        int steps=(int)Math.ceil(Math.hypot(bx-ax,by-ay)*10);
+        for(Prop p:inside?tavern:town){
+            if(p.kind!=Kind.BUILDING && p.kind!=Kind.WALL && p.kind!=Kind.GATE)continue;
+            if(terrainTarget && p.collides(bx,by,0))continue;
+            for(int i=1;i<=steps;i++){
+                float t=(float)i/steps;
+                if(p.collides(ax+(bx-ax)*t,ay+(by-ay)*t,0))return false;
+            }
+        }
+        return true;
+    }
+    interface Fog { int shade(int x,int y); }
+
     boolean clear(float x,float y,float radius) {
         if (x-radius<0 || y-radius<0 || x+radius>=(inside?8:WIDTH)
             || y+radius>=(inside?7:HEIGHT)) return false;
@@ -99,7 +116,7 @@ final class TownHub {
     private static float y(float a,float b,float cameraX,float cameraY) {
         return (a-cameraX-b+cameraY)*HALF_H;
     }
-    void ground(Canvas c,float cx,float cy) {
+    void ground(Canvas c,float cx,float cy,Fog fog) {
         int W=inside?8:WIDTH,H=inside?7:HEIGHT;
         for (int depth=1-H;depth<W;depth++) {
             for(int i=Math.max(0,depth);i<Math.min(W,H+depth);i++) {
@@ -110,19 +127,29 @@ final class TownHub {
                 int shade=(i*11+j*17)&3;
                 int color=inside ? 0xFF6D4932 : training(i+.5f,j+.5f) ? 0xFF91704E :
                     plaza ? 0xFF788079 : path ? 0xFF9C896D : 0xFF4F6344;
+                int fogShade=fog.shade(i,j);
                 paint.setColor(color+shade*0x00020202);
                 float xx=x(i+.5f,j+.5f,cx,cy), yy=y(i+.5f,j+.5f,cx,cy);
                 face(c,xx,yy-HALF_H-.25f,xx+HALF_W+.45f,yy,
                     xx,yy+HALF_H+.25f,xx-HALF_W-.45f,yy);
+                if(fogShade!=0){
+                    paint.setColor(fogShade);
+                    face(c,xx,yy-HALF_H-.25f,xx+HALF_W+.45f,yy,
+                        xx,yy+HALF_H+.25f,xx-HALF_W-.45f,yy);
+                }
             }
         }
     }
-    void props(Canvas c,float cx,float cy,float heroDepth,Actor hero) {
+    void props(Canvas c,float cx,float cy,float heroDepth,Actor hero,Fog fog) {
         boolean drawn=false;
         for (Prop p:inside?tavern:town) {
             if (Math.abs(p.x-cx)>13 || Math.abs(p.y-cy)>13) continue;
             if (!drawn && p.depth()>heroDepth) {hero.draw(c); drawn=true;}
+            int shade=fog.shade((int)p.x,(int)p.y);
+            if(shade==0xFF000000 || p.kind==Kind.DUMMY && shade!=0)continue;
+            if(shade!=0)paint.setColorFilter(memoryTint);
             draw(c,p,cx,cy);
+            paint.setColorFilter(null);
         }
         if (!drawn) hero.draw(c);
     }

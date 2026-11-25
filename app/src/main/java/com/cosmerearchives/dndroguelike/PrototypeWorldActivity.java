@@ -53,9 +53,9 @@ public final class PrototypeWorldActivity extends Activity {
         private static final float WALK_SPEED = 1.75f;
         private static final float PLAYER_RADIUS = .20f;
         private static final float MELEE_REACH = 1f;
-        private static final float COMBAT_NOTICE = 3.5f;
+
         private static final float COMBAT_LEASH = 7f;
-        private static final float LOCK_RANGE = 12f;
+
         private static final int GOBLIN_HP = 7, GOBLIN_AC = 12;
         private static final float PLAYER_ACTION_REFILL = 1f;
         private static final float GOBLIN_ATTACK_PERIOD = 6f;
@@ -75,18 +75,18 @@ public final class PrototypeWorldActivity extends Activity {
         private final float[] trunkCenter = {.5f,.5f,.5f,.5f};
         private final float[] trunkWidth = {.15f,.15f,.15f,.15f};
         private final Bitmap[][] factoryProps = new Bitmap[4][4];
-        private final Bitmap bakedElf, bakedWalk, bakedPunch, bakedHit;
+        private final Bitmap bakedElf, bakedWalk, bakedPunch, bakedHit, sneakIdle, sneakWalk;
         private final Bitmap goblinIdle, goblinWalk, goblinAttack;
         private final WeaponTrials weaponTrials;
         private final AvatarActions avatarActions;
         private final WeaponTrials.Motion[] motions=WeaponTrials.Motion.values();
-        private final int[] selectedWeapons=new int[motions.length];
         private int motionIndex;
+        private String equippedAttack="";
+        private boolean throwSelected, activeThrow;
         private final int dexterityModifier, strengthModifier;
         private WeaponTrials.Motion activeMotion=WeaponTrials.Motion.UNARMED;
         private String activeWeapon="";
         private float arrowTime,arrowX,arrowY,arrowEndX,arrowEndY;
-        private final RectF motionButton=new RectF(), weaponButton=new RectF();
         private final int playerAttackBonus, playerDamage;
         private final Equipment.Bag combatBag;
         private final boolean freeWeaponTrials;
@@ -119,7 +119,12 @@ public final class PrototypeWorldActivity extends Activity {
             int facing,hp=GOBLIN_HP;
             WeaponTrials.Motion motion=WeaponTrials.Motion.THRUST;
             String weapon="dagger";
-            boolean moving,impact,aggro,drawn;
+            boolean moving,impact,drawn;
+            final Senses.Awareness awareness=new Senses.Awareness();
+            int heardEvent;
+            float sensoryCooldown, searchTurn;
+            boolean tracked;
+            Senses.Sight playerSight=Senses.Sight.NONE;
             float prone;
         }
         private final java.util.ArrayList<Goblin> goblins=new java.util.ArrayList<>();
@@ -149,6 +154,39 @@ public final class PrototypeWorldActivity extends Activity {
         private int facing, pointer = -1;
         private int pace;
         private boolean sneaking;
+        private final Senses.Profile playerSenses;
+        private final int stealthBonus;
+        private final boolean maskOfTheWild, sunlightSensitive;
+        private int stealthRoll=Integer.MIN_VALUE, noiseEvent;
+        private float revealTime, stepDistance, noiseTime, noiseX, noiseY, noiseRadius;
+        private Exploration exploration=new Exploration();
+        private String fogMap="";
+        private float fogX=Float.NaN,fogY,fogSaveTime;
+        private int fogOriginX,fogOriginY, surveyX,surveyY,surveyIndex;
+        private static final int SIGHT_TILES=(int)(Senses.DEFAULT_SIGHT/Senses.FEET_PER_TILE);
+        private static final int SURVEY_WIDTH=2*SIGHT_TILES+1;
+        private static final int FOG_RADIUS=15, FOG_SIZE=FOG_RADIUS*2+1;
+        private final TownHub.Fog townFog=this::fogShade;
+        private final long[] propKeys=new long[16384];
+        private final byte[] propKinds=new byte[propKeys.length];
+        private final Senses.Sight[] fog=new Senses.Sight[FOG_SIZE*FOG_SIZE];
+        private final Senses.Light wildernessLight;
+        private final android.graphics.ColorMatrixColorFilter grayscale =
+            new android.graphics.ColorMatrixColorFilter(new android.graphics.ColorMatrix(new float[]{
+                .213f,.715f,.072f,0,0, .213f,.715f,.072f,0,0,
+                .213f,.715f,.072f,0,0, 0,0,0,1,0}));
+        private final android.graphics.ColorMatrixColorFilter memoryTint =
+            new android.graphics.ColorMatrixColorFilter(new android.graphics.ColorMatrix(new float[]{
+                .075f,.25f,.025f,0,0, .075f,.25f,.025f,0,0,
+                .075f,.25f,.025f,0,0, 0,0,0,1,0}));
+        private final Senses.Geometry sensoryMap=new Senses.Geometry() {
+            public Senses.Light light(float wx,float wy) {
+                return inTown() ? (town.isInside()?Senses.Light.DIM:Senses.Light.BRIGHT) : wildernessLight;
+            }
+            public boolean obstructed(float ax,float ay,float bx,float by,boolean terrain) {
+                return !visionClear(ax,ay,bx,by,terrain);
+            }
+        };
         private boolean paused;
         private Goblin defeatSource;
         private int health, experience, gold;
@@ -166,6 +204,14 @@ public final class PrototypeWorldActivity extends Activity {
 
         World(Context context, PlayerCharacter hero,boolean townSession) {
             super(context);
+            int lightIndex=((Activity)context).getIntent().getIntExtra("visibility_light",0);
+            wildernessLight=Senses.Light.values()[Math.max(0,Math.min(3,lightIndex))];
+            RaceDefinition race=hero==null?null:hero.race;
+            playerSenses=new Senses.Profile(Senses.DEFAULT_SIGHT,360,race==null?0:race.darkvisionFeet,
+                0,0,0,60,hero==null?0:hero.skillBonus("Perception",4),false,false,false);
+            stealthBonus=hero==null?0:hero.skillBonus("Stealth",1);
+            maskOfTheWild=race!=null && race.traits.contains("mask_of_the_wild");
+            sunlightSensitive=race!=null && race.traits.contains("sunlight_sensitivity");
             PetiteAppearance petite=hero!=null
                 ? hero.petite : PetiteAppearance.DEFAULT;
             weaponTrials=new WeaponTrials(context,petite);
@@ -200,7 +246,7 @@ public final class PrototypeWorldActivity extends Activity {
             health=save.getInt("hero_health",100);
             experience=save.getInt("hero_experience",0);
             gold=save.getInt("hero_gold",0);
-            movementFactor = hero == null ? 1f : hero.loadout().movementFactor()*hero.race.movementFactor();
+            movementFactor = hero == null ? 1f : hero.race.movementFactor();
             playerAttackBonus = hero == null ? 2 : hero.attackBonus();
             playerDamage = hero == null ? 1 : Math.max(1, 1 + PlayerCharacter.modifier(hero.score(0)));
             combatBag=hero==null?new Equipment.Bag():hero.loadout();
@@ -223,6 +269,8 @@ public final class PrototypeWorldActivity extends Activity {
             goblinAttack = load(context, "blender_world/goblin_punch.png");
             spawnGoblin();
             bakedElf = petite.apply(context,load(context,"blender_world/petite_detail_idle.png"),"idle");
+            sneakIdle=petite.apply(context,load(context,"blender_world/sneak_idle.png"),"sneak_idle");
+            sneakWalk=petite.apply(context,load(context,"blender_world/sneak_walk.png"),"sneak_walk");
             bakedWalk = petite.apply(context,load(context,"blender_world/petite_detail_walk.png"),"walk");
             bakedPunch = petite.apply(context,load(context,"blender_world/petite_detail_punch.png"),"punch");
             bakedHit = petite.apply(context,load(context,"blender_world/petite_detail_hit.png"),"hit");
@@ -269,6 +317,7 @@ public final class PrototypeWorldActivity extends Activity {
                 .putFloat(position+"_x",savedX).putFloat(position+"_y",savedY)
                 .putInt("hero_health",health).putInt("hero_experience",experience).putInt("hero_gold",gold);
             if (town!=null) editor.putBoolean("town_quest_active",onQuest).putInt("town_quest_kills",questKills);
+            saveExploration();
             editor.apply();
         }
         private void moveTo(float wx,float wy) {
@@ -361,13 +410,13 @@ public final class PrototypeWorldActivity extends Activity {
             int minX=(int)Math.floor(wx-radius), maxX=(int)Math.floor(wx+radius);
             int minY=(int)Math.floor(wy-radius), maxY=(int)Math.floor(wy+radius);
             for (int tx=minX;tx<=maxX;tx++) for (int ty=minY;ty<=maxY;ty++) {
-                if (terrain.wildernessProp(tx,ty)==3) return false;
+                if (wildernessProp(tx,ty)==3) return false;
             }
             // A corner trunk can overlap the tiles beside the tile that owns it.
             float searchRadius=radius+.30f;
             for (int tx=(int)Math.floor(wx-searchRadius)-1;tx<=(int)Math.floor(wx+searchRadius);tx++) {
                 for (int ty=(int)Math.floor(wy-searchRadius)-1;ty<=(int)Math.floor(wy+searchRadius);ty++) {
-                    int kind=terrain.wildernessProp(tx,ty);
+                    int kind=wildernessProp(tx,ty);
                     if (kind!=1 && kind!=4) continue;
                     int seed=terrain.decoration(tx,ty);
                     float width=trunkWidth[Math.floorMod(seed,4)];
@@ -417,7 +466,7 @@ public final class PrototypeWorldActivity extends Activity {
                 }
                 goblin.x=goblin.homeX=px;
                 goblin.y=goblin.homeY=py;
-                goblin.facing=heading(x-px,y-py);
+                goblin.facing=combatDice.nextInt(8);
                 goblin.recharge=combatDice.nextFloat()*2f;
                 goblins.add(goblin);
                 return;
@@ -430,26 +479,209 @@ public final class PrototypeWorldActivity extends Activity {
             worldMessage=message;
             messageRemaining=3f;
         }
-        private String selectedWeapon() { return motions[motionIndex].weapons[selectedWeapons[motionIndex]]; }
+        private String selectedWeapon() {
+            return equippedAttack;
+        }
+        private WeaponTrials.Motion selectedMotion() {
+            Equipment.Item item=Equipment.get(selectedWeapon());
+            if(item!=null && (item.ranged || throwSelected)) return WeaponTrials.Motion.BOW;
+            return motions[motionIndex];
+        }
+        private void chooseAttackMode() {
+            releaseStick();
+            java.util.ArrayList<String> labels=new java.util.ArrayList<>();
+            java.util.ArrayList<String> ids=new java.util.ArrayList<>();
+            java.util.ArrayList<Boolean> throwsWeapon=new java.util.ArrayList<>();
+            labels.add("Unarmed");ids.add("");throwsWeapon.add(false);
+            if(knownCantrip!=null){
+                labels.add(knownCantrip.title);ids.add("spell");throwsWeapon.add(false);
+            }
+            for(Equipment.Item item:Equipment.catalog()){
+                if(!item.weapon() || combatBag.find(item.id)==null)continue;
+                if(!item.ranged && !item.id.equals("net") && !item.id.equals("dart")){
+                    labels.add(item.name);ids.add(item.id);throwsWeapon.add(false);
+                } else if(item.ranged){
+                    labels.add(item.name+" · "+item.rangeNormal+" ft");ids.add(item.id);throwsWeapon.add(false);
+                }
+                if(item.thrown && !item.id.equals("net")){
+                    labels.add("Throw "+item.name+" · "+item.rangeNormal+" ft");
+                    ids.add(item.id);throwsWeapon.add(true);
+                }
+            }
+            WildlandsUi.choose(getContext(),"Attack mode",null,labels.toArray(new String[0]),-1,index->{
+                equippedAttack=ids.get(index);
+                throwSelected=throwsWeapon.get(index);
+                spellSelected=equippedAttack.equals("spell");
+                if(spellSelected)equippedAttack="";
+                motionIndex=WeaponTrials.Motion.UNARMED.ordinal();
+                Equipment.Item item=Equipment.get(equippedAttack);
+                if(item!=null) {
+                    motionIndex=item.properties.contains("Reach") || item.damageType.equals("piercing")
+                        ? WeaponTrials.Motion.THRUST.ordinal():WeaponTrials.Motion.SWING.ordinal();
+                    if(item.twoHanded && !item.ranged)motionIndex=WeaponTrials.Motion.HEAVY.ordinal();
+                }
+            });
+        }
         private float reach(WeaponTrials.Motion motion,String weapon) {
             if (motion!=WeaponTrials.Motion.BOW) return MELEE_REACH;
-            // Limit the test shot to distances readable on the current camera.
-            return weapon.equals("longbow") ? 6f : 4f;
+            Equipment.Item item=Equipment.get(weapon);
+            return item==null?MELEE_REACH:item.rangeNormal/Senses.FEET_PER_TILE;
         }
         private boolean shotClear(float ax,float ay,float bx,float by) {
             int samples=(int)Math.ceil(Math.hypot(bx-ax,by-ay)*8);
             for (int i=1;i<samples;i++) {
                 float t=(float)i/samples;
                 float xx=ax+(bx-ax)*t, yy=ay+(by-ay)*t;
-                if (!clear(xx,yy,xx,yy,.035f)) return false;
+                if (!projectilePointClear(xx,yy,.035f)) return false;
             }
             return true;
         }
+        private boolean projectilePointClear(float wx,float wy,float radius) {
+            if(!clear(wx,wy,wx,wy,radius))return false;
+            if(inTown())return true;
+            int tx=(int)Math.floor(wx),ty=(int)Math.floor(wy);
+            float rockRadius=.27f+radius;
+            return wildernessProp(tx,ty)!=0
+                || squaredDistance(wx,wy,tx+.5f,ty+.5f)>=rockRadius*rockRadius;
+        }
+        private int wildernessProp(int tx,int ty) {
+            long key=((long)tx<<32)|(ty&0xffffffffL);
+            int slot=(int)((key^(key>>>33))*0x9e3779b97f4a7c15L>>>50);
+            if(propKinds[slot]!=0 && propKeys[slot]==key)return propKinds[slot]-2;
+            int kind=terrain.wildernessProp(tx,ty);
+            propKeys[slot]=key;
+            propKinds[slot]=(byte)(kind+2);
+            return kind;
+        }
+        private boolean visionClear(float ax,float ay,float bx,float by,boolean terrainTarget) {
+            if (inTown()) return town.visionClear(ax,ay,bx,by,terrainTarget);
+            int steps=(int)Math.ceil(Math.hypot(bx-ax,by-ay)*8);
+            int endX=(int)Math.floor(bx),endY=(int)Math.floor(by);
+            for(int i=1;i<=steps;i++){
+                float t=(float)i/steps, wx=ax+(bx-ax)*t,wy=ay+(by-ay)*t;
+                int tx=(int)Math.floor(wx),ty=(int)Math.floor(wy);
+                if(terrainTarget && tx==endX && ty==endY) continue;
+                if(wildernessProp(tx,ty)==3) return false;
+                for(int ix=tx-1;ix<=tx+1;ix++) for(int iy=ty-1;iy<=ty+1;iy++){
+                    int kind=wildernessProp(ix,iy);
+                    if(kind!=1 && kind!=4 && kind!=0) continue;
+                    if(terrainTarget && ix==endX && iy==endY) continue;
+                    float offset=anchorOffset(kind);
+                    float distance=squaredDistance(wx,wy,ix+offset,iy+offset);
+                    if(distance>.30f*.30f)continue;
+                    int seed=terrain.decoration(ix,iy);
+                    float radius=kind==0?.27f:Math.min(.30f,Math.max(.06f,
+                        trunkWidth[Math.floorMod(seed,4)]*125f*treeScale(kind,seed)
+                            /(2f*(float)Math.sqrt(2)*HALF_W)));
+                    if(distance<radius*radius)return false;
+                }
+            }
+            return true;
+        }
+        private Senses.Sight sightAt(float wx,float wy,boolean terrainTarget) {
+            return Senses.see(playerSenses,sensoryMap,x,y,facing,wx,wy,terrainTarget);
+        }
+        private void saveExploration() {
+            if(fogMap.isEmpty()) return;
+            SharedPreferences.Editor editor=save.edit();
+            String prefix=fogMap;
+            exploration.save((key,value)->editor.putLong(prefix+key,value));
+            editor.apply();
+        }
+        private void updateFog() {
+            String map=inTown()?(town.isInside()?"fog_v1_tavern_":"fog_v1_town_"):"fog_v1_wilderness_";
+            if(!map.equals(fogMap)){
+                saveExploration();
+                exploration=new Exploration();
+                fogMap=map;
+                for(java.util.Map.Entry<String,?> entry:save.getAll().entrySet()){
+                    if(entry.getKey().startsWith(map) && entry.getValue() instanceof Long)
+                        exploration.restore(Long.parseLong(entry.getKey().substring(map.length())),(Long)entry.getValue());
+                }
+                fogX=Float.NaN;
+                surveyX=(int)Math.floor(x);surveyY=(int)Math.floor(y);surveyIndex=0;
+            }
+            if(!inTown()) surveyDistantTerrain();
+            if(!Float.isNaN(fogX) && squaredDistance(x,y,fogX,fogY)<.18f*.18f) return;
+            fogX=x;fogY=y;
+            fogOriginX=(int)Math.floor(x)-FOG_RADIUS;
+            fogOriginY=(int)Math.floor(y)-FOG_RADIUS;
+            for(int ix=0;ix<FOG_SIZE;ix++) for(int iy=0;iy<FOG_SIZE;iy++){
+                int tx=fogOriginX+ix,ty=fogOriginY+iy;
+                Senses.Sight sight=sightAt(tx+.5f,ty+.5f,true);
+                fog[iy*FOG_SIZE+ix]=sight;
+                if(sight!=Senses.Sight.NONE) exploration.discover(tx,ty);
+            }
+        }
+        private void surveyDistantTerrain() {
+            int cx=(int)Math.floor(x),cy=(int)Math.floor(y);
+            if(Math.abs(surveyX-cx)>3 || Math.abs(surveyY-cy)>3){
+                surveyX=cx;surveyY=cy;surveyIndex=0;
+            }
+            int total=SURVEY_WIDTH*SURVEY_WIDTH;
+            for(int i=0;i<64 && surveyIndex<total;i++,surveyIndex++){
+                // Permute the samples so movement cannot starve any one compass direction.
+                int sample=(surveyIndex*137)%total;
+                int tx=surveyX+sample%SURVEY_WIDTH-SIGHT_TILES;
+                int ty=surveyY+sample/SURVEY_WIDTH-SIGHT_TILES;
+                if(Math.abs(tx-cx)<=FOG_RADIUS && Math.abs(ty-cy)<=FOG_RADIUS || exploration.known(tx,ty))continue;
+                if(sightAt(tx+.5f,ty+.5f,true)!=Senses.Sight.NONE)exploration.discover(tx,ty);
+            }
+        }
+        private Senses.Sight fogSight(int tx,int ty) {
+            int ix=tx-fogOriginX,iy=ty-fogOriginY;
+            return ix<0||iy<0||ix>=FOG_SIZE||iy>=FOG_SIZE?Senses.Sight.NONE:fog[iy*FOG_SIZE+ix];
+        }
+        private int fogShade(int tx,int ty) {
+            if(fogSight(tx,ty)!=Senses.Sight.NONE) return 0;
+            return exploration.known(tx,ty)?0xB0000000:0xFF000000;
+        }
+        private void shadeGround(Canvas c,float px,float py,int shade) {
+            if(shade==0)return;
+            paint.setColor(shade);
+            diamond.reset();
+            diamond.moveTo(px,py-HALF_H);
+            diamond.lineTo(px+HALF_W,py);
+            diamond.lineTo(px,py+HALF_H);
+            diamond.lineTo(px-HALF_W,py);
+            diamond.close();
+            c.drawPath(diamond,paint);
+        }
+        private void emitNoise(float feet) {
+            if(noiseTime>.25f && noiseRadius>feet)return;
+            noiseX=x;noiseY=y;noiseRadius=feet;noiseTime=.3f;
+            noiseEvent++;
+        }
+        private void revealAttack() {
+            revealTime=Senses.REVEAL_SECONDS;
+            stealthRoll=Integer.MIN_VALUE;
+            emitNoise(30f);
+        }
+        private boolean detectsPlayer(Goblin goblin) {
+            Senses.Profile senses=Senses.GOBLIN;
+            if(Senses.feelsVibration(senses,Senses.distanceFeet(goblin.x,goblin.y,x,y),
+                !jumping,blend>.15f))return true;
+            Senses.Sight sight=Senses.see(senses,sensoryMap,goblin.x,goblin.y,goblin.facing,x,y,false);
+            if(sight==Senses.Sight.NONE)return false;
+            boolean foliage=wildernessProp((int)Math.floor(x),(int)Math.floor(y))==2;
+            boolean clear=sight==Senses.Sight.CLEAR && !foliage;
+            boolean canHide=sight!=Senses.Sight.CLEAR || foliage && maskOfTheWild;
+            if(clear || !canHide || !sneaking || revealTime>0 || stealthRoll==Integer.MIN_VALUE) return true;
+            boolean disadvantage=Senses.disadvantaged(sight) || foliage;
+            Senses.Awareness awareness=goblin.awareness;
+            if(awareness.state==Senses.Alert.SUSPICIOUS || awareness.state==Senses.Alert.SEARCHING){
+                if(awareness.searchRoll==Integer.MIN_VALUE)
+                    awareness.searchRoll=Senses.check(combatDice,senses.perception,senses.keenSight,disadvantage);
+                return awareness.searchRoll>=stealthRoll;
+            }
+            return senses.passive(senses.keenSight,disadvantage)>=stealthRoll;
+        }
         private boolean lockable(Goblin goblin) {
-            return goblin!=null && goblin.hp>0 && distanceToGoblin(goblin)<=LOCK_RANGE && shotClear(x,y,goblin.x,goblin.y);
+            return goblin!=null && goblin.hp>0 && sightAt(goblin.x,goblin.y,false)!=Senses.Sight.NONE;
         }
         private boolean atPracticeTarget() {
-            return inTown() && town.training(x,y);
+            return inTown() && town.training(x,y)
+                && sightAt(TownHub.DUMMY_X,TownHub.DUMMY_Y,false)!=Senses.Sight.NONE;
         }
         private Goblin nearestTarget() {
             Goblin nearest=null;
@@ -508,7 +740,7 @@ public final class PrototypeWorldActivity extends Activity {
                         && combatBag.slots[1]!=null))) return;
             }
             float range=spellSelected && knownCantrip!=null ? knownCantrip.range
-                : reach(motions[motionIndex],selectedWeapon());
+                : reach(selectedMotion(),selectedWeapon());
             if (targetInReach(lockedTarget,dummyLocked,range)) beginPunch();
         }
         private boolean spendAttack() {
@@ -522,7 +754,7 @@ public final class PrototypeWorldActivity extends Activity {
             if (attackRemaining>0f || playerRecharge>0f || avatarActions.active()) return;
             acquireTarget();
             float desiredRange=spellSelected && knownCantrip!=null ? knownCantrip.range
-                : reach(motions[motionIndex],selectedWeapon());
+                : reach(selectedMotion(),selectedWeapon());
             if ((lockedTarget!=null || dummyLocked) && !targetInReach(lockedTarget,dummyLocked,desiredRange)) {
                 combatMessage("Target out of reach or blocked");
                 return;
@@ -535,6 +767,7 @@ public final class PrototypeWorldActivity extends Activity {
             casting=spellSelected?knownCantrip:null;
             spellAttack=casting!=null;
             if (casting!=null) {
+                revealAttack();
                 weaponDrawn=false;
                 activeMotion=WeaponTrials.Motion.UNARMED;
                 activeWeapon="";
@@ -543,7 +776,8 @@ public final class PrototypeWorldActivity extends Activity {
                 punchY=y-(float)Math.cos(heading)*casting.range;
                 return;
             }
-            activeMotion=motions[motionIndex];
+            activeMotion=selectedMotion();
+            activeThrow=throwSelected;
             activeWeapon=selectedWeapon();
             Equipment.Item selected=Equipment.get(activeWeapon);
             activeTwoHands=selected!=null && (selected.twoHanded || (selected.versatile && activeMotion==WeaponTrials.Motion.HEAVY));
@@ -557,6 +791,7 @@ public final class PrototypeWorldActivity extends Activity {
             }
             // Drawing happens automatically with the attack and never
             // consumes a separate action or recharge.
+            revealAttack();
             weaponDrawn=activeMotion!=WeaponTrials.Motion.UNARMED;
             weaponQuietSeconds=0f;
             double angle=facing*Math.PI/4;
@@ -572,7 +807,9 @@ public final class PrototypeWorldActivity extends Activity {
             return rollDamage(weapon,ability,false);
         }
         private int rollDamage(Equipment.Item weapon,int ability,boolean twoHands) {
-            String[] dice=weapon.damageDice(twoHands).split("d",2);
+            String value=weapon.damageDice(twoHands);
+            if(!value.contains("d"))return value.equals("1")?Math.max(1,1+ability):0;
+            String[] dice=value.split("d",2);
             int count=Integer.parseInt(dice[0]), sides=Integer.parseInt(dice[1]);
             int damage=ability;
             for (int i=0;i<count;i++) damage+=combatDice.nextInt(sides)+1;
@@ -589,6 +826,7 @@ public final class PrototypeWorldActivity extends Activity {
                         return;
                     }
                     if (!spendAttack()) return;
+                    revealAttack();
                     attackTarget=lockedTarget;
                     attackDummy=false;
                     faceTarget(attackTarget,false);
@@ -606,7 +844,8 @@ public final class PrototypeWorldActivity extends Activity {
             int attack=combatDice.nextInt(20)+1+athleticsBonus;
             int defense=combatDice.nextInt(20)+1+2;
             if(attack<=defense){combatMessage("Shove resisted");return;}
-            target.aggro=true;
+            if(target.awareness.state!=Senses.Alert.ALERTED)
+                target.awareness.update(0,false,0,0,true,noiseX,noiseY);
             if(mode==2){
                 // Real-time adaptation: stand on the next six-second movement cycle.
                 target.prone=GOBLIN_ATTACK_PERIOD;
@@ -665,7 +904,7 @@ public final class PrototypeWorldActivity extends Activity {
                     finishCantrip();
                     return;
                 }
-                if (!clear(spellX,spellY,spellX,spellY,.025f)) {finishCantrip();return;}
+                if (!projectilePointClear(spellX,spellY,.025f)) {finishCantrip();return;}
                 if (!inTown()) {
                     for (Goblin target:goblins) {
                         if (squaredDistance(spellX,spellY,target.x,target.y)>.29f*.29f) continue;
@@ -706,7 +945,7 @@ public final class PrototypeWorldActivity extends Activity {
                 if (activeMotion==WeaponTrials.Motion.BOW) fireArrow(x,y,TownHub.DUMMY_X,TownHub.DUMMY_Y);
                 Equipment.Item weapon=Equipment.get(activeWeapon);
                 int damage=weapon==null ? playerDamage : rollDamage(weapon,
-                    activeMotion==WeaponTrials.Motion.BOW ? dexterityModifier : strengthModifier,activeTwoHands);
+                    activeMotion==WeaponTrials.Motion.BOW && !activeThrow ? dexterityModifier : strengthModifier,activeTwoHands);
                 dummyHp-=damage;
                 if (dummyHp<=0) {
                     dummyHp=20;
@@ -724,12 +963,18 @@ public final class PrototypeWorldActivity extends Activity {
             }
             hostile=true;pace=0;
             Equipment.Item item=Equipment.get(activeWeapon);
-            int ability=ranged ? dexterityModifier : item!=null && item.finesse
+            int ability=ranged && !activeThrow || item!=null && item.id.equals("dart") ? dexterityModifier : item!=null && item.finesse
                 ? Math.max(strengthModifier,dexterityModifier) : strengthModifier;
             int bonus=playerAttackBonus-strengthModifier+ability;
             int armor=target.motion==WeaponTrials.Motion.THRUST ? GOBLIN_AC : 13;
             int roll=combatDice.nextInt(20)+1;
-            if(target.prone>0){int second=combatDice.nextInt(20)+1;roll=distanceToGoblin(target)<=MELEE_REACH?Math.max(roll,second):Math.min(roll,second);}
+            boolean advantage=target.prone>0 && distanceToGoblin(target)<=MELEE_REACH;
+            boolean disadvantage=(target.prone>0 && distanceToGoblin(target)>MELEE_REACH)
+                || sunlightSensitive && wildernessLight==Senses.Light.BRIGHT;
+            if(advantage!=disadvantage){
+                int second=combatDice.nextInt(20)+1;
+                roll=advantage?Math.max(roll,second):Math.min(roll,second);
+            }
             if (roll+bonus<armor) {
                 combatMessage("Attack missed");return;
             }
@@ -737,7 +982,7 @@ public final class PrototypeWorldActivity extends Activity {
             damageGoblin(target,damage);
         }
         private void damageGoblin(Goblin target,int damage) {
-            target.aggro=true;
+
             hostile=true;
             pace=0;
             target.hp=Math.max(0,target.hp-damage);
@@ -766,17 +1011,47 @@ public final class PrototypeWorldActivity extends Activity {
                 goblin.moving=false;
                 goblin.frost=Math.max(0,goblin.frost-dt);
                 if(goblin.prone>0){goblin.prone=Math.max(0,goblin.prone-dt);hostile=true;pace=0;continue;}
-                float distance=distanceToGoblin(goblin);
-                goblin.aggro=distance<=(goblin.aggro?COMBAT_LEASH:COMBAT_NOTICE);
-                if (!goblin.aggro) {
-                    goblin.swing=0f;
+                Senses.Awareness awareness=goblin.awareness;
+                goblin.sensoryCooldown-=dt;
+                boolean detected=goblin.tracked;
+                boolean sampled=false;
+                if(goblin.sensoryCooldown<=0){
+                    sampled=true;
+                    goblin.sensoryCooldown=.09f+combatDice.nextFloat()*.04f;
+                    detected=goblin.tracked=detectsPlayer(goblin);
+                }
+                // Before acting on any new position, confirm contact this update.
+                if(!sampled && detected && (goblin.swing>0 || distanceToGoblin(goblin)<2f)){
+                    sampled=true;
+                    detected=goblin.tracked=detectsPlayer(goblin);
+                }
+                boolean heard=false;
+                if(noiseTime>0 && goblin.heardEvent!=noiseEvent){
+                    goblin.heardEvent=noiseEvent;
+                    float feet=Senses.distanceFeet(goblin.x,goblin.y,noiseX,noiseY);
+                    heard=feet<=noiseRadius && Senses.hears(Senses.GOBLIN,feet,noiseRadius,
+                        !visionClear(goblin.x,goblin.y,noiseX,noiseY,false),1f,
+                        sneaking && revealTime<=0?stealthRoll:Integer.MIN_VALUE);
+                }
+                awareness.update(dt,detected,sampled?x:awareness.x,sampled?y:awareness.y,heard,noiseX,noiseY);
+                if(awareness.state!=Senses.Alert.ALERTED){
+                    goblin.swing=0;
+                    if(awareness.state!=Senses.Alert.UNAWARE){
+                        if(squaredDistance(goblin.x,goblin.y,awareness.x,awareness.y)>.22f*.22f)
+                            moveGoblin(goblin,awareness.x,awareness.y,dt,.18f);
+                        else if((goblin.searchTurn-=dt)<=0){
+                            goblin.facing=(goblin.facing+1)%8;
+                            goblin.searchTurn=.36f;
+                        }
+                    }
                     continue;
                 }
+                float distance=distanceToGoblin(goblin);
                 hostile=true;pace=0;
                 goblin.recharge=Math.max(0f,goblin.recharge-dt);
                 float range=reach(goblin.motion,goblin.weapon);
-                boolean canHit=distance<=range && (goblin.motion!=WeaponTrials.Motion.BOW
-                    || shotClear(goblin.x,goblin.y,x,y));
+                boolean canHit=distance<=range
+                    && (sampled?detected:detectsPlayer(goblin)) && shotClear(goblin.x,goblin.y,x,y);
                 if (goblin.swing>0) {
                     goblin.swing=Math.max(0f,goblin.swing-dt);
                     if (goblin.impact && goblin.swing<=IMPACT_TIME) {
@@ -802,8 +1077,8 @@ public final class PrototypeWorldActivity extends Activity {
                     }
                     continue;
                 }
-                goblin.facing=heading(x-goblin.x,y-goblin.y);
-                if (canHit && distance<=range*.90f) {
+                goblin.facing=heading(awareness.x-goblin.x,awareness.y-goblin.y);
+                if (canHit) {
                     if (goblin.recharge==0f) {
                         goblin.swing=RigAttackPose.DURATION;
                         goblin.recharge=GOBLIN_ATTACK_PERIOD;
@@ -811,9 +1086,17 @@ public final class PrototypeWorldActivity extends Activity {
                     }
                     continue;
                 }
-                float delta=Math.max(0f,Math.min(distance-.83f,dt*WALK_SPEED*(goblin.frost>0?2f/3f:1f)));
-                float nextX=goblin.x+(x-goblin.x)*delta/distance;
-                float nextY=goblin.y+(y-goblin.y)*delta/distance;
+                moveGoblin(goblin,awareness.x,awareness.y,dt,.83f);
+            }
+        }
+        private void moveGoblin(Goblin goblin,float targetX,float targetY,float dt,float stop){
+                float dx=targetX-goblin.x,dy=targetY-goblin.y;
+                float distance=(float)Math.hypot(dx,dy);
+                if(distance<.001f)return;
+                goblin.facing=heading(dx,dy);
+                float delta=Math.max(0f,Math.min(distance-stop,dt*WALK_SPEED*(goblin.frost>0?2f/3f:1f)));
+                float nextX=goblin.x+dx*delta/distance;
+                float nextY=goblin.y+dy*delta/distance;
                 float oldX=goblin.x,oldY=goblin.y;
                 if (clear(goblin.x,goblin.y,nextX,goblin.y,.16f)) goblin.x=nextX;
                 if (clear(goblin.x,goblin.y,goblin.x,nextY,.16f)) goblin.y=nextY;
@@ -823,7 +1106,6 @@ public final class PrototypeWorldActivity extends Activity {
                     goblin.walkCycle=GaitModel.fractional(goblin.walkCycle+moved/GaitModel.CYCLE_TILES);
                     goblin.facing=heading(goblin.x-oldX,goblin.y-oldY);
                 }
-            }
         }
         private void finishDefeat() {
             Goblin source=defeatSource;
@@ -837,7 +1119,7 @@ public final class PrototypeWorldActivity extends Activity {
             retreatFromGoblin(source);
             for (Goblin other:goblins) {
                 other.x=other.homeX;other.y=other.homeY;
-                other.aggro=false;other.swing=0f;
+                other.awareness.state=Senses.Alert.UNAWARE;other.tracked=false;other.swing=0f;
             }
             hostile=false;
             weaponDrawn=false;
@@ -865,11 +1147,13 @@ public final class PrototypeWorldActivity extends Activity {
             paint.setColor(Color.WHITE);
             float progress=goblin.swing>0 ? 1-goblin.swing/RigAttackPose.DURATION
                 : goblin.moving ? -1f-goblin.walkCycle : -1f;
+            if(goblin.playerSight==Senses.Sight.DARKVISION)paint.setColorFilter(grayscale);
             if(goblin.prone>0){c.save();c.rotate(85,px,py);c.drawBitmap(goblinIdle,source,destination,paint);c.restore();}
             else if (goblin.motion==WeaponTrials.Motion.THRUST
                 || !weaponTrials.draw(c,paint,4,goblin.motion,goblin.weapon,goblin.facing,
                     progress,px,py,192f/164f)) c.drawBitmap(sheet,source,destination,paint);
-            if (goblin.aggro) {
+            paint.setColorFilter(null);
+            if (goblin.awareness.state==Senses.Alert.ALERTED) {
                 paint.setColor(0xFF322A2B);
                 c.drawRect(px-18,py-111,px+18,py-107,paint);
                 paint.setColor(0xFFD27060);
@@ -933,6 +1217,13 @@ public final class PrototypeWorldActivity extends Activity {
                 }
             }
             updateCantrip(dt);
+            revealTime=Math.max(0,revealTime-dt);
+            noiseTime=Math.max(0,noiseTime-dt);
+            if(sneaking && revealTime==0 && stealthRoll==Integer.MIN_VALUE){
+                Equipment.Item armor=Equipment.get(combatBag.slots[2]);
+                stealthRoll=Senses.check(combatDice,stealthBonus,false,
+                    armor!=null && armor.properties.contains("Stealth disadvantage"));
+            }
             if (!inTown()) updateGoblins(dt);
             if (defeatSource!=null) return;
             updateLock();
@@ -947,9 +1238,12 @@ public final class PrototypeWorldActivity extends Activity {
             float magnitude=(float)Math.hypot(stickX,stickY);
             boolean moving=false;
             if (magnitude>.08f && avatarActions.seated()) avatarActions.play(AvatarActions.Clip.STAND);
-            if(jumping){advanceJump(dt);}
+            if(jumping){
+                advanceJump(dt);
+                if(!jumping)emitNoise(15f);
+            }
             else if (magnitude>.08f && attackRemaining==0 && avatarActions.allowsMotion()) {
-                float speed=WALK_SPEED*movementFactor*(sneaking?2f/3f:pace==1?1.4f:pace==2?1.8f:1f);
+                float speed=WALK_SPEED*movementFactor*combatBag.movementFactor()*(sneaking?Senses.SNEAK_MULTIPLIER:pace==1?1.4f:pace==2?1.8f:1f);
                 float dx=stickX*speed*dt, dy=stickY*speed*dt;
                 float oldX=x,oldY=y;
                 if (clear(x,y,x+dx,y,PLAYER_RADIUS)) x+=dx;
@@ -959,6 +1253,11 @@ public final class PrototypeWorldActivity extends Activity {
                 moving=travelled>0.00001f;
                 runUp=moving?Math.min(2f,runUp+travelled):0;
                 if (moving) {
+                    stepDistance+=travelled;
+                    if(stepDistance>=.38f){
+                        stepDistance-=.38f;
+                        emitNoise(Senses.FOOTSTEP_FEET[sneaking?0:pace==0?1:2]);
+                    }
                     if (lockedTarget==null && !dummyLocked) facing=heading(actualX,actualY);
                     gait.advance(travelled);
                     walkCycles=gait.cycles();
@@ -985,6 +1284,9 @@ public final class PrototypeWorldActivity extends Activity {
                     if(Math.abs(yy)>VISIBLE_RADIUS+3)continue;
                     int tx=cx+xx,ty=cy+yy;
                     float px=sx(tx+.5f,ty+.5f),py=sy(tx+.5f,ty+.5f);
+                    int shade=fogShade(tx,ty);
+                    if(shade==0xFF000000){shadeGround(c,px,py,shade);continue;}
+                    if(fogSight(tx,ty)==Senses.Sight.DARKVISION)paint.setColorFilter(grayscale);
                     int biome=terrain.wildernessBiome(tx,ty);
                     int base=biome==3?0xFF6D725C:biome==2?0xFF354D3C:
                         biome==1?0xFF496947:0xFF668457;
@@ -1017,11 +1319,14 @@ public final class PrototypeWorldActivity extends Activity {
                         paint.setColor(0xFFB3A1C1);
                         c.drawCircle(px+5,py-3,1.5f,paint);
                     }
+                    paint.setColorFilter(null);
+                    shadeGround(c,px,py,shade);
                 }
             }
         }
         private void prop(Canvas c,int tx,int ty) {
-            int kind=terrain.wildernessProp(tx,ty);
+            if(fogShade(tx,ty)==0xFF000000)return;
+            int kind=wildernessProp(tx,ty);
             if(kind<0)return;
             float px=sx(tx+.5f,ty+.5f),py=sy(tx+.5f,ty+.5f);
             int group = kind==0 ? 0 : kind==2 ? 2 : kind==3 ? 3 : 1;
@@ -1133,12 +1438,15 @@ public final class PrototypeWorldActivity extends Activity {
             float dt=lastFrame==0?0:Math.min(.05f,(now-lastFrame)*1e-9f);
             lastFrame=now;
             update(dt);
-            c.drawColor(0xFF14242A);
+            updateFog();
+            fogSaveTime+=dt;
+            if(fogSaveTime>=3f){fogSaveTime=0;saveExploration();}
+            c.drawColor(Color.BLACK);
             float centerX=getWidth()*.5f,centerY=getHeight()*.44f;
             zoom=Math.max(.65f,Math.min(1.15f,getWidth()/768f));
             c.save();c.translate(centerX,centerY);c.scale(zoom,zoom);
             int cx=(int)Math.floor(cameraX),cy=(int)Math.floor(cameraY);
-            if (inTown()) town.ground(c,cameraX,cameraY);
+            if (inTown()) town.ground(c,cameraX,cameraY,townFog);
             else ground(c);
             if (attackRemaining>0f && !spellAttack) {
                 float markerX=sx(punchX,punchY),markerY=sy(punchX,punchY);
@@ -1147,18 +1455,22 @@ public final class PrototypeWorldActivity extends Activity {
             }
             float heroDepth=x-y;
             if (inTown()) {
-                town.props(c,cameraX,cameraY,heroDepth,townHero);
+                town.props(c,cameraX,cameraY,heroDepth,townHero,townFog);
                 if (dummyLocked) drawLockMarker(c,sx(TownHub.DUMMY_X,TownHub.DUMMY_Y),
                     sy(TownHub.DUMMY_X,TownHub.DUMMY_Y)-66f);
                 if (arrowTime>0f) drawArrow(c);
-                drawCantrip(c);
+                if(missile==null || sightAt(spellX,spellY,false)!=Senses.Sight.NONE)drawCantrip(c);
                 c.restore();
                 drawControls(c);
                 postInvalidateOnAnimation();
                 return;
             }
             boolean actorDrawn=false;
-            for (Goblin goblin:goblins) goblin.drawn=false;
+            for (Goblin goblin:goblins) {
+                goblin.playerSight=sightAt(goblin.x,goblin.y,false);
+                goblin.drawn=goblin.playerSight==Senses.Sight.NONE || Math.abs(goblin.x-cameraX)>VISIBLE_RADIUS+1
+                    || Math.abs(goblin.y-cameraY)>VISIBLE_RADIUS+1;
+            }
             for(int depth=-VISIBLE_RADIUS*2;depth<=VISIBLE_RADIUS*2;depth++){
                 for(int xx=-VISIBLE_RADIUS;xx<=VISIBLE_RADIUS;xx++){
                     int yy=xx-depth;
@@ -1174,7 +1486,11 @@ public final class PrototypeWorldActivity extends Activity {
                     if (!actorDrawn && propDepth>heroDepth) {
                         drawHero(c);actorDrawn=true;
                     }
+                    int shade=fogShade(tx,ty);
+                    if(shade!=0)paint.setColorFilter(memoryTint);
+                    else if(fogSight(tx,ty)==Senses.Sight.DARKVISION)paint.setColorFilter(grayscale);
                     prop(c,tx,ty);
+                    paint.setColorFilter(null);
                 }
             }
             for (Goblin goblin:goblins)
@@ -1184,8 +1500,9 @@ public final class PrototypeWorldActivity extends Activity {
             if(!actorDrawn)drawHero(c);
             for (Goblin goblin:goblins)
                 if(!goblin.drawn)drawGoblin(c,goblin);
-            if (arrowTime>0f) drawArrow(c);
-            drawCantrip(c);
+            if (arrowTime>0f && sightAt(arrowX,arrowY,false)!=Senses.Sight.NONE
+                && sightAt(arrowEndX,arrowEndY,false)!=Senses.Sight.NONE) drawArrow(c);
+            if(missile==null || sightAt(spellX,spellY,false)!=Senses.Sight.NONE) drawCantrip(c);
             c.restore();
             drawControls(c);
             postInvalidateOnAnimation();
@@ -1238,17 +1555,17 @@ public final class PrototypeWorldActivity extends Activity {
             if (!reacting && !sneaking && pace>0 && blend>.15f && attackRemaining<=0f
                 && avatarActions.drawRun(c,px,py,facing,pace,walkCycles-(float)Math.floor(walkCycles))) return;
             if(sneaking && !reacting && attackRemaining<=0f){
-                Bitmap sneakSheet=blend>.15f?bakedWalk:bakedElf;
+                Bitmap sneakSheet=blend>.15f?sneakWalk:sneakIdle;
                 if(sneakSheet!=null){
-                    int sneakFrame=blend>.15f?Math.floorMod((int)(walkCycles*8),8):0;
+                    int sneakFrame=blend>.15f?Math.floorMod((int)(walkCycles*12),8):0;
                     source.set(sneakFrame*168,facing*192,(sneakFrame+1)*168,(facing+1)*192);
-                    destination.set(px-84,py-128,px+84,py+25.6f);
+                    destination.set(px-84,py-160,px+84,py+32);
                     paint.setColor(Color.WHITE);
                     c.drawBitmap(sneakSheet,source,destination,paint);
                     return;
                 }
             }
-            WeaponTrials.Motion motion=attackRemaining>0 ? activeMotion : motions[motionIndex];
+            WeaponTrials.Motion motion=attackRemaining>0 ? activeMotion : selectedMotion();
             String weapon=attackRemaining>0 ? activeWeapon : selectedWeapon();
             if (!reacting && motion!=WeaponTrials.Motion.UNARMED && (attackRemaining>0 || weaponDrawn)) {
                 float progress=0f;
@@ -1364,7 +1681,7 @@ public final class PrototypeWorldActivity extends Activity {
             hudControl(c,jumpHud,"↗","Jump",jumpCooldown<=0&&!jumping,d);
             hudControl(c,crouchHud,"↓","Sneak",sneaking,d);
             hudControl(c,attackButton,"⚔",inTown()&&!atPracticeTarget()?"Interact":spellSelected?"Cast":"Attack",playerRecharge<=0,d);
-            hudControl(c,secondaryHud,"➶","Secondary",false,d);
+            hudControl(c,secondaryHud,"➶","Attack mode",false,d);
             hudControl(c,inventoryHud,"▣","Inventory",false,d);
             hudControl(c,pauseHud,"Ⅱ","Pause",false,d);
             paint.setColor(WildlandsUi.GOLD);paint.setStrokeWidth(d);
@@ -1457,6 +1774,18 @@ public final class PrototypeWorldActivity extends Activity {
             if(length>0){stickX=wx/length*power;stickY=wy/length*power;}
             else {stickX=stickY=0;}
         }
+        private boolean selectVisibleActor(float px,float py) {
+            for(Goblin goblin:goblins){
+                if(!lockable(goblin))continue;
+                float gx=getWidth()*.5f+sx(goblin.x,goblin.y)*zoom;
+                float gy=getHeight()*.44f+sy(goblin.x,goblin.y)*zoom;
+                if(Math.abs(px-gx)<=25*zoom && py<=gy && py>=gy-105*zoom){
+                    lockedTarget=goblin;
+                    return true;
+                }
+            }
+            return false;
+        }
         private void releaseStick() {
             pointer=-1;stickActive=false;
             stickX=stickY=screenStickX=screenStickY=0f;
@@ -1487,7 +1816,8 @@ public final class PrototypeWorldActivity extends Activity {
                 if(autoAttackButton.contains(px,py)){autoAttack=!autoAttack;return true;}
                 if(jumpHud.contains(px,py)){startJump();return true;}
                 if(crouchHud.contains(px,py)){sneaking=!sneaking;pace=0;return true;}
-                if(secondaryHud.contains(px,py)||inventoryHud.contains(px,py)||pauseHud.contains(px,py))return true;
+                if(secondaryHud.contains(px,py)){chooseAttackMode();return true;}
+                if(inventoryHud.contains(px,py)||pauseHud.contains(px,py))return true;
                 if(attackButton.contains(px,py)){
                     interact();
                     return true;
@@ -1499,6 +1829,7 @@ public final class PrototypeWorldActivity extends Activity {
                     stickCenterX=joystick.centerX();stickCenterY=joystick.centerY();
                     stick(px,py);return true;
                 }
+                if(!inTown() && selectVisibleActor(px,py))return true;
                 if(paused)paused=false;
                 return true;
             }
