@@ -1847,6 +1847,18 @@ public final class PrototypeWorldActivity extends Activity {
         private void invText(Canvas c,String text,float x,float y,float size,boolean center){
             invPaint.setColor(0xFFE8DBB8);invPaint.setTypeface(WildlandsUi.SERIF);invPaint.setTextSize(size);invPaint.setTextAlign(center?Paint.Align.CENTER:Paint.Align.LEFT);c.drawText(text,x,y,invPaint);
         }
+        private InventoryIcons inventoryIcons;
+
+        private void invItemSlot(Canvas c,float x,float y,float w,float h,Equipment.Item item,
+                                 String emptyIcon,boolean selected,boolean showQuantity){
+            invFrame(c,x,y,w,h,selected);
+            if (item == null && emptyIcon.isEmpty()) return;
+            if (inventoryIcons == null) inventoryIcons = new InventoryIcons(getContext());
+            float centerY = y+h/2-(showQuantity?3:0);
+            if (!inventoryIcons.draw(c,item,x+w/2,centerY,Math.min(w,h)*(showQuantity?.80f:.88f))) {
+                hudIcon(c,item==null?emptyIcon:invItemIcon(item),x+w/2,centerY,Math.min(w,h)*.58f);
+            }
+        }
         private void invSlot(Canvas c,float x,float y,float w,float h,String icon,boolean selected){
             invFrame(c,x,y,w,h,selected);hudIcon(c,icon,x+w/2,y+h/2,Math.min(w,h)*.58f);
         }
@@ -1871,18 +1883,28 @@ public final class PrototypeWorldActivity extends Activity {
             if(bakedElf!=null){source.set(0,inventoryFacing*192,168,(inventoryFacing+1)*192);invRect.set(-24,326,332,766);invPaint.setColor(Color.WHITE);c.drawBitmap(bakedElf,source,invRect,invPaint);}
             invText(c,"↶",80,804,42,true);invText(c,"↷",230,804,42,true);
             String[] left={"♜","♧","✋","○","➶"},right={"♢","∞","⬟","○","bow"},middle={"♜","▬","▥","♟"};
-            for(int i=0;i<5;i++){float yy=342+i*92;invSlot(c,294,yy,82,i==4?94:82,left[i],i==4&&combatBag.slots[0]!=null);invSlot(c,564,yy,84,i==4?94:82,right[i],i==2&&combatBag.slots[1]!=null);}
-            for(int i=0;i<4;i++)invSlot(c,421,403+i*91,102,i==0?101:83,middle[i],i==0&&combatBag.slots[2]!=null);
+            Equipment.Item mainHand=Equipment.get(combatBag.slots[Equipment.Slot.MAIN_HAND.ordinal()]);
+            Equipment.Item offHand=Equipment.get(combatBag.slots[Equipment.Slot.OFF_HAND.ordinal()]);
+            Equipment.Item armor=Equipment.get(combatBag.slots[Equipment.Slot.BODY.ordinal()]);
+            for(int i=0;i<5;i++){
+                float yy=342+i*92;
+                if(i==4)invItemSlot(c,294,yy,82,94,mainHand,left[i],mainHand!=null,false);
+                else invSlot(c,294,yy,82,82,left[i],false);
+                if(i==2)invItemSlot(c,564,yy,84,82,offHand,right[i],offHand!=null,false);
+                else invSlot(c,564,yy,84,i==4?94:82,right[i],false);
+            }
+            invItemSlot(c,421,403,102,101,armor,middle[0],armor!=null,false);
+            for(int i=1;i<4;i++)invSlot(c,421,403+i*91,102,83,middle[i],false);
             invFrame(c,23,837,290,214,false);invFrame(c,328,837,358,214,false);invText(c,"Stats",169,869,24,true);
             String[] labels={"♥  HP","⚔  Attack","⬟  Defense","♟  Move","▣  Carry"};String[] values={""+health,"+"+playerAttackBonus,""+combatBag.armorClass(),Math.round(30*movementFactor*combatBag.movementFactor())+" ft",Math.round(combatBag.carriedWeight())+" / "+Math.round(combatBag.capacity())};
             for(int i=0;i<5;i++){float yy=907+i*31;invPaint.setColor(0xFF506A65);c.drawLine(43,yy-26,292,yy-26,invPaint);invText(c,labels[i],47,yy,22,false);invPaint.setTextAlign(Paint.Align.RIGHT);c.drawText(values[i],287,yy,invPaint);}
             Equipment.Item selected=inventorySelected;
-            invSlot(c,349,859,87,89,invItemIcon(selected),false);
+            invItemSlot(c,349,859,87,89,selected,"",false,false);
             invText(c,selected==null?"No item selected":selected.name,449,876,selected!=null&&selected.name.length()>17?19:24,false);
             if(selected!=null){invText(c,selected.kind.toString(),449,905,20,false);invText(c,selected.ac>0?"AC "+selected.ac:selected.weight+" lb",449,940,22,false);invText(c,selected.damage.isEmpty()?"Weight: "+selected.weight+" lb":"Damage: "+selected.damage+" "+selected.damageType,354,982,20,false);}
             invFrame(c,22,1068,665,440,false);hudIcon(c,"▣",59,1102,32);invText(c,"Inventory "+Math.round(combatBag.carriedWeight())+" / "+Math.round(combatBag.capacity()),85,1110,23,false);invFrame(c,550,1085,119,34,false);invText(c,"Sort ▾",610,1110,21,true);
             java.util.List<Equipment.Stack> items=combatBag.all();
-            for(int i=0;i<24;i++){float xx=42+(i%6)*106,yy=1133+(i/6)*92;int index=inventoryPage*24+i;Equipment.Stack stack=index<items.size()?items.get(index):null;invSlot(c,xx,yy,97,83,stack==null?"":invItemIcon(stack.item),stack!=null&&stack.item==selected);if(stack!=null){invText(c,""+stack.count,xx+82,yy+75,19,true);}}
+            for(int i=0;i<24;i++){float xx=42+(i%6)*106,yy=1133+(i/6)*92;int index=inventoryPage*24+i;Equipment.Stack stack=index<items.size()?items.get(index):null;invItemSlot(c,xx,yy,97,83,stack==null?null:stack.item,"",stack!=null&&stack.item==selected,true);if(stack!=null){invText(c,""+stack.count,xx+82,yy+75,19,true);}}
             c.restore();
         }
         private void inventoryTouch(float px,float py){
@@ -1890,6 +1912,7 @@ public final class PrototypeWorldActivity extends Activity {
             if(xx>=630&&yy>=170&&yy<=240){inventoryOpen=false;return;}
             if(yy>=775&&yy<=825&&xx<280){inventoryFacing=Math.floorMod(inventoryFacing+(xx<150?-1:1),8);return;}
             if(yy>=1133&&yy<1501&&xx>=42&&xx<678){int col=(int)((xx-42)/106),row=(int)((yy-1133)/92);int index=inventoryPage*24+row*6+col;java.util.List<Equipment.Stack> items=combatBag.all();if(index<items.size())inventorySelected=items.get(index).item;}
+            if(yy>=526&&yy<608&&xx>=564&&xx<=648)inventorySelected=Equipment.get(combatBag.slots[1]);
             if(yy>=403&&yy<504&&xx>=421&&xx<=523)inventorySelected=Equipment.get(combatBag.slots[2]);
             if(yy>=710&&yy<=806&&xx>=294&&xx<=376)inventorySelected=Equipment.get(combatBag.slots[0]);
         }
