@@ -137,6 +137,10 @@ public final class PrototypeWorldActivity extends Activity {
         private float stickCenterX, stickCenterY;
         private boolean stickActive;
         private float walkCycles, attackRemaining, blend;
+        private final int jumpStrength;
+        private float jumpCooldown,jumpElapsed,jumpDistance,jumpTravel,jumpDx,jumpDy,runUp;
+        private boolean jumping;
+        private static final float JUMP_DURATION=.75f;
         private static final float HIT_REACTION_SECONDS=.34f;
         private float hitRemaining;
         private static final float AUTO_SHEATHE_SECONDS=6f;
@@ -176,6 +180,7 @@ public final class PrototypeWorldActivity extends Activity {
             spellDice=level>=17?4:level>=11?3:level>=5?2:1;
             dexterityModifier=hero==null ? 0 : PlayerCharacter.modifier(hero.score(1));
             strengthModifier=hero==null ? 0 : PlayerCharacter.modifier(hero.score(0));
+            jumpStrength=hero==null?10:hero.score(0);
             athleticsBonus=hero==null ? 0 : hero.skillBonus("Athletics",0);
             save = context.getSharedPreferences("wildlands_world", Context.MODE_PRIVATE);
             town=townSession ? new TownHub(context) : null;
@@ -882,8 +887,32 @@ public final class PrototypeWorldActivity extends Activity {
             int tx=Math.round(wx),ty=Math.round(wy);
             return 0f;
         }
+        private void startJump(){
+            if(paused||defeatSource!=null||jumping||jumpCooldown>0||attackRemaining>0||avatarActions.active())return;
+            float mag=(float)Math.hypot(stickX,stickY);
+            jumpDx=mag>.08f?stickX/mag:(float)Math.sin(facing*Math.PI/4);
+            jumpDy=mag>.08f?stickY/mag:-(float)Math.cos(facing*Math.PI/4);
+            jumpDistance=Math.max(0,jumpStrength*(runUp>=2f?1f:.5f)/5f);
+            jumpElapsed=jumpTravel=runUp=0;
+            jumpCooldown=1f;jumping=true;
+            facing=heading(jumpDx,jumpDy);
+            avatarActions.play(AvatarActions.Clip.JUMP_START);
+        }
+        private void advanceJump(float dt){
+            jumpElapsed=Math.min(JUMP_DURATION,jumpElapsed+dt);
+            float phase=Math.max(0,Math.min(1,(jumpElapsed-.20f)/.33f));
+            float remaining=Math.max(0,jumpDistance*phase-jumpTravel);
+            while(remaining>.0001f){
+                float step=Math.min(.08f,remaining);
+                float nx=x+jumpDx*step,ny=y+jumpDy*step;
+                if(!clear(x,y,nx,ny,PLAYER_RADIUS)){jumpDistance=jumpTravel;break;}
+                x=nx;y=ny;jumpTravel+=step;remaining-=step;
+            }
+            if(jumpElapsed>=JUMP_DURATION){jumping=false;avatarActions.play(null);}
+        }
         private void update(float dt) {
             if (paused) return;
+            jumpCooldown=Math.max(0,jumpCooldown-dt);
             if (avatarActions.update(dt)) {
                 finishDefeat();
                 save();
@@ -917,7 +946,8 @@ public final class PrototypeWorldActivity extends Activity {
             float magnitude=(float)Math.hypot(stickX,stickY);
             boolean moving=false;
             if (magnitude>.08f && avatarActions.seated()) avatarActions.play(AvatarActions.Clip.STAND);
-            if (magnitude>.08f && attackRemaining==0 && avatarActions.allowsMotion()) {
+            if(jumping){advanceJump(dt);}
+            else if (magnitude>.08f && attackRemaining==0 && avatarActions.allowsMotion()) {
                 float speed=WALK_SPEED*movementFactor*(pace==1?1.4f:pace==2?1.8f:1f);
                 float dx=stickX*speed*dt, dy=stickY*speed*dt;
                 float oldX=x,oldY=y;
@@ -926,15 +956,17 @@ public final class PrototypeWorldActivity extends Activity {
                 float actualX=x-oldX,actualY=y-oldY;
                 float travelled=(float)Math.hypot(actualX,actualY);
                 moving=travelled>0.00001f;
+                runUp=moving?Math.min(2f,runUp+travelled):0;
                 if (moving) {
                     if (lockedTarget==null && !dummyLocked) facing=heading(actualX,actualY);
                     gait.advance(travelled);
                     walkCycles=gait.cycles();
                 }
             }
+            if(!jumping&&!moving)runUp=0;
             blend=Math.max(0,Math.min(1,blend+(moving?10f:-13f)*dt));
             if (attackRemaining>0f) faceTarget(attackTarget,attackDummy);
-            else faceTarget(lockedTarget,dummyLocked);
+            else if(!jumping)faceTarget(lockedTarget,dummyLocked);
             if (autoLock) acquireTarget();
             tryAutoAttack();
             // Lock the camera to the character. A lagging camera made the
@@ -1317,7 +1349,7 @@ public final class PrototypeWorldActivity extends Activity {
             secondaryHud.set(mid+4*d,top+row+7*d,w-10*d,top+2*row-3*d);
             inventoryHud.set(14*d,bottom-43*d,w*.5f-5*d,bottom);
             pauseHud.set(w*.5f+5*d,bottom-43*d,w-14*d,bottom);
-            hudControl(c,jumpHud,"↗","Jump",false,d);
+            hudControl(c,jumpHud,"↗","Jump",jumpCooldown<=0&&!jumping,d);
             hudControl(c,crouchHud,"↓","Crouch",false,d);
             hudControl(c,attackButton,"⚔",inTown()&&!atPracticeTarget()?"Interact":spellSelected?"Cast":"Attack",playerRecharge<=0,d);
             hudControl(c,secondaryHud,"➶","Secondary",false,d);
@@ -1441,7 +1473,8 @@ public final class PrototypeWorldActivity extends Activity {
                 }
                 if(targetButton.contains(px,py)){autoLock=!autoLock;if(autoLock)acquireTarget();else {lockedTarget=null;dummyLocked=false;}return true;}
                 if(autoAttackButton.contains(px,py)){autoAttack=!autoAttack;return true;}
-                if(jumpHud.contains(px,py)||crouchHud.contains(px,py)||secondaryHud.contains(px,py)||inventoryHud.contains(px,py)||pauseHud.contains(px,py))return true;
+                if(jumpHud.contains(px,py)){startJump();return true;}
+                if(crouchHud.contains(px,py)||secondaryHud.contains(px,py)||inventoryHud.contains(px,py)||pauseHud.contains(px,py))return true;
                 if(attackButton.contains(px,py)){
                     interact();
                     return true;
