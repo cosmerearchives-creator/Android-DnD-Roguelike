@@ -155,7 +155,8 @@ public final class PrototypeWorldActivity extends Activity {
         private final RectF avatarActionButton = new RectF();
         private final RectF targetButton=new RectF(), autoAttackButton=new RectF();
         private Goblin lockedTarget, attackTarget;
-        private boolean dummyLocked, attackDummy, autoAttack;
+        private boolean dummyLocked, attackDummy, autoAttack, autoLock;
+        private final RectF jumpHud=new RectF(), crouchHud=new RectF(), secondaryHud=new RectF(), inventoryHud=new RectF(), pauseHud=new RectF();
         private float zoom = 1f;
 
         World(Context context, PlayerCharacter hero,boolean townSession) {
@@ -439,7 +440,7 @@ public final class PrototypeWorldActivity extends Activity {
             return true;
         }
         private boolean lockable(Goblin goblin) {
-            return goblin!=null && goblin.hp>0 && distanceToGoblin(goblin)<=LOCK_RANGE;
+            return goblin!=null && goblin.hp>0 && distanceToGoblin(goblin)<=LOCK_RANGE && shotClear(x,y,goblin.x,goblin.y);
         }
         private boolean atPracticeTarget() {
             return inTown() && town.training(x,y);
@@ -493,7 +494,6 @@ public final class PrototypeWorldActivity extends Activity {
         }
         private void tryAutoAttack() {
             if (!autoAttack || playerRecharge>0f || attackRemaining>0f || avatarActions.active()) return;
-            acquireTarget();
             if (lockedTarget==null && !dummyLocked) return;
             if (!spellSelected) {
                 Equipment.Item item=Equipment.get(selectedWeapon());
@@ -935,6 +935,7 @@ public final class PrototypeWorldActivity extends Activity {
             blend=Math.max(0,Math.min(1,blend+(moving?10f:-13f)*dt));
             if (attackRemaining>0f) faceTarget(attackTarget,attackDummy);
             else faceTarget(lockedTarget,dummyLocked);
+            if (autoLock) acquireTarget();
             tryAutoAttack();
             // Lock the camera to the character. A lagging camera made the
             // joystick appear to drift and the walk animation slide.
@@ -1287,76 +1288,69 @@ public final class PrototypeWorldActivity extends Activity {
             });
         }
         private void drawControls(Canvas c) {
-            float d=getResources().getDisplayMetrics().density;
-            float bottom=getHeight()-18*d;
-            joystick.set(18*d,bottom-115*d,133*d,bottom);
-            runButton.set(getWidth()-125*d,bottom-111*d,getWidth()-18*d,bottom-70*d);
-            attackButton.set(getWidth()-125*d,bottom-59*d,getWidth()-18*d,bottom);
-            shoveButton.set(getWidth()-125*d,bottom-163*d,getWidth()-18*d,bottom-122*d);
-            if(!inTown())button(c,shoveButton,"SHOVE");
-            exitButton.set(getWidth()-94*d,18*d,getWidth()-12*d,54*d);
-            avatarActionButton.set(getWidth()-137*d,62*d,getWidth()-12*d,100*d);
-            float targetWidth=Math.min(83*d,getWidth()*.22f);
-            targetButton.set(12*d,101*d,12*d+targetWidth,138*d);
-            autoAttackButton.set(16*d+targetWidth,101*d,16*d+targetWidth*2,138*d);
-            motionButton.set(getWidth()-175*d,106*d,getWidth()-12*d,141*d);
-            weaponButton.set(getWidth()-175*d,146*d,getWidth()-12*d,181*d);
-            if (!stickActive) {stickCenterX=joystick.centerX();stickCenterY=joystick.centerY();}
-            paint.setColor(0xD7132E35);c.drawCircle(stickCenterX,stickCenterY,49*d,paint);
-            paint.setStyle(Paint.Style.STROKE);
+            float w=getWidth(), h=getHeight(), d=w/360f;
+            float top=h*.69f, bottom=h-12*d;
+            paint.setColor(0xFF0B292F);
+            hudPath.reset();hudPath.moveTo(0,top+18*d);
+            hudPath.quadTo(w*.04f,top,w*.22f,top);
+            hudPath.quadTo(w*.36f,top,w*.40f,top-12*d);
+            hudPath.quadTo(w*.50f,top-48*d,w*.60f,top-12*d);
+            hudPath.quadTo(w*.64f,top,w*.78f,top);
+            hudPath.quadTo(w*.96f,top,w,top+18*d);
+            hudPath.lineTo(w,h);hudPath.lineTo(0,h);hudPath.close();
+            c.drawPath(hudPath,paint);
+            paint.setStyle(Paint.Style.STROKE);paint.setStrokeWidth(1.5f*d);paint.setColor(WildlandsUi.GOLD);c.drawPath(hudPath,paint);paint.setStyle(Paint.Style.FILL);
+            float split=w*.40f, row=(bottom-top-55*d)/2f;
+            joystick.set(14*d,top+14*d,split-10*d,top+14*d+split-24*d);
+            if(!stickActive){stickCenterX=joystick.centerX();stickCenterY=joystick.centerY();}
+            float radius=joystick.width()*.46f;
+            paint.setColor(WildlandsUi.GOLD);paint.setStyle(Paint.Style.STROKE);paint.setStrokeWidth(d);
+            c.drawCircle(stickCenterX,stickCenterY,radius,paint);c.drawCircle(stickCenterX,stickCenterY,radius-4*d,paint);
+            paint.setStyle(Paint.Style.FILL);paint.setColor(0xFFB7D6C7);
+            c.drawCircle(stickCenterX+screenStickX*radius*.65f,stickCenterY+screenStickY*radius*.65f,radius*.38f,paint);
+            float mid=(split+w-10*d)/2;
+            jumpHud.set(split+8*d,top+12*d,mid-3*d,top+row);
+            crouchHud.set(mid+4*d,top+12*d,w-10*d,top+row);
+            attackButton.set(split+8*d,top+row+7*d,mid-3*d,top+2*row-3*d);
+            secondaryHud.set(mid+4*d,top+row+7*d,w-10*d,top+2*row-3*d);
+            inventoryHud.set(14*d,bottom-43*d,w*.5f-5*d,bottom);
+            pauseHud.set(w*.5f+5*d,bottom-43*d,w-14*d,bottom);
+            hudControl(c,jumpHud,"↗","Jump",false,d);
+            hudControl(c,crouchHud,"↓","Crouch",false,d);
+            hudControl(c,attackButton,"⚔",inTown()&&!atPracticeTarget()?"Interact":spellSelected?"Cast":"Attack",playerRecharge<=0,d);
+            hudControl(c,secondaryHud,"➶","Secondary",false,d);
+            hudControl(c,inventoryHud,"▣","Inventory",false,d);
+            hudControl(c,pauseHud,"Ⅱ","Pause",false,d);
             paint.setColor(WildlandsUi.GOLD);paint.setStrokeWidth(d);
-            c.drawCircle(stickCenterX,stickCenterY,50*d,paint);
-            c.drawCircle(stickCenterX,stickCenterY,46*d,paint);
-            paint.setStyle(Paint.Style.FILL);
-            for (int mark=0;mark<4;mark++) {
-                double angle=mark*Math.PI/2;
-                float mx=stickCenterX+50*d*(float)Math.cos(angle);
-                float my=stickCenterY+50*d*(float)Math.sin(angle);
-                hudPath.reset();hudPath.moveTo(mx,my-4*d);hudPath.lineTo(mx+4*d,my);
-                hudPath.lineTo(mx,my+4*d);hudPath.lineTo(mx-4*d,my);hudPath.close();
-                c.drawPath(hudPath,paint);
-            }
-            paint.setColor(0xFFB7D6C7);
-            c.drawCircle(stickCenterX+screenStickX*36*d,stickCenterY+screenStickY*36*d,19*d,paint);
-            button(c,runButton,hostile?"In Combat":pace==1?"Jog ›":pace==2?"Sprint ›":"Walk ›");
-            boolean training=inTown() && town.training(x,y);
-            button(c,attackButton,inTown() ? training ? spellSelected?"Cast":"Attack" : "Interact"
-                : spellSelected ? "Cast" : hostile || onQuest || motionIndex!=0 ? "Attack" : "Attack / Use");
-            paint.setColor(0xFFF1D8AA);
-            if ((!inTown() || training) && playerRecharge>0) {
-                paint.setStyle(Paint.Style.STROKE);
-                c.drawCircle(attackButton.right-12*d,attackButton.centerY(),4*d,paint);
-                paint.setStyle(Paint.Style.FILL);
-            } else if (!inTown() || training) {
-                c.drawCircle(attackButton.right-12*d,attackButton.centerY(),4*d,paint);
-            }
-            button(c,exitButton,"☰  Menu");
-            button(c,motionButton,(spellSelected?"Magic":motions[motionIndex].title)+"  ▾");
-            button(c,avatarActionButton,avatarActions.seated()?"Stand":"Actions ›");
-            if (!inTown() || atPracticeTarget()) {
-                button(c,targetButton,"Target ›");
-                button(c,autoAttackButton,autoAttack?"Auto":"Manual");
-            }
-            Equipment.Item selection=Equipment.get(selectedWeapon());
-            button(c,weaponButton,spellSelected?knownCantrip.title:selection==null ? "Bare hands" : selection.name+(selection.versatile?(motions[motionIndex]==WeaponTrials.Motion.HEAVY?" (2H)":" (1H)"):"")+" ›");
-            hud.set(8*d,15*d,Math.min(getWidth()-105*d,236*d),60*d);
+            c.drawLine(20*d,bottom-51*d,w-20*d,bottom-51*d,paint);
+            paint.setTypeface(WildlandsUi.SERIF);paint.setTextSize(23*d);paint.setTextAlign(Paint.Align.CENTER);
+            c.drawText("♠",w*.5f,top-5*d,paint);paint.setTextAlign(Paint.Align.LEFT);
+            hud.set(8*d,9*d,w*.55f,51*d);
             WildlandsUi.plate(c,paint,hudPath,hud,7*d,WildlandsUi.TEAL,WildlandsUi.GOLD,d);
-            paint.setTypeface(WildlandsUi.SERIF);
+            paint.setTypeface(WildlandsUi.SERIF);paint.setTextSize(11*d);paint.setColor(WildlandsUi.INK);
+            c.drawText(inTown()?town.isInside()?"WILDLANDS · TAVERN":"WILDLANDS · TOWN":"WILDLANDS · FREE ROAM",14*d,24*d,paint);
+            c.drawLine(14*d,29*d,hud.right-6*d,29*d,paint);
+            c.drawText("HP "+health+"  XP "+experience+"  GOLD "+gold,14*d,43*d,paint);
+            targetButton.set(w*.57f,14*d,w*.65f,46*d);
+            autoAttackButton.set(w*.67f,14*d,w*.75f,46*d);
+            exitButton.set(w*.77f,14*d,w-8*d,46*d);
+            hudControl(c,targetButton,"◎","",autoLock,d);
+            hudControl(c,autoAttackButton,"A","",autoAttack,d);
+            hudControl(c,exitButton,"","☰ Menu",false,d);
             paint.setTextSize(12*d);paint.setColor(WildlandsUi.INK);
-            c.drawLine(15*d,37*d,hud.right-7*d,37*d,paint);
-            c.drawText(inTown() ? town.isInside() ? "WILDLANDS · TAVERN" : "WILDLANDS · TOWN"
-                : "WILDLANDS · FREE ROAM",15*d,32*d,paint);
-            c.drawText("HP "+health+"   XP "+experience+"   GOLD "+gold,15*d,50*d,paint);
-            if (onQuest) c.drawText("Goblins "+questKills+"/"+TownHub.GOAL,15*d,69*d,paint);
-            if(messageRemaining>0){
-                paint.setTextSize(12*d);
-                c.drawText(worldMessage,15*d,(onQuest?86:72)*d,paint);
-            }
-            if(paused) {
-                paint.setTextSize(25*d);
-                c.drawText("PAUSED",getWidth()*.38f,getHeight()*.35f,paint);
-            }
+            if(onQuest)c.drawText("Goblins "+questKills+"/"+TownHub.GOAL,14*d,65*d,paint);
+            if(messageRemaining>0)c.drawText(worldMessage,14*d,(onQuest?80:65)*d,paint);
             paint.setTypeface(android.graphics.Typeface.DEFAULT);
+        }
+        private void hudControl(Canvas c,RectF r,String icon,String label,boolean active,float d){
+            if(active){innerFrame.set(r);innerFrame.inset(-2*d,-2*d);WildlandsUi.plate(c,paint,hudPath,innerFrame,9*d,0xFF534B35,0xFFFFD58A,3*d);}
+            WildlandsUi.plate(c,paint,hudPath,r,8*d,0xFF102D33,active?0xFFFFDA91:WildlandsUi.GOLD,active?2*d:d);
+            innerFrame.set(r);innerFrame.inset(3*d,3*d);
+            WildlandsUi.plate(c,paint,hudPath,innerFrame,6*d,Color.TRANSPARENT,WildlandsUi.GOLD,.7f*d);
+            paint.setColor(WildlandsUi.INK);paint.setTypeface(WildlandsUi.SERIF);paint.setTextAlign(Paint.Align.CENTER);
+            if(!icon.isEmpty()){paint.setTextSize((label.isEmpty()?21:23)*d);c.drawText(icon,r.centerX(),label.isEmpty()?r.centerY()-(paint.ascent()+paint.descent())/2:r.centerY()+1*d,paint);}
+            if(!label.isEmpty()){paint.setTextSize(12*d);c.drawText(label,r.centerX(),icon.isEmpty()?r.centerY()-(paint.ascent()+paint.descent())/2:r.bottom-8*d,paint);}
+            paint.setTextAlign(Paint.Align.LEFT);
         }
         private void button(Canvas c,RectF bounds,String label) {
             float d=getResources().getDisplayMetrics().density;
@@ -1415,51 +1409,18 @@ public final class PrototypeWorldActivity extends Activity {
                     save();getContext().startActivity(new Intent(getContext(),MainActivity.class));
                     ((Activity)getContext()).finish();return true;
                 }
-                if (motionButton.contains(px,py)) {
-                    releaseStick();
-                    String[] styles=new String[motions.length+(knownCantrip==null?0:1)];
-                    for (int i=0;i<motions.length;i++) styles[i]=motions[i].title;
-                    if (knownCantrip!=null) styles[motions.length]=knownCantrip.title;
-                    WildlandsUi.choose(getContext(),"Attack style",null,styles,spellSelected?motions.length:motionIndex,which->{
-                        spellSelected=which==motions.length;
-                        if (!spellSelected) motionIndex=which;
-                    });
-                    return true;
-                }
-                if (weaponButton.contains(px,py)) {
-
-                    if (spellSelected) return true;
-                    releaseStick();
-                    String[] ids=motions[motionIndex].weapons;
-                    String[] names=new String[ids.length];
-                    for (int i=0;i<ids.length;i++) {
-                        Equipment.Item item=Equipment.get(ids[i]);
-                        names[i]=item==null?"Bare hands":item.name;
-                    }
-                    WildlandsUi.choose(getContext(),"Choose equipment",null,names,selectedWeapons[motionIndex],
-                        which->selectedWeapons[motionIndex]=which);
-                    return true;
-                }
-                if(!inTown() && shoveButton.contains(px,py)){chooseShove();return true;}
-                if(avatarActionButton.contains(px,py)){showAvatarActions();return true;}
-                if (!inTown() || atPracticeTarget()) {
-                    if (targetButton.contains(px,py)) {changeTarget();return true;}
-                    if (autoAttackButton.contains(px,py)) {
-                        autoAttack=!autoAttack;
-                        if (autoAttack) acquireTarget();
-                        return true;
-                    }
-                }
-                if(runButton.contains(px,py)){if(!hostile)pace=(pace+1)%3;return true;}
+                if(targetButton.contains(px,py)){autoLock=!autoLock;if(autoLock)acquireTarget();else {lockedTarget=null;dummyLocked=false;}return true;}
+                if(autoAttackButton.contains(px,py)){autoAttack=!autoAttack;return true;}
+                if(jumpHud.contains(px,py)||crouchHud.contains(px,py)||secondaryHud.contains(px,py)||inventoryHud.contains(px,py)||pauseHud.contains(px,py))return true;
                 if(attackButton.contains(px,py)){
                     interact();
                     return true;
                 }
                 // Floating touchpad: any touch in the left lower half
                 // captures its own pointer; action buttons remain independent.
-                if(pointer==-1 && px<getWidth()*.52f && py>getHeight()*.38f) {
+                if(pointer==-1 && joystick.contains(px,py)) {
                     pointer=id;stickActive=true;
-                    stickCenterX=px;stickCenterY=py;
+                    stickCenterX=joystick.centerX();stickCenterY=joystick.centerY();
                     stick(px,py);return true;
                 }
                 if(paused)paused=false;
