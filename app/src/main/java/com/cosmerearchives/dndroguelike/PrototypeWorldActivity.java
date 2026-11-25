@@ -50,7 +50,7 @@ public final class PrototypeWorldActivity extends Activity {
         super.onPause();
     }
     @Override public void onBackPressed() {
-        if (view != null) view.togglePause();
+        if (view != null) {if(view.inventoryOpen)view.inventoryOpen=false;else view.togglePause();}
     }
 
     static final class World extends View {
@@ -212,6 +212,10 @@ public final class PrototypeWorldActivity extends Activity {
             }
         };
         private boolean paused;
+        private boolean inventoryOpen;
+        private int inventoryFacing=2;
+        private Equipment.Item inventorySelected;
+        private int inventoryPage;
         private Goblin defeatSource;
         private int health, experience, gold;
         private String worldMessage="";
@@ -1607,12 +1611,13 @@ public final class PrototypeWorldActivity extends Activity {
             lastFrame=now;
             currentWorldTime=clock.time(now);
             updateLighting();
-            if (resumed && focused && !paused && !waiting) update(dt);
+            if (resumed && focused && !paused && !waiting && !inventoryOpen) update(dt);
             if (currentWorldTime-lastClockSave>=3*WorldClock.SECOND) saveClock(currentWorldTime);
             updateFog();
             fogSaveTime+=dt;
             if(fogSaveTime>=3f){fogSaveTime=0;saveExploration();}
             c.drawColor(Color.BLACK);
+            if(inventoryOpen){drawInventory(c);postInvalidateOnAnimation();return;}
             float centerX=getWidth()*.5f,centerY=getHeight()*.44f;
             zoom=Math.max(.65f,Math.min(1.15f,getWidth()/768f));
             c.save();c.translate(centerX,centerY);c.scale(zoom,zoom);
@@ -1828,6 +1833,66 @@ public final class PrototypeWorldActivity extends Activity {
                     avatarActions.play(clips[choice]);
             });
         }
+        // Reference inventory uses a 709 x 1536 design coordinate space.
+        private final Paint invPaint=new Paint(Paint.ANTI_ALIAS_FLAG|Paint.FILTER_BITMAP_FLAG);
+        private final Path invPath=new Path();
+        private final RectF invRect=new RectF();
+        private void invFrame(Canvas c,float x,float y,float w,float h,boolean selected){
+            float k=Math.min(12,Math.min(w,h)*.15f);
+            invPath.reset();invPath.moveTo(x+k,y);invPath.lineTo(x+w-k,y);invPath.lineTo(x+w,y+k);invPath.lineTo(x+w,y+h-k);invPath.lineTo(x+w-k,y+h);invPath.lineTo(x+k,y+h);invPath.lineTo(x,y+h-k);invPath.lineTo(x,y+k);invPath.close();
+            invPaint.setStyle(Paint.Style.FILL);invPaint.setShader(new android.graphics.LinearGradient(0,y,0,y+h,selected?0xFF345B60:0xFF12343B,0xFF06242D,android.graphics.Shader.TileMode.CLAMP));c.drawPath(invPath,invPaint);invPaint.setShader(null);
+            invPaint.setStyle(Paint.Style.STROKE);invPaint.setColor(selected?0xFFFFDEA0:0xFFBFA56C);invPaint.setStrokeWidth(selected?3:1.7f);c.drawPath(invPath,invPaint);
+            c.save();c.translate(x+w/2,y+h/2);c.scale((w-8)/w,(h-8)/h);c.translate(-x-w/2,-y-h/2);invPaint.setStrokeWidth(1);c.drawPath(invPath,invPaint);c.restore();invPaint.setStyle(Paint.Style.FILL);
+        }
+        private void invText(Canvas c,String text,float x,float y,float size,boolean center){
+            invPaint.setColor(0xFFE8DBB8);invPaint.setTypeface(WildlandsUi.SERIF);invPaint.setTextSize(size);invPaint.setTextAlign(center?Paint.Align.CENTER:Paint.Align.LEFT);c.drawText(text,x,y,invPaint);
+        }
+        private void invSlot(Canvas c,float x,float y,float w,float h,String icon,boolean selected){
+            invFrame(c,x,y,w,h,selected);hudIcon(c,icon,x+w/2,y+h/2,Math.min(w,h)*.58f);
+        }
+        private String invItemIcon(Equipment.Item item){
+            if(item==null)return "";
+            switch(item.kind){case WEAPON:return item.ranged?"bow":"➶";case ARMOR:return "♜";case SHIELD:return "⬟";case CONTAINER:return "▣";case SUPPLY:return "◉";case TOOL:return "⚒";default:return "◆";}
+        }
+        private void drawInventory(Canvas c){
+            c.save();c.scale(getWidth()/709f,getHeight()/1536f);
+            invFrame(c,15,16,372,80,false);invText(c,inTown()?"WILDLANDS · TOWN":"WILDLANDS · FREE ROAM",27,46,23,false);
+            invPaint.setColor(0xFFC8B584);c.drawLine(28,55,374,55,invPaint);invText(c,"HP "+health+"  XP "+experience+"  GOLD "+gold,27,82,23,false);
+            invSlot(c,402,26,56,62,"◎",autoLock);invSlot(c,472,26,56,62,"A",autoAttack);invFrame(c,543,26,149,62,false);invText(c,"☰ Menu",617,65,24,true);
+            invFrame(c,423,98,268,43,false);invText(c,"Day "+(WorldClock.day(currentWorldTime)+1)+" · "+WorldClock.format(currentWorldTime,false),557,127,23,true);
+            invPath.reset();invPath.moveTo(4,196);invPath.lineTo(30,173);invPath.lineTo(75,173);invPath.quadTo(90,164,120,164);invPath.lineTo(205,164);invPath.quadTo(260,164,283,136);invPath.quadTo(354,87,426,136);invPath.quadTo(450,164,510,164);invPath.lineTo(630,164);invPath.lineTo(680,176);invPath.lineTo(704,199);invPath.lineTo(704,1503);invPath.lineTo(679,1527);invPath.lineTo(30,1527);invPath.lineTo(4,1503);invPath.close();
+            invPaint.setShader(new android.graphics.LinearGradient(0,120,0,1530,0xFF10373F,0xFF06232C,android.graphics.Shader.TileMode.CLAMP));c.drawPath(invPath,invPaint);invPaint.setShader(null);invPaint.setStyle(Paint.Style.STROKE);invPaint.setColor(0xFFD4B87B);invPaint.setStrokeWidth(2);c.drawPath(invPath,invPaint);invPaint.setStyle(Paint.Style.FILL);
+            hudIcon(c,"▣",354,151,56);invText(c,"Inventory",354,214,35,true);invPaint.setColor(0xFFC5AA70);c.drawLine(109,202,218,202,invPaint);c.drawLine(491,202,600,202,invPaint);c.drawLine(235,234,473,234,invPaint);
+            invSlot(c,640,179,52,52,"×",false);
+            String[] tabs={"Equipment","Items","Materials","Quest"};float[] tx={24,209,369,546},tw={177,151,168,140};String[] ti={"➶","◉","◆","▤"};
+            for(int i=0;i<4;i++){invFrame(c,tx[i],253,tw[i],60,i==0);hudIcon(c,ti[i],tx[i]+31,283,32);invText(c,tabs[i],tx[i]+tw[i]/2+14,290,22,true);}
+            invFrame(c,22,324,665,501,false);
+            invPaint.setStyle(Paint.Style.STROKE);invPaint.setColor(0xFF887B54);invPaint.setStrokeWidth(1.5f);c.drawOval(47,685,266,777,invPaint);c.drawOval(60,696,253,765,invPaint);invPaint.setStyle(Paint.Style.FILL);
+            if(bakedElf!=null){source.set(0,inventoryFacing*192,168,(inventoryFacing+1)*192);invRect.set(-24,326,332,766);invPaint.setColor(Color.WHITE);c.drawBitmap(bakedElf,source,invRect,invPaint);}
+            invText(c,"↶",80,804,42,true);invText(c,"↷",230,804,42,true);
+            String[] left={"♜","♧","✋","○","➶"},right={"♢","∞","⬟","○","bow"},middle={"♜","▬","▥","♟"};
+            for(int i=0;i<5;i++){float yy=342+i*92;invSlot(c,294,yy,82,i==4?94:82,left[i],i==4&&combatBag.slots[0]!=null);invSlot(c,564,yy,84,i==4?94:82,right[i],i==2&&combatBag.slots[1]!=null);}
+            for(int i=0;i<4;i++)invSlot(c,421,403+i*91,102,i==0?101:83,middle[i],i==0&&combatBag.slots[2]!=null);
+            invFrame(c,23,837,290,214,false);invFrame(c,328,837,358,214,false);invText(c,"Stats",169,869,24,true);
+            String[] labels={"♥  HP","⚔  Attack","⬟  Defense","♟  Move","▣  Carry"};String[] values={""+health,"+"+playerAttackBonus,""+combatBag.armorClass(),Math.round(30*movementFactor*combatBag.movementFactor())+" ft",Math.round(combatBag.carriedWeight())+" / "+Math.round(combatBag.capacity())};
+            for(int i=0;i<5;i++){float yy=907+i*31;invPaint.setColor(0xFF506A65);c.drawLine(43,yy-26,292,yy-26,invPaint);invText(c,labels[i],47,yy,22,false);invPaint.setTextAlign(Paint.Align.RIGHT);c.drawText(values[i],287,yy,invPaint);}
+            Equipment.Item selected=inventorySelected;
+            invSlot(c,349,859,87,89,invItemIcon(selected),false);
+            invText(c,selected==null?"No item selected":selected.name,449,876,selected!=null&&selected.name.length()>17?19:24,false);
+            if(selected!=null){invText(c,selected.kind.toString(),449,905,20,false);invText(c,selected.ac>0?"AC "+selected.ac:selected.weight+" lb",449,940,22,false);invText(c,selected.damage.isEmpty()?"Weight: "+selected.weight+" lb":"Damage: "+selected.damage+" "+selected.damageType,354,982,20,false);}
+            invFrame(c,22,1068,665,440,false);hudIcon(c,"▣",59,1102,32);invText(c,"Inventory "+Math.round(combatBag.carriedWeight())+" / "+Math.round(combatBag.capacity()),85,1110,23,false);invFrame(c,550,1085,119,34,false);invText(c,"Sort ▾",610,1110,21,true);
+            java.util.List<Equipment.Stack> items=combatBag.all();
+            for(int i=0;i<24;i++){float xx=42+(i%6)*106,yy=1133+(i/6)*92;int index=inventoryPage*24+i;Equipment.Stack stack=index<items.size()?items.get(index):null;invSlot(c,xx,yy,97,83,stack==null?"":invItemIcon(stack.item),stack!=null&&stack.item==selected);if(stack!=null){invText(c,""+stack.count,xx+82,yy+75,19,true);}}
+            c.restore();
+        }
+        private void inventoryTouch(float px,float py){
+            float xx=px*709/getWidth(),yy=py*1536/getHeight();
+            if(xx>=630&&yy>=170&&yy<=240){inventoryOpen=false;return;}
+            if(yy>=775&&yy<=825&&xx<280){inventoryFacing=Math.floorMod(inventoryFacing+(xx<150?-1:1),8);return;}
+            if(yy>=1133&&yy<1501&&xx>=42&&xx<678){int col=(int)((xx-42)/106),row=(int)((yy-1133)/92);int index=inventoryPage*24+row*6+col;java.util.List<Equipment.Stack> items=combatBag.all();if(index<items.size())inventorySelected=items.get(index).item;}
+            if(yy>=403&&yy<504&&xx>=421&&xx<=523)inventorySelected=Equipment.get(combatBag.slots[2]);
+            if(yy>=710&&yy<=806&&xx>=294&&xx<=376)inventorySelected=Equipment.get(combatBag.slots[0]);
+        }
         private void drawControls(Canvas c) {
             float w=getWidth(), h=getHeight(), d=w/360f;
             float top=h*.69f, bottom=h-12*d;
@@ -2004,6 +2069,7 @@ public final class PrototypeWorldActivity extends Activity {
         }
         @Override public boolean onTouchEvent(MotionEvent e) {
             int action=e.getActionMasked(),index=e.getActionIndex();
+            if(inventoryOpen){if(action==MotionEvent.ACTION_DOWN)inventoryTouch(e.getX(),e.getY());return true;}
             int id=e.getPointerId(index);
             if(action==MotionEvent.ACTION_MOVE) {
                 int active=e.findPointerIndex(pointer);
@@ -2031,7 +2097,7 @@ public final class PrototypeWorldActivity extends Activity {
                 if(jumpHud.contains(px,py)){startJump();return true;}
                 if(crouchHud.contains(px,py)){sneaking=!sneaking;pace=0;return true;}
                 if(secondaryHud.contains(px,py)){chooseAttackMode();return true;}
-                if(inventoryHud.contains(px,py))return true;
+                if(inventoryHud.contains(px,py)){releaseStick();inventoryOpen=true;inventorySelected=Equipment.get(combatBag.slots[2]);return true;}
                 if(attackButton.contains(px,py)){
                     interact();
                     return true;
