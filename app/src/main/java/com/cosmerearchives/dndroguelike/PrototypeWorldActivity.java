@@ -1557,7 +1557,7 @@ public final class PrototypeWorldActivity extends Activity {
             if(sneaking && !reacting && attackRemaining<=0f){
                 Bitmap sneakSheet=blend>.15f?sneakWalk:sneakIdle;
                 if(sneakSheet!=null){
-                    int sneakFrame=blend>.15f?Math.floorMod((int)(walkCycles*12),8):0;
+                    int sneakFrame=blend>.15f?Math.floorMod((int)(walkCycles*8),8):0;
                     source.set(sneakFrame*168,facing*192,(sneakFrame+1)*168,(facing+1)*192);
                     destination.set(px-84,py-160,px+84,py+32);
                     paint.setColor(Color.WHITE);

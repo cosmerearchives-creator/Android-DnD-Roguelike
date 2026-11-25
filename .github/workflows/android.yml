@@ -179,12 +179,8 @@ jobs:
           javac -d "$RUNNER_TEMP/gait-tests" "$src/Senses.java" "$src/Exploration.java" \
             tests/com/cosmerearchives/dndroguelike/SensesTest.java
           java -cp "$RUNNER_TEMP/gait-tests" com.cosmerearchives.dndroguelike.SensesTest
-      - name: Bake eight-direction sneak sprites
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y blender python3-pil libegl1 libgl1 libgl1-mesa-dri xvfb
-          xvfb-run -a blender --background --threads 4 --python-use-system-env \
-            --python-exit-code 1 --python blender/bake_sneak.py -- --output build/sneak
+      - name: Pose sneak sprites from the active avatar atlases
+        run: python3 scripts/bake-sneak.py
       - name: Build and lint
         run: gradle :app:assembleDebug :app:lintDebug --no-daemon
       - name: Upload check results
