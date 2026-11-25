@@ -1882,19 +1882,11 @@ public final class PrototypeWorldActivity extends Activity {
             invPaint.setStyle(Paint.Style.STROKE);invPaint.setColor(0xFF887B54);invPaint.setStrokeWidth(1.5f);c.drawOval(47,685,266,777,invPaint);c.drawOval(60,696,253,765,invPaint);invPaint.setStyle(Paint.Style.FILL);
             if(bakedElf!=null){source.set(0,inventoryFacing*192,168,(inventoryFacing+1)*192);invRect.set(-24,326,332,766);invPaint.setColor(Color.WHITE);c.drawBitmap(bakedElf,source,invRect,invPaint);}
             invText(c,"↶",80,804,42,true);invText(c,"↷",230,804,42,true);
-            String[] left={"♜","♧","✋","○","➶"},right={"♢","∞","⬟","○","bow"},middle={"♜","▬","▥","♟"};
-            Equipment.Item mainHand=Equipment.get(combatBag.slots[Equipment.Slot.MAIN_HAND.ordinal()]);
-            Equipment.Item offHand=Equipment.get(combatBag.slots[Equipment.Slot.OFF_HAND.ordinal()]);
-            Equipment.Item armor=Equipment.get(combatBag.slots[Equipment.Slot.BODY.ordinal()]);
-            for(int i=0;i<5;i++){
-                float yy=342+i*92;
-                if(i==4)invItemSlot(c,294,yy,82,94,mainHand,left[i],mainHand!=null,false);
-                else invSlot(c,294,yy,82,82,left[i],false);
-                if(i==2)invItemSlot(c,564,yy,84,82,offHand,right[i],offHand!=null,false);
-                else invSlot(c,564,yy,84,i==4?94:82,right[i],false);
+            for(int i=0;i<inventorySlots.length;i++){
+                Equipment.Slot slot=inventorySlots[i];float[] q=inventorySlotRects[i];
+                Equipment.Item item=Equipment.get(combatBag.slots[slot.ordinal()]);
+                invItemSlot(c,q[0],q[1],q[2],q[3],item,inventorySlotIcons[i],item!=null,false);
             }
-            invItemSlot(c,421,403,102,101,armor,middle[0],armor!=null,false);
-            for(int i=1;i<4;i++)invSlot(c,421,403+i*91,102,83,middle[i],false);
             invFrame(c,23,837,290,214,false);invFrame(c,328,837,358,214,false);invText(c,"Stats",169,869,24,true);
             String[] labels={"♥  HP","⚔  Attack","⬟  Defense","♟  Move","▣  Carry"};String[] values={""+health,"+"+playerAttackBonus,""+combatBag.armorClass(),Math.round(30*movementFactor*combatBag.movementFactor())+" ft",Math.round(combatBag.carriedWeight())+" / "+Math.round(combatBag.capacity())};
             for(int i=0;i<5;i++){float yy=907+i*31;invPaint.setColor(0xFF506A65);c.drawLine(43,yy-26,292,yy-26,invPaint);invText(c,labels[i],47,yy,22,false);invPaint.setTextAlign(Paint.Align.RIGHT);c.drawText(values[i],287,yy,invPaint);}
@@ -1902,20 +1894,39 @@ public final class PrototypeWorldActivity extends Activity {
             invItemSlot(c,349,859,87,89,selected,"",false,false);
             invText(c,selected==null?"No item selected":selected.name,449,876,selected!=null&&selected.name.length()>17?19:24,false);
             if(selected!=null){invText(c,selected.kind.toString(),449,905,20,false);invText(c,selected.ac>0?"AC "+selected.ac:selected.weight+" lb",449,940,22,false);invText(c,selected.damage.isEmpty()?"Weight: "+selected.weight+" lb":"Damage: "+selected.damage+" "+selected.damageType,354,982,20,false);}
+            invText(c,inventoryFeedback,354,1026,18,false);
             invFrame(c,22,1068,665,440,false);hudIcon(c,"▣",59,1102,32);invText(c,"Inventory "+Math.round(combatBag.carriedWeight())+" / "+Math.round(combatBag.capacity()),85,1110,23,false);invFrame(c,550,1085,119,34,false);invText(c,"Sort ▾",610,1110,21,true);
             java.util.List<Equipment.Stack> items=combatBag.all();
             for(int i=0;i<24;i++){float xx=42+(i%6)*106,yy=1133+(i/6)*92;int index=inventoryPage*24+i;Equipment.Stack stack=index<items.size()?items.get(index):null;invItemSlot(c,xx,yy,97,83,stack==null?null:stack.item,"",stack!=null&&stack.item==selected,true);if(stack!=null){invText(c,""+stack.count,xx+82,yy+75,19,true);}}
             c.restore();
         }
+        private final Equipment.Slot[] inventorySlots={
+            Equipment.Slot.HEAD,Equipment.Slot.CLOAK,Equipment.Slot.HANDS,Equipment.Slot.WRISTS,Equipment.Slot.LEFT_RING,Equipment.Slot.MAIN_HAND,
+            Equipment.Slot.EYES,Equipment.Slot.BODY,Equipment.Slot.WAIST,Equipment.Slot.LEGS,Equipment.Slot.FEET,
+            Equipment.Slot.NECK,Equipment.Slot.EARS,Equipment.Slot.ACCESSORY,Equipment.Slot.OFF_HAND,Equipment.Slot.RIGHT_RING,Equipment.Slot.RANGED};
+        private final String[] inventorySlotIcons={"♜","♧","✋","▤","○","➶","∞","♜","▬","▥","♟","♢","∞","♧","⬟","○","bow"};
+        private final float[][] inventorySlotRects={
+            {294,342,82,70},{294,419,82,70},{294,496,82,70},{294,573,82,70},{294,650,82,64},{294,721,82,84},
+            {421,342,102,68},{421,417,102,84},{421,508,102,68},{421,583,102,76},{421,666,102,80},
+            {564,342,84,70},{564,419,84,70},{564,496,84,70},{564,573,84,76},{564,656,84,58},{564,721,84,84}};
+        private boolean inventoryEquipPending;
+        private String inventoryFeedback="";
         private void inventoryTouch(float px,float py){
             float xx=px*709/getWidth(),yy=py*1536/getHeight();
-            if(xx>=630&&yy>=170&&yy<=240){inventoryOpen=false;return;}
+            if(xx>=630&&yy>=170&&yy<=240){inventoryOpen=false;inventoryEquipPending=false;return;}
             if(yy>=775&&yy<=825&&xx<280){inventoryFacing=Math.floorMod(inventoryFacing+(xx<150?-1:1),8);return;}
-            if(yy>=1133&&yy<1501&&xx>=42&&xx<678){int col=(int)((xx-42)/106),row=(int)((yy-1133)/92);int index=inventoryPage*24+row*6+col;java.util.List<Equipment.Stack> items=combatBag.all();if(index<items.size())inventorySelected=items.get(index).item;}
-            if(yy>=526&&yy<608&&xx>=564&&xx<=648)inventorySelected=Equipment.get(combatBag.slots[1]);
-            if(yy>=403&&yy<504&&xx>=421&&xx<=523)inventorySelected=Equipment.get(combatBag.slots[2]);
-            if(yy>=710&&yy<=806&&xx>=294&&xx<=376)inventorySelected=Equipment.get(combatBag.slots[0]);
+            if(yy>=1133&&yy<1501&&xx>=42&&xx<678){int col=(int)((xx-42)/106),row=(int)((yy-1133)/92);int index=inventoryPage*24+row*6+col;java.util.List<Equipment.Stack> items=combatBag.all();if(index<items.size()){inventorySelected=items.get(index).item;inventoryEquipPending=true;inventoryFeedback="Select equipment slot";}return;}
+            for(int i=0;i<inventorySlots.length;i++){
+                float[] q=inventorySlotRects[i];if(xx<q[0]||xx>q[0]+q[2]||yy<q[1]||yy>q[1]+q[3])continue;
+                Equipment.Slot slot=inventorySlots[i];
+                if(inventoryEquipPending&&inventorySelected!=null){
+                    if(combatBag.equip(inventorySelected.id,slot)){inventoryFeedback="Equipped";inventoryEquipPending=false;}
+                    else inventoryFeedback="Cannot equip in this slot";
+                }else{inventorySelected=Equipment.get(combatBag.slots[slot.ordinal()]);inventoryFeedback=inventorySelected==null?"Empty slot":"Tap again to unequip";if(inventorySelected!=null&&lastInventorySlot==slot){combatBag.unequip(slot);inventoryFeedback="Unequipped";lastInventorySlot=null;return;}lastInventorySlot=slot;}
+                return;
+            }
         }
+        private Equipment.Slot lastInventorySlot;
         private void drawControls(Canvas c) {
             float w=getWidth(), h=getHeight(), d=w/360f;
             float top=h*.69f, bottom=h-12*d;
