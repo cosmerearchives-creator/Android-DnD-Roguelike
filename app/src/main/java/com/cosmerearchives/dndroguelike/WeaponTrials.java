@@ -96,6 +96,11 @@ final class WeaponTrials {
             gripSheet=motion==Motion.BOW ? "1_walk_left" : "1_walk_right";
             gripFrames=8;
             frame=Math.min(7,(int)(8*(-progress-1)));
+        } else if (style==1 && motion==Motion.SWING && idleHeld) {
+            bitmapName="1_swing_hold";
+            gripSheet=bitmapName;
+            gripFrames=1;
+            frame=0;
         }
         if (style==4 && progress<0) {
             boolean walking=progress < -1f;
@@ -107,7 +112,8 @@ final class WeaponTrials {
             sheet=load(bitmapName+".webp");
             if (sheet==null) return false;
             if (style==1) {
-                String module=bitmapName.equals("1_walk") ? "armed_walk" : motion.asset;
+                String module=bitmapName.equals("1_walk") ? "armed_walk"
+                    : bitmapName.equals("1_swing_hold") ? "swing_hold" : motion.asset;
                 sheet=petite.apply(context,sheet,module);
             }
             poses.put(bitmapName,sheet);
