@@ -1300,13 +1300,15 @@ public final class PrototypeWorldActivity extends Activity {
             hudPath.lineTo(w,h);hudPath.lineTo(0,h);hudPath.close();
             c.drawPath(hudPath,paint);
             paint.setStyle(Paint.Style.STROKE);paint.setStrokeWidth(1.5f*d);paint.setColor(WildlandsUi.GOLD);c.drawPath(hudPath,paint);paint.setStyle(Paint.Style.FILL);
-            float split=w*.40f, row=(bottom-top-55*d)/2f;
+            float split=w*.40f, row=Math.min(61*d,(bottom-top-65*d)/2f);
             joystick.set(14*d,top+14*d,split-10*d,top+14*d+split-24*d);
             if(!stickActive){stickCenterX=joystick.centerX();stickCenterY=joystick.centerY();}
             float radius=joystick.width()*.46f;
             paint.setColor(WildlandsUi.GOLD);paint.setStyle(Paint.Style.STROKE);paint.setStrokeWidth(d);
             c.drawCircle(stickCenterX,stickCenterY,radius,paint);c.drawCircle(stickCenterX,stickCenterY,radius-4*d,paint);
-            paint.setStyle(Paint.Style.FILL);paint.setColor(0xFFB7D6C7);
+            paint.setStyle(Paint.Style.FILL);paint.setColor(WildlandsUi.GOLD);
+            for(int i=0;i<4;i++){double a=i*Math.PI/2;hudDiamond(c,stickCenterX+(float)Math.cos(a)*radius,stickCenterY+(float)Math.sin(a)*radius,4*d);}
+            paint.setColor(0xFFB7D6C7);
             c.drawCircle(stickCenterX+screenStickX*radius*.65f,stickCenterY+screenStickY*radius*.65f,radius*.38f,paint);
             float mid=(split+w-10*d)/2;
             jumpHud.set(split+8*d,top+12*d,mid-3*d,top+row);
@@ -1322,9 +1324,10 @@ public final class PrototypeWorldActivity extends Activity {
             hudControl(c,inventoryHud,"▣","Inventory",false,d);
             hudControl(c,pauseHud,"Ⅱ","Pause",false,d);
             paint.setColor(WildlandsUi.GOLD);paint.setStrokeWidth(d);
-            c.drawLine(20*d,bottom-51*d,w-20*d,bottom-51*d,paint);
+            c.drawLine(20*d,bottom-51*d,w*.47f,bottom-51*d,paint);c.drawLine(w*.53f,bottom-51*d,w-20*d,bottom-51*d,paint);hudDiamond(c,w*.5f,bottom-51*d,5*d);
+            c.drawLine(split-2*d,top+15*d,split-2*d,top+2*row-3*d,paint);
             paint.setTypeface(WildlandsUi.SERIF);paint.setTextSize(23*d);paint.setTextAlign(Paint.Align.CENTER);
-            c.drawText("♠",w*.5f,top-5*d,paint);paint.setTextAlign(Paint.Align.LEFT);
+            hudIcon(c,"tree",w*.5f,top-10*d,34*d);paint.setTextAlign(Paint.Align.LEFT);
             hud.set(8*d,9*d,w*.55f,51*d);
             WildlandsUi.plate(c,paint,hudPath,hud,7*d,WildlandsUi.TEAL,WildlandsUi.GOLD,d);
             paint.setTypeface(WildlandsUi.SERIF);paint.setTextSize(11*d);paint.setColor(WildlandsUi.INK);
@@ -1343,14 +1346,41 @@ public final class PrototypeWorldActivity extends Activity {
             paint.setTypeface(android.graphics.Typeface.DEFAULT);
         }
         private void hudControl(Canvas c,RectF r,String icon,String label,boolean active,float d){
-            if(active){innerFrame.set(r);innerFrame.inset(-2*d,-2*d);WildlandsUi.plate(c,paint,hudPath,innerFrame,9*d,0xFF534B35,0xFFFFD58A,3*d);}
+            if(active){for(int i=4;i>=1;i--){innerFrame.set(r);innerFrame.inset(-i*d*.55f,-i*d*.55f);WildlandsUi.plate(c,paint,hudPath,innerFrame,9*d,Color.TRANSPARENT,((5-i)*24<<24)|0xFFD58A,1.5f*d);}}
             WildlandsUi.plate(c,paint,hudPath,r,8*d,0xFF102D33,active?0xFFFFDA91:WildlandsUi.GOLD,active?2*d:d);
             innerFrame.set(r);innerFrame.inset(3*d,3*d);
             WildlandsUi.plate(c,paint,hudPath,innerFrame,6*d,Color.TRANSPARENT,WildlandsUi.GOLD,.7f*d);
             paint.setColor(WildlandsUi.INK);paint.setTypeface(WildlandsUi.SERIF);paint.setTextAlign(Paint.Align.CENTER);
-            if(!icon.isEmpty()){paint.setTextSize((label.isEmpty()?21:23)*d);c.drawText(icon,r.centerX(),label.isEmpty()?r.centerY()-(paint.ascent()+paint.descent())/2:r.centerY()+1*d,paint);}
-            if(!label.isEmpty()){paint.setTextSize(12*d);c.drawText(label,r.centerX(),icon.isEmpty()?r.centerY()-(paint.ascent()+paint.descent())/2:r.bottom-8*d,paint);}
+            boolean horizontal=label.equals("Inventory")||label.equals("Pause");
+            if(!icon.isEmpty())hudIcon(c,icon,horizontal?r.left+r.width()*.23f:r.centerX(),horizontal||label.isEmpty()?r.centerY():r.top+r.height()*.37f,(horizontal?23:label.isEmpty()?18:27)*d);
+            if(!label.isEmpty()){paint.setTextSize(12*d);c.drawText(label,horizontal?r.left+r.width()*.61f:r.centerX(),horizontal||icon.isEmpty()?r.centerY()-(paint.ascent()+paint.descent())/2:r.bottom-8*d,paint);}
             paint.setTextAlign(Paint.Align.LEFT);
+        }
+        private void hudDiamond(Canvas c,float x,float y,float r){
+            Path p=new Path();p.moveTo(x,y-r);p.lineTo(x+r,y);p.lineTo(x,y+r);p.lineTo(x-r,y);p.close();c.drawPath(p,paint);
+        }
+        private void hudIcon(Canvas c,String icon,float x,float y,float size){
+            c.save();c.translate(x-size/2,y-size/2);c.scale(size/32f,size/32f);
+            Paint p=new Paint(Paint.ANTI_ALIAS_FLAG);p.setColor(WildlandsUi.GOLD);p.setStrokeWidth(2.7f);p.setStrokeCap(Paint.Cap.ROUND);p.setStrokeJoin(Paint.Join.ROUND);
+            switch(icon){
+                case "↗":case "↓":
+                    boolean crouch=icon.equals("↓");
+                    c.drawCircle(crouch?21:22,5,4,p);
+                    p.setStrokeWidth(5);c.drawLine(19,11,crouch?12:15,crouch?20:18,p);
+                    p.setStrokeWidth(3.5f);c.drawLine(18,12,25,17,p);c.drawLine(25,17,29,12,p);
+                    c.drawLine(16,13,9,10,p);c.drawLine(9,10,4,14,p);
+                    c.drawLine(crouch?12:15,crouch?20:18,22,23,p);c.drawLine(22,23,crouch?17:26,29,p);
+                    c.drawLine(crouch?12:15,crouch?20:18,9,25,p);c.drawLine(9,25,4,29,p);break;
+                case "⚔":case "➶":
+                    for(int i=0;i<(icon.equals("⚔")?2:1);i++){c.save();if(i==1){c.translate(32,0);c.scale(-1,1);}
+                    Path blade=new Path();blade.moveTo(27,3);blade.lineTo(25,11);blade.lineTo(10,25);blade.lineTo(7,22);blade.close();c.drawPath(blade,p);
+                    c.drawLine(5,18,14,27,p);c.drawLine(9,23,4,28,p);c.restore();}break;
+                case "▣":c.drawRoundRect(6,8,26,29,4,4,p);p.setStyle(Paint.Style.STROKE);c.drawRoundRect(11,2,21,12,3,3,p);p.setColor(0xFF102D33);c.drawLine(12,9,12,26,p);c.drawLine(20,9,20,26,p);c.drawLine(7,20,25,20,p);break;
+                case "Ⅱ":c.drawRect(8,4,13,28,p);c.drawRect(19,4,24,28,p);break;
+                case "◎":p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(1.7f);c.drawCircle(16,16,10,p);c.drawCircle(16,16,4,p);c.drawLine(16,1,16,10,p);c.drawLine(16,22,16,31,p);c.drawLine(1,16,10,16,p);c.drawLine(22,16,31,16,p);break;
+                case "tree":p.setStrokeWidth(2.6f);c.drawLine(16,29,16,8,p);c.drawLine(8,30,24,30,p);for(int i=0;i<5;i++){float yy=10+i*3;float xx=5+i*.7f;p.setStrokeWidth(1.2f);c.drawLine(16,yy+5,xx,yy-3,p);c.drawLine(16,yy+5,32-xx,yy-3,p);c.drawLine(xx+4,yy,xx+2,yy-7,p);c.drawLine(28-xx,yy,30-xx,yy-7,p);}break;
+                default:p.setTypeface(WildlandsUi.SERIF);p.setTextAlign(Paint.Align.CENTER);p.setTextSize(28);c.drawText(icon,16,16-(p.ascent()+p.descent())/2,p);
+            }c.restore();
         }
         private void button(Canvas c,RectF bounds,String label) {
             float d=getResources().getDisplayMetrics().density;
