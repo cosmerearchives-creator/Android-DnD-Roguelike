@@ -63,6 +63,8 @@ final class AvatarActions {
         return defeated;
     }
 
+    void setColorFilter(android.graphics.ColorFilter filter) { paint.setColorFilter(filter); }
+
     boolean draw(Canvas canvas,float x,float y,int facing) {
         return playing!=null && drawClip(canvas,playing,x,y,facing,elapsed/playing.duration);
     }

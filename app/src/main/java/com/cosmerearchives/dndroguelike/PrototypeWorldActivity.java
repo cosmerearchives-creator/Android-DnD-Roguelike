@@ -38,12 +38,19 @@ public final class PrototypeWorldActivity extends Activity {
         setContentView(view);
         getWindow().getDecorView().setSystemUiVisibility(5894 | 1024 | 512);
     }
+    @Override protected void onResume() {
+        super.onResume();
+        if (view != null) view.setResumed(true);
+    }
     @Override protected void onPause() {
-        if (view != null) view.save();
+        if (view != null) {
+            view.setResumed(false);
+            view.save();
+        }
         super.onPause();
     }
     @Override public void onBackPressed() {
-        if (view != null) view.paused = !view.paused;
+        if (view != null) view.togglePause();
     }
 
     static final class World extends View {
@@ -156,7 +163,7 @@ public final class PrototypeWorldActivity extends Activity {
         private boolean sneaking;
         private final Senses.Profile playerSenses;
         private final int stealthBonus;
-        private final boolean maskOfTheWild, sunlightSensitive;
+        private final boolean maskOfTheWild;
         private int stealthRoll=Integer.MIN_VALUE, noiseEvent;
         private float revealTime, stepDistance, noiseTime, noiseX, noiseY, noiseRadius;
         private Exploration exploration=new Exploration();
@@ -167,22 +174,39 @@ public final class PrototypeWorldActivity extends Activity {
         private static final int SURVEY_WIDTH=2*SIGHT_TILES+1;
         private static final int FOG_RADIUS=15, FOG_SIZE=FOG_RADIUS*2+1;
         private final TownHub.Fog townFog=this::fogShade;
+        private final TownHub.Lighting townLighting=this::visualLight;
         private final long[] propKeys=new long[16384];
         private final byte[] propKinds=new byte[propKeys.length];
         private final Senses.Sight[] fog=new Senses.Sight[FOG_SIZE*FOG_SIZE];
-        private final Senses.Light wildernessLight;
+        private final WorldClock clock;
+        private final WorldLighting.Weather weather;
+        private final WorldLighting lighting;
+        private final WorldLighting.Ambient debugAmbient;
+        private long currentWorldTime, lastClockSave, fogRevision = -1, seenRevision = -1;
+        private boolean resumed, focused, waiting;
+        private long hudMinute = -1;
+        private String clockLabel = "";
+        private final float[] crownWidth = {.85f,.85f,.85f,.85f};
+        private final float[] crownCenter = {.5f,.5f,.5f,.5f};
+        private final android.graphics.LightingColorFilter dimTint =
+            new android.graphics.LightingColorFilter(0xFFB4B4C6,0);
+        private final android.graphics.LightingColorFilter shadeTint =
+            new android.graphics.LightingColorFilter(0xFFAABFAE,0);
+        private final android.graphics.LightingColorFilter nightTint =
+            new android.graphics.LightingColorFilter(0xFF646D87,0);
         private final android.graphics.ColorMatrixColorFilter grayscale =
             new android.graphics.ColorMatrixColorFilter(new android.graphics.ColorMatrix(new float[]{
-                .213f,.715f,.072f,0,0, .213f,.715f,.072f,0,0,
-                .213f,.715f,.072f,0,0, 0,0,0,1,0}));
+                .153f,.515f,.052f,0,0, .153f,.515f,.052f,0,0,
+                .153f,.515f,.052f,0,0, 0,0,0,1,0}));
         private final android.graphics.ColorMatrixColorFilter memoryTint =
             new android.graphics.ColorMatrixColorFilter(new android.graphics.ColorMatrix(new float[]{
                 .075f,.25f,.025f,0,0, .075f,.25f,.025f,0,0,
                 .075f,.25f,.025f,0,0, 0,0,0,1,0}));
         private final Senses.Geometry sensoryMap=new Senses.Geometry() {
             public Senses.Light light(float wx,float wy) {
-                return inTown() ? (town.isInside()?Senses.Light.DIM:Senses.Light.BRIGHT) : wildernessLight;
+                return lighting.illumination(wx,wy);
             }
+            public boolean sunlight(float wx,float wy) { return lighting.exposed(wx,wy); }
             public boolean obstructed(float ax,float ay,float bx,float by,boolean terrain) {
                 return !visionClear(ax,ay,bx,by,terrain);
             }
@@ -204,14 +228,16 @@ public final class PrototypeWorldActivity extends Activity {
 
         World(Context context, PlayerCharacter hero,boolean townSession) {
             super(context);
-            int lightIndex=((Activity)context).getIntent().getIntExtra("visibility_light",0);
-            wildernessLight=Senses.Light.values()[Math.max(0,Math.min(3,lightIndex))];
+            int lightIndex=BuildConfig.DEBUG ? ((Activity)context).getIntent().getIntExtra("visibility_light",-1) : -1;
+            debugAmbient=lightIndex==1 ? WorldLighting.Ambient.TWILIGHT
+                : lightIndex==2 ? WorldLighting.Ambient.DARKNESS
+                : lightIndex==3 ? WorldLighting.Ambient.MAGICAL : null;
             RaceDefinition race=hero==null?null:hero.race;
             playerSenses=new Senses.Profile(Senses.DEFAULT_SIGHT,360,race==null?0:race.darkvisionFeet,
-                0,0,0,60,hero==null?0:hero.skillBonus("Perception",4),false,false,false);
+                0,0,0,60,hero==null?0:hero.skillBonus("Perception",4),false,false,false,
+                race!=null && race.traits.contains("sunlight_sensitivity"));
             stealthBonus=hero==null?0:hero.skillBonus("Stealth",1);
             maskOfTheWild=race!=null && race.traits.contains("mask_of_the_wild");
-            sunlightSensitive=race!=null && race.traits.contains("sunlight_sensitivity");
             PetiteAppearance petite=hero!=null
                 ? hero.petite : PetiteAppearance.DEFAULT;
             weaponTrials=new WeaponTrials(context,petite);
@@ -230,7 +256,27 @@ public final class PrototypeWorldActivity extends Activity {
             jumpStrength=hero==null?10:hero.score(0);
             athleticsBonus=hero==null ? 0 : hero.skillBonus("Athletics",0);
             save = context.getSharedPreferences("wildlands_world", Context.MODE_PRIVATE);
+            clock = new WorldClock(save.getLong("clock_nanos", WorldClock.START));
+            weather = WorldLighting.Weather.load(save.getString("weather", ""));
+            currentWorldTime = lastClockSave = clock.time(System.nanoTime());
             town=townSession ? new TownHub(context) : null;
+            lighting = new WorldLighting(new WorldLighting.Geometry() {
+                public WorldLighting.Cover cover(float wx,float wy) {
+                    if (inTown()) return town.isInside() ? WorldLighting.Cover.ROOF : WorldLighting.Cover.OPEN;
+                    return beneathCanopy(wx,wy) ? WorldLighting.Cover.CANOPY : WorldLighting.Cover.OPEN;
+                }
+                public boolean lightBlocked(float ax,float ay,float bx,float by) {
+                    return !visionClear(ax,ay,bx,by,true);
+                }
+                public boolean magicalDarkness(float wx,float wy) { return false; }
+            }, weather);
+            if (town!=null) lighting.addSource(new WorldLighting.Source() {
+                public float x() { return 1.6f; }
+                public float y() { return 4.8f; }
+                public Senses.Light illumination(float feet) {
+                    return inTown() && town.isInside() && feet<=40 ? Senses.Light.DIM : Senses.Light.DARK;
+                }
+            });
             onQuest=townSession && save.getBoolean("town_quest_active",false);
             questKills=onQuest ? Math.max(0,Math.min(TownHub.GOAL-1,save.getInt("town_quest_kills",0))) : 0;
             String position=positionPrefix();
@@ -308,12 +354,71 @@ public final class PrototypeWorldActivity extends Activity {
         private String positionPrefix() {
             return town==null ? "player" : onQuest ? "town_quest_player" : "town_player";
         }
+        void setResumed(boolean active) {
+            resumed = active;
+            syncClock();
+        }
+
+        @Override public void onWindowFocusChanged(boolean focused) {
+            super.onWindowFocusChanged(focused);
+            this.focused = focused;
+            if (!focused) releaseStick();
+            syncClock();
+        }
+
+        void togglePause() {
+            paused = !paused;
+            releaseStick();
+            syncClock();
+        }
+
+        private void syncClock() {
+            boolean active = resumed && focused && !paused && !waiting;
+            if (!active) lastFrame = 0;
+            long now = System.nanoTime();
+            clock.setRunning(active, now);
+            currentWorldTime = clock.time(now);
+            if (!active) saveClock(currentWorldTime);
+        }
+
+        private void saveClock(long time) {
+            lastClockSave = time;
+            save.edit().putLong("clock_nanos",time).putString("weather",weather.name()).apply();
+        }
+
+        private void openBed() {
+            releaseStick();
+            waiting = true;
+            syncClock();
+            WildlandsUi.waitAtBed(getContext(),currentWorldTime, hour -> {
+                clock.waitUntil(hour,System.nanoTime());
+                currentWorldTime = clock.time(System.nanoTime());
+                updateLighting();
+                save.edit().putLong("clock_nanos",currentWorldTime)
+                    .putString("weather",weather.name()).commit();
+                lastClockSave = currentWorldTime;
+                combatMessage("Waited until "+WorldClock.format(currentWorldTime,false));
+            }, () -> {
+                waiting = false;
+                syncClock();
+            });
+        }
+
+        private void updateLighting() {
+            lighting.setAmbient(debugAmbient==null ? WorldLighting.Ambient.at(currentWorldTime) : debugAmbient);
+            if (seenRevision != lighting.revision()) {
+                seenRevision = lighting.revision();
+                for (Goblin goblin : goblins) goblin.sensoryCooldown = 0;
+            }
+        }
+
         void save() {
             if (defeatSource!=null) finishDefeat();
             String position=positionPrefix();
             float savedX=inTown() && town.isInside() ? 6f : x;
             float savedY=inTown() && town.isInside() ? 1.8f : y;
             SharedPreferences.Editor editor=save.edit()
+                .putLong("clock_nanos",clock.time(System.nanoTime())).putString("weather",weather.name())
                 .putFloat(position+"_x",savedX).putFloat(position+"_y",savedY)
                 .putInt("hero_health",health).putInt("hero_experience",experience).putInt("hero_gold",gold);
             if (town!=null) editor.putBoolean("town_quest_active",onQuest).putInt("town_quest_kills",questKills);
@@ -321,6 +426,7 @@ public final class PrototypeWorldActivity extends Activity {
             editor.apply();
         }
         private void moveTo(float wx,float wy) {
+            lighting.invalidate();
             x=cameraX=wx;
             y=cameraY=wy;
             releaseStick();
@@ -372,6 +478,8 @@ public final class PrototypeWorldActivity extends Activity {
                 moveTo(3f,1.35f);
                 avatarActions.play(AvatarActions.Clip.INTERACT);
                 combatMessage("Tavern");
+            } else if (town.atBed(x,y)) {
+                openBed();
             } else if (town.atExit(x,y)) {
                 town.setInside(false);
                 moveTo(6f,1.8f);
@@ -399,8 +507,64 @@ public final class PrototypeWorldActivity extends Activity {
                 trunkCenter[variant]=(left+right+1)*.5f/width;
                 trunkWidth[variant]=(right-left+1f)/width;
             }
+            left=width;
+            right=-1;
+            for (int row=0;row<height*.55f;row++) {
+                for (int col=0;col<width;col++) {
+                    if ((tree.getPixel(col,row) >>> 24) < 64) continue;
+                    left=Math.min(left,col);
+                    right=Math.max(right,col);
+                }
+            }
+            if (right>=left) {
+                crownWidth[variant]=(right-left+1f)/width;
+                crownCenter[variant]=(left+right+1)*.5f/width;
+            }
         }
+        private boolean beneathCanopy(float wx,float wy) {
+            int tx=(int)Math.floor(wx),ty=(int)Math.floor(wy);
+            for (int ix=tx-2;ix<=tx+2;ix++) for (int iy=ty-2;iy<=ty+2;iy++) {
+                int kind=wildernessProp(ix,iy);
+                if (kind!=1 && kind!=4) continue;
+                int seed=terrain.decoration(ix,iy), variant=Math.floorMod(seed,4);
+                float offset=anchorOffset(kind), dx=wx-ix-offset, dy=wy-iy-offset;
+                boolean fallback=factoryProps[1][variant]==null;
+                float size=fallback ? (kind==4 ? 2.35f : fallbackTreeScale(seed)) : treeScale(kind,seed);
+                float artWidth=125f*size;
+                float width=fallback ? 95f*size : artWidth*crownWidth[variant];
+                float center=fallback ? 0 : artWidth*(crownCenter[variant]-trunkCenter[variant]);
+                if (WorldLighting.canopyContains((dx+dy)*HALF_W-center,(dx-dy)*HALF_H,
+                    width,width*HALF_H/(2*HALF_W))) return true;
+            }
+            return false;
+        }
+
+        private boolean concealedByFoliage(float wx,float wy) {
+            if (jumping || inTown()) return false;
+            int tx=(int)Math.floor(wx),ty=(int)Math.floor(wy);
+            for (int ix=tx-1;ix<=tx+1;ix++) for (int iy=ty-1;iy<=ty+1;iy++) {
+                if (wildernessProp(ix,iy)!=2) continue;
+                int seed=terrain.decoration(ix,iy);
+                boolean rendered=factoryProps[2][Math.floorMod(seed,4)]!=null;
+                float width=rendered ? 83f*(.70f+Math.floorMod(seed,8)*.105f)
+                    : 44f*(.7f+(seed%8)*.11f);
+                float dx=wx-ix-.5f,dy=wy-iy-.5f;
+                if (WorldLighting.canopyContains((dx+dy)*HALF_W,(dx-dy)*HALF_H,
+                    width,width*HALF_H/(2*HALF_W))) return true;
+            }
+            return false;
+        }
+
+        private android.graphics.ColorFilter visualLight(float wx,float wy,Senses.Sight sight) {
+            if (sight==Senses.Sight.DARKVISION) return grayscale;
+            Senses.Light light=lighting.illumination(wx,wy);
+            if (light==Senses.Light.DIM)
+                return lighting.outdoorDaylight() && !inTown() ? shadeTint : dimTint;
+            return light==Senses.Light.NORMAL ? null : nightTint;
+        }
+
         private static float anchorOffset(int kind) { return kind==4 ? 1f : .5f; }
+        private static float fallbackTreeScale(int variety) { return 1.12f+(variety%7)*.12f; }
         private static float treeScale(int kind,int seed) {
             return kind==4 ? 1.85f + Math.floorMod(seed,5)*.14f
                            : .72f + Math.floorMod(seed,7)*.155f;
@@ -601,6 +765,11 @@ public final class PrototypeWorldActivity extends Activity {
                 fogX=Float.NaN;
                 surveyX=(int)Math.floor(x);surveyY=(int)Math.floor(y);surveyIndex=0;
             }
+            if (fogRevision != lighting.revision()) {
+                fogRevision=lighting.revision();
+                fogX=Float.NaN;
+                surveyIndex=0;
+            }
             if(!inTown()) surveyDistantTerrain();
             if(!Float.isNaN(fogX) && squaredDistance(x,y,fogX,fogY)<.18f*.18f) return;
             fogX=x;fogY=y;
@@ -663,16 +832,14 @@ public final class PrototypeWorldActivity extends Activity {
                 !jumping,blend>.15f))return true;
             Senses.Sight sight=Senses.see(senses,sensoryMap,goblin.x,goblin.y,goblin.facing,x,y,false);
             if(sight==Senses.Sight.NONE)return false;
-            boolean foliage=wildernessProp((int)Math.floor(x),(int)Math.floor(y))==2;
-            boolean clear=sight==Senses.Sight.CLEAR && !foliage;
-            boolean canHide=sight!=Senses.Sight.CLEAR || foliage && maskOfTheWild;
-            if(clear || !canHide || !sneaking || revealTime>0 || stealthRoll==Integer.MIN_VALUE) return true;
-            boolean disadvantage=Senses.disadvantaged(sight) || foliage;
+            boolean naturalObscuration=lighting.naturalObscuration()
+                || concealedByFoliage(x,y);
+            if(!Senses.canHide(sight,naturalObscuration,maskOfTheWild)
+                || !sneaking || revealTime>0 || stealthRoll==Integer.MIN_VALUE) return true;
+            boolean disadvantage=senses.sightDisadvantage(sight,naturalObscuration,sensoryMap,goblin.x,goblin.y,x,y);
             Senses.Awareness awareness=goblin.awareness;
             if(awareness.state==Senses.Alert.SUSPICIOUS || awareness.state==Senses.Alert.SEARCHING){
-                if(awareness.searchRoll==Integer.MIN_VALUE)
-                    awareness.searchRoll=Senses.check(combatDice,senses.perception,senses.keenSight,disadvantage);
-                return awareness.searchRoll>=stealthRoll;
+                return awareness.searchCheck(combatDice,senses.perception,senses.keenSight,disadvantage)>=stealthRoll;
             }
             return senses.passive(senses.keenSight,disadvantage)>=stealthRoll;
         }
@@ -909,7 +1076,9 @@ public final class PrototypeWorldActivity extends Activity {
                     for (Goblin target:goblins) {
                         if (squaredDistance(spellX,spellY,target.x,target.y)>.29f*.29f) continue;
                         int armor=target.motion==WeaponTrials.Motion.THRUST?GOBLIN_AC:13;
-                        int roll=combatDice.nextInt(20)+1;
+                        boolean near=distanceToGoblin(target)<=MELEE_REACH;
+                        int roll=Senses.check(combatDice,0,target.prone>0 && near,
+                            target.prone>0 && !near || sunPenalty(x,y,target.x,target.y));
                         if (roll==20 || (roll!=1 && roll+spellBonus>=armor)) {
                             if (missile==Cantrip.FROST) target.frost=6f;
                             damageGoblin(target,cantripDamage()+(roll==20?cantripDamage():0));
@@ -967,20 +1136,20 @@ public final class PrototypeWorldActivity extends Activity {
                 ? Math.max(strengthModifier,dexterityModifier) : strengthModifier;
             int bonus=playerAttackBonus-strengthModifier+ability;
             int armor=target.motion==WeaponTrials.Motion.THRUST ? GOBLIN_AC : 13;
-            int roll=combatDice.nextInt(20)+1;
             boolean advantage=target.prone>0 && distanceToGoblin(target)<=MELEE_REACH;
             boolean disadvantage=(target.prone>0 && distanceToGoblin(target)>MELEE_REACH)
-                || sunlightSensitive && wildernessLight==Senses.Light.BRIGHT;
-            if(advantage!=disadvantage){
-                int second=combatDice.nextInt(20)+1;
-                roll=advantage?Math.max(roll,second):Math.min(roll,second);
-            }
+                || sunPenalty(x,y,target.x,target.y);
+            int roll=Senses.check(combatDice,0,advantage,disadvantage);
             if (roll+bonus<armor) {
                 combatMessage("Attack missed");return;
             }
             int damage=item==null ? playerDamage : rollDamage(item,ability,activeTwoHands);
             damageGoblin(target,damage);
         }
+        private boolean sunPenalty(float ax,float ay,float bx,float by) {
+            return Senses.sunlightDisadvantage(playerSenses.sunlightSensitive,sensoryMap,ax,ay,bx,by);
+        }
+
         private void damageGoblin(Goblin target,int damage) {
 
             hostile=true;
@@ -1147,7 +1316,7 @@ public final class PrototypeWorldActivity extends Activity {
             paint.setColor(Color.WHITE);
             float progress=goblin.swing>0 ? 1-goblin.swing/RigAttackPose.DURATION
                 : goblin.moving ? -1f-goblin.walkCycle : -1f;
-            if(goblin.playerSight==Senses.Sight.DARKVISION)paint.setColorFilter(grayscale);
+            paint.setColorFilter(visualLight(goblin.x,goblin.y,goblin.playerSight));
             if(goblin.prone>0){c.save();c.rotate(85,px,py);c.drawBitmap(goblinIdle,source,destination,paint);c.restore();}
             else if (goblin.motion==WeaponTrials.Motion.THRUST
                 || !weaponTrials.draw(c,paint,4,goblin.motion,goblin.weapon,goblin.facing,
@@ -1286,7 +1455,7 @@ public final class PrototypeWorldActivity extends Activity {
                     float px=sx(tx+.5f,ty+.5f),py=sy(tx+.5f,ty+.5f);
                     int shade=fogShade(tx,ty);
                     if(shade==0xFF000000){shadeGround(c,px,py,shade);continue;}
-                    if(fogSight(tx,ty)==Senses.Sight.DARKVISION)paint.setColorFilter(grayscale);
+                    paint.setColorFilter(visualLight(tx+.5f,ty+.5f,fogSight(tx,ty)));
                     int biome=terrain.wildernessBiome(tx,ty);
                     int base=biome==3?0xFF6D725C:biome==2?0xFF354D3C:
                         biome==1?0xFF496947:0xFF668457;
@@ -1409,8 +1578,7 @@ public final class PrototypeWorldActivity extends Activity {
             // A typical tree is substantially taller than the player; deterministic
             // size variation makes groves less uniform.
             int seed=terrain.decoration(tx,ty);
-            float scale=1.12f+(seed%7)*.12f;
-            drawTree(c,px,py,scale,seed);
+            drawTree(c,px,py,fallbackTreeScale(seed),seed);
         }
         private void drawTree(Canvas c,float px,float py,float scale,int seed) {
             c.save();
@@ -1437,7 +1605,10 @@ public final class PrototypeWorldActivity extends Activity {
             long now=System.nanoTime();
             float dt=lastFrame==0?0:Math.min(.05f,(now-lastFrame)*1e-9f);
             lastFrame=now;
-            update(dt);
+            currentWorldTime=clock.time(now);
+            updateLighting();
+            if (resumed && focused && !paused && !waiting) update(dt);
+            if (currentWorldTime-lastClockSave>=3*WorldClock.SECOND) saveClock(currentWorldTime);
             updateFog();
             fogSaveTime+=dt;
             if(fogSaveTime>=3f){fogSaveTime=0;saveExploration();}
@@ -1446,7 +1617,7 @@ public final class PrototypeWorldActivity extends Activity {
             zoom=Math.max(.65f,Math.min(1.15f,getWidth()/768f));
             c.save();c.translate(centerX,centerY);c.scale(zoom,zoom);
             int cx=(int)Math.floor(cameraX),cy=(int)Math.floor(cameraY);
-            if (inTown()) town.ground(c,cameraX,cameraY,townFog);
+            if (inTown()) town.ground(c,cameraX,cameraY,townFog,townLighting,this::fogSight);
             else ground(c);
             if (attackRemaining>0f && !spellAttack) {
                 float markerX=sx(punchX,punchY),markerY=sy(punchX,punchY);
@@ -1455,7 +1626,7 @@ public final class PrototypeWorldActivity extends Activity {
             }
             float heroDepth=x-y;
             if (inTown()) {
-                town.props(c,cameraX,cameraY,heroDepth,townHero,townFog);
+                town.props(c,cameraX,cameraY,heroDepth,townHero,townFog,townLighting,this::fogSight);
                 if (dummyLocked) drawLockMarker(c,sx(TownHub.DUMMY_X,TownHub.DUMMY_Y),
                     sy(TownHub.DUMMY_X,TownHub.DUMMY_Y)-66f);
                 if (arrowTime>0f) drawArrow(c);
@@ -1488,7 +1659,7 @@ public final class PrototypeWorldActivity extends Activity {
                     }
                     int shade=fogShade(tx,ty);
                     if(shade!=0)paint.setColorFilter(memoryTint);
-                    else if(fogSight(tx,ty)==Senses.Sight.DARKVISION)paint.setColorFilter(grayscale);
+                    else paint.setColorFilter(visualLight(tx+.5f,ty+.5f,fogSight(tx,ty)));
                     prop(c,tx,ty);
                     paint.setColorFilter(null);
                 }
@@ -1548,6 +1719,15 @@ public final class PrototypeWorldActivity extends Activity {
             paint.setStrokeWidth(1f);
         }
         private void drawHero(Canvas c) {
+            android.graphics.ColorFilter filter=visualLight(x,y,sightAt(x,y,false));
+            paint.setColorFilter(filter);
+            avatarActions.setColorFilter(filter);
+            drawHeroSprite(c);
+            paint.setColorFilter(null);
+            avatarActions.setColorFilter(null);
+        }
+
+        private void drawHeroSprite(Canvas c) {
             float px=sx(x,y),py=sy(x,y)-elevation(x,y);
             if (avatarActions.draw(c,px,py,facing)) return;
             if (spellAttack && attackRemaining>0f && avatarActions.drawCast(c,px,py,facing,attackRemaining)) return;
@@ -1691,7 +1871,7 @@ public final class PrototypeWorldActivity extends Activity {
             hudControl(c,attackButton,"⚔",inTown()&&!atPracticeTarget()?"Interact":spellSelected?"Cast":"Attack",playerRecharge<=0,d);
             hudControl(c,secondaryHud,spellSelected?"magic":motions[motionIndex]==WeaponTrials.Motion.BOW?"bow":motions[motionIndex]==WeaponTrials.Motion.UNARMED?"fist":"➶","Attack mode",false,d);
             hudControl(c,inventoryHud,"▣","Inventory",false,d);
-            hudControl(c,pauseHud,"Ⅱ","Pause",false,d);
+            hudControl(c,pauseHud,"Ⅱ",paused?"Resume":"Pause",paused,d);
             paint.setColor(WildlandsUi.GOLD);paint.setStrokeWidth(d);
             c.drawLine(20*d,bottom-51*d,w*.47f,bottom-51*d,paint);c.drawLine(w*.53f,bottom-51*d,w-20*d,bottom-51*d,paint);hudDiamond(c,w*.5f,bottom-51*d,5*d);
             c.drawLine(split-2*d,top+15*d,split-2*d,top+2*row-3*d,paint);
@@ -1710,6 +1890,19 @@ public final class PrototypeWorldActivity extends Activity {
             hudControl(c,autoAttackButton,"A","",autoAttack,d);
             hudControl(c,exitButton,"","☰ Menu",false,d);
             paint.setTextSize(12*d);paint.setColor(WildlandsUi.INK);
+            long minute=currentWorldTime/(60*WorldClock.SECOND);
+            if (minute!=hudMinute) {
+                hudMinute=minute;
+                clockLabel="Day "+(WorldClock.day(currentWorldTime)+1)+" · "+WorldClock.format(currentWorldTime,false);
+            }
+            hud.set(w*.60f,51*d,w-8*d,73*d);
+            WildlandsUi.plate(c,paint,hudPath,hud,5*d,WildlandsUi.TEAL,WildlandsUi.GOLD,d);
+            paint.setColor(WildlandsUi.INK);
+            paint.setTextSize(11*d);
+            paint.setTextAlign(Paint.Align.CENTER);
+            c.drawText(clockLabel,hud.centerX(),66*d,paint);
+            paint.setTextAlign(Paint.Align.LEFT);
+            paint.setTextSize(12*d);
             if(onQuest)c.drawText("Goblins "+questKills+"/"+TownHub.GOAL,14*d,65*d,paint);
             if(messageRemaining>0)c.drawText(worldMessage,14*d,(onQuest?80:65)*d,paint);
             paint.setTypeface(android.graphics.Typeface.DEFAULT);
@@ -1722,7 +1915,7 @@ public final class PrototypeWorldActivity extends Activity {
             innerFrame.set(r);innerFrame.inset(3*d,3*d);
             WildlandsUi.plate(c,paint,hudPath,innerFrame,6*d,Color.TRANSPARENT,WildlandsUi.GOLD,.7f*d);
             paint.setColor(WildlandsUi.INK);paint.setTypeface(WildlandsUi.SERIF);paint.setTextAlign(Paint.Align.CENTER);
-            boolean horizontal=label.equals("Inventory")||label.equals("Pause");
+            boolean horizontal=label.equals("Inventory")||label.equals("Pause")||label.equals("Resume");
             if(!icon.isEmpty())hudIcon(c,icon,horizontal?r.centerX()-r.width()*.22f:r.centerX(),horizontal||label.isEmpty()?r.centerY():r.top+r.height()*.37f,(horizontal?23:label.isEmpty()?18:27)*d);
             if(!label.isEmpty()){paint.setTextSize(12*d);c.drawText(label,horizontal?r.centerX()+r.width()*.12f:r.centerX(),horizontal||icon.isEmpty()?r.centerY()-(paint.ascent()+paint.descent())/2:r.bottom-8*d,paint);}
             paint.setTextAlign(Paint.Align.LEFT);
@@ -1831,12 +2024,14 @@ public final class PrototypeWorldActivity extends Activity {
                     save();getContext().startActivity(new Intent(getContext(),MainActivity.class));
                     ((Activity)getContext()).finish();return true;
                 }
+                if (pauseHud.contains(px,py)) { togglePause(); return true; }
+                if (paused) return true;
                 if(targetButton.contains(px,py)){autoLock=!autoLock;if(autoLock)acquireTarget();else {lockedTarget=null;dummyLocked=false;}return true;}
                 if(autoAttackButton.contains(px,py)){autoAttack=!autoAttack;return true;}
                 if(jumpHud.contains(px,py)){startJump();return true;}
                 if(crouchHud.contains(px,py)){sneaking=!sneaking;pace=0;return true;}
                 if(secondaryHud.contains(px,py)){chooseAttackMode();return true;}
-                if(inventoryHud.contains(px,py)||pauseHud.contains(px,py))return true;
+                if(inventoryHud.contains(px,py))return true;
                 if(attackButton.contains(px,py)){
                     interact();
                     return true;
@@ -1849,7 +2044,6 @@ public final class PrototypeWorldActivity extends Activity {
                     stick(px,py);return true;
                 }
                 if(!inTown() && selectVisibleActor(px,py))return true;
-                if(paused)paused=false;
                 return true;
             }
             return true;

@@ -11,23 +11,31 @@ final class Senses {
     static final float INVESTIGATE_SECONDS = 5f;
     static final float REVEAL_SECONDS = .8f;
 
-    enum Light { BRIGHT, DIM, DARK, MAGICAL_DARK }
+    enum Light { NORMAL, DIM, DARK, MAGICAL_DARK }
     enum Sight { NONE, CLEAR, DIM, DARKVISION, BLINDSIGHT, TRUESIGHT }
     enum Alert { UNAWARE, SUSPICIOUS, ALERTED, SEARCHING }
 
     interface Geometry {
         boolean obstructed(float ax, float ay, float bx, float by, boolean terrain);
         Light light(float x, float y);
+        default boolean sunlight(float x, float y) { return false; }
     }
 
     static final class Profile {
         final float normal, angle, darkvision, blind, tremor, trueSight, hearing;
         final int perception;
-        final boolean keenHearing, keenSmell, keenSight;
+        final boolean keenHearing, keenSmell, keenSight, sunlightSensitive;
 
         Profile(float normal, float angle, float darkvision, float blind, float tremor,
                 float trueSight, float hearing, int perception,
                 boolean keenHearing, boolean keenSmell, boolean keenSight) {
+            this(normal,angle,darkvision,blind,tremor,trueSight,hearing,perception,
+                keenHearing,keenSmell,keenSight,false);
+        }
+
+        Profile(float normal, float angle, float darkvision, float blind, float tremor,
+                float trueSight, float hearing, int perception,
+                boolean keenHearing, boolean keenSmell, boolean keenSight, boolean sunlightSensitive) {
             this.normal = normal;
             this.angle = angle;
             this.darkvision = darkvision;
@@ -39,6 +47,14 @@ final class Senses {
             this.keenHearing = keenHearing;
             this.keenSmell = keenSmell;
             this.keenSight = keenSight;
+            this.sunlightSensitive = sunlightSensitive;
+        }
+
+        boolean sightDisadvantage(Sight sight, boolean lightlyObscured, Geometry map,
+                                  float ax, float ay, float bx, float by) {
+            boolean visual = sight != Sight.BLINDSIGHT;
+            return visual && (disadvantaged(sight) || lightlyObscured
+                || sunlightDisadvantage(sunlightSensitive,map,ax,ay,bx,by));
         }
 
         int passive(boolean advantage, boolean disadvantage) {
@@ -67,13 +83,22 @@ final class Senses {
             if (p.darkvision > 0 && distance <= p.darkvision)
                 sight = light == Light.DARK ? Sight.DARKVISION : Sight.CLEAR;
             else if (distance <= p.normal)
-                sight = light == Light.BRIGHT ? Sight.CLEAR : light == Light.DIM ? Sight.DIM : Sight.NONE;
+                sight = light == Light.NORMAL ? Sight.CLEAR : light == Light.DIM ? Sight.DIM : Sight.NONE;
         }
         return sight != Sight.NONE && !map.obstructed(ax, ay, bx, by, terrain) ? sight : Sight.NONE;
     }
 
     static boolean disadvantaged(Sight sight) {
         return sight == Sight.DIM || sight == Sight.DARKVISION;
+    }
+
+    static boolean sunlightDisadvantage(boolean sensitive, Geometry map,
+                                        float ax, float ay, float bx, float by) {
+        return sensitive && (map.sunlight(ax, ay) || map.sunlight(bx, by));
+    }
+
+    static boolean canHide(Sight sight, boolean naturalObscuration, boolean maskOfTheWild) {
+        return sight != Sight.CLEAR || naturalObscuration && maskOfTheWild;
     }
 
     static boolean feelsVibration(Profile p, float distance, boolean sameSurface, boolean moving) {
@@ -99,6 +124,17 @@ final class Senses {
         Alert state = Alert.UNAWARE;
         float x, y, remaining;
         int searchRoll = Integer.MIN_VALUE;
+        private int secondSearchRoll;
+
+        int searchCheck(Random dice, int bonus, boolean advantage, boolean disadvantage) {
+            if (searchRoll == Integer.MIN_VALUE) {
+                searchRoll = dice.nextInt(20) + 1;
+                secondSearchRoll = dice.nextInt(20) + 1;
+            }
+            if (advantage == disadvantage) return searchRoll + bonus;
+            return (advantage ? Math.max(searchRoll,secondSearchRoll)
+                : Math.min(searchRoll,secondSearchRoll)) + bonus;
+        }
 
         void update(float dt, boolean detected, float targetX, float targetY,
                     boolean heard, float noiseX, float noiseY) {

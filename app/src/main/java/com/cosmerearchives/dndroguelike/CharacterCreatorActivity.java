@@ -48,12 +48,16 @@ public final class CharacterCreatorActivity extends Activity {
     private void enterHub() {
         String name=hero.name.trim();
         hero.name=name.isEmpty()?"Avatar":name;
+        boolean newCharacter = PlayerCharacter.loadCompleted(this) == null;
         hero.completed=true;
         hero.save(this);
-        getSharedPreferences("wildlands_world",MODE_PRIVATE).edit()
+        android.content.SharedPreferences.Editor world = getSharedPreferences("wildlands_world",MODE_PRIVATE).edit()
             .putFloat("town_player_x",TownHub.SPAWN_X)
             .putFloat("town_player_y",TownHub.SPAWN_Y)
-            .putBoolean("town_quest_active",false).apply();
+            .putBoolean("town_quest_active",false);
+        if (newCharacter) world.putLong("clock_nanos",WorldClock.START)
+            .putString("weather",WorldLighting.Weather.CLEAR.name());
+        world.apply();
         startActivity(new Intent(this,PrototypeWorldActivity.class)
             .putExtra(PrototypeWorldActivity.EXTRA_TOWN,true));
         finish();

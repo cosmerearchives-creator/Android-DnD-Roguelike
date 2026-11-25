@@ -20,7 +20,9 @@ final class TownHub {
     private static final float HEIGHT_SCALE=85f;
     private static final float BUILDING_SCALE=(float)Math.sqrt(2)*HALF_W/36f;
 
-    private enum Kind { BUILDING, WALL, GATE, BOARD, DUMMY, TABLE, BAR }
+    private static final float BED_X=6.7f, BED_Y=5.7f;
+
+    private enum Kind { BUILDING, WALL, GATE, BOARD, DUMMY, TABLE, BAR, BED }
     private static final class Prop {
         final Kind kind;
         final float x,y,w,h;
@@ -72,6 +74,7 @@ final class TownHub {
         tavern.add(new Prop(Kind.BAR,1.4f,4.8f,.65f,3,0));
         tavern.add(new Prop(Kind.TABLE,4.8f,4.9f,1.3f,1.1f,0));
         tavern.add(new Prop(Kind.TABLE,5.6f,2.8f,1.3f,1.1f,0));
+        tavern.add(new Prop(Kind.BED,BED_X,BED_Y,1.65f,.9f,0));
         town.sort(Comparator.comparingDouble(Prop::depth));
         tavern.sort(Comparator.comparingDouble(Prop::depth));
     }
@@ -79,6 +82,7 @@ final class TownHub {
     boolean training(float x,float y) { return !inside && x>=11f && x<15f && y>=16.5f && y<20.5f; }
     boolean atBoard(float x,float y) { return !inside && distance(x,y,BOARD_X,BOARD_Y)<1.42f; }
     boolean atTavern(float x,float y) { return !inside && distance(x,y,6f,1.8f)<1.35f; }
+    boolean atBed(float x,float y) { return inside && distance(x,y,BED_X,BED_Y)<1.5f; }
     boolean atExit(float x,float y) { return inside && distance(x,y,3f,.75f)<1.4f; }
     boolean atGate(float x,float y) {
         return !inside && Math.abs(y-11f)<1.3f && (x<2.5f || x>WIDTH-2.5f);
@@ -100,6 +104,8 @@ final class TownHub {
         return true;
     }
     interface Fog { int shade(int x,int y); }
+    interface Sight { Senses.Sight at(int x,int y); }
+    interface Lighting { android.graphics.ColorFilter at(float x,float y,Senses.Sight sight); }
 
     boolean clear(float x,float y,float radius) {
         if (x-radius<0 || y-radius<0 || x+radius>=(inside?8:WIDTH)
@@ -116,7 +122,7 @@ final class TownHub {
     private static float y(float a,float b,float cameraX,float cameraY) {
         return (a-cameraX-b+cameraY)*HALF_H;
     }
-    void ground(Canvas c,float cx,float cy,Fog fog) {
+    void ground(Canvas c,float cx,float cy,Fog fog,Lighting light,Sight sight) {
         int W=inside?8:WIDTH,H=inside?7:HEIGHT;
         for (int depth=1-H;depth<W;depth++) {
             for(int i=Math.max(0,depth);i<Math.min(W,H+depth);i++) {
@@ -128,10 +134,12 @@ final class TownHub {
                 int color=inside ? 0xFF6D4932 : training(i+.5f,j+.5f) ? 0xFF91704E :
                     plaza ? 0xFF788079 : path ? 0xFF9C896D : 0xFF4F6344;
                 int fogShade=fog.shade(i,j);
+                paint.setColorFilter(light.at(i+.5f,j+.5f,sight.at(i,j)));
                 paint.setColor(color+shade*0x00020202);
                 float xx=x(i+.5f,j+.5f,cx,cy), yy=y(i+.5f,j+.5f,cx,cy);
                 face(c,xx,yy-HALF_H-.25f,xx+HALF_W+.45f,yy,
                     xx,yy+HALF_H+.25f,xx-HALF_W-.45f,yy);
+                paint.setColorFilter(null);
                 if(fogShade!=0){
                     paint.setColor(fogShade);
                     face(c,xx,yy-HALF_H-.25f,xx+HALF_W+.45f,yy,
@@ -140,14 +148,14 @@ final class TownHub {
             }
         }
     }
-    void props(Canvas c,float cx,float cy,float heroDepth,Actor hero,Fog fog) {
+    void props(Canvas c,float cx,float cy,float heroDepth,Actor hero,Fog fog,Lighting light,Sight sight) {
         boolean drawn=false;
         for (Prop p:inside?tavern:town) {
             if (Math.abs(p.x-cx)>13 || Math.abs(p.y-cy)>13) continue;
             if (!drawn && p.depth()>heroDepth) {hero.draw(c); drawn=true;}
             int shade=fog.shade((int)p.x,(int)p.y);
             if(shade==0xFF000000 || p.kind==Kind.DUMMY && shade!=0)continue;
-            if(shade!=0)paint.setColorFilter(memoryTint);
+            paint.setColorFilter(shade!=0 ? memoryTint : light.at(p.x,p.y,sight.at((int)p.x,(int)p.y)));
             draw(c,p,cx,cy);
             paint.setColorFilter(null);
         }
@@ -176,6 +184,14 @@ final class TownHub {
                 c.drawLine(xx-2,base-18,xx+side+1,base+HALF_H-98,paint);
                 c.drawLine(xx-2,base-94,xx+side+1,base+HALF_H-18,paint);
                 paint.setStrokeWidth(1f);
+                break;
+            case BED:
+                block(c,p,cx,cy,.24f,0xFF694631,0xFFAA8258);
+                block(c,new Prop(Kind.BED,p.x+.10f,p.y,1.39f,.77f,0),
+                    cx,cy,.34f,0xFF5B3448,0xFF8E5167);
+                block(c,new Prop(Kind.BED,p.x-.55f,p.y,.38f,.70f,0),
+                    cx,cy,.40f,0xFF988467,0xFFE6D6AC);
+                label(c,"Bed · Wait",px,py-75);
                 break;
             case TABLE: block(c,p,cx,cy,.48f,0xFF5E3623,0xFF9E6A3C);break;
             case BAR: block(c,p,cx,cy,.64f,0xFF4D2E20,0xFF825534);break;

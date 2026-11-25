@@ -5,7 +5,7 @@ import java.util.Random;
 
 final class SensesTest {
     private static final class Map implements Senses.Geometry {
-        Senses.Light light = Senses.Light.BRIGHT;
+        Senses.Light light = Senses.Light.NORMAL;
         boolean wall;
         public Senses.Light light(float x,float y) { return light; }
         public boolean obstructed(float ax,float ay,float bx,float by,boolean terrain) { return wall; }

@@ -173,12 +173,15 @@ jobs:
           java -cp "$RUNNER_TEMP/gait-tests" com.cosmerearchives.dndroguelike.RigTorsoPoseTest
           java -cp "$RUNNER_TEMP/gait-tests" com.cosmerearchives.dndroguelike.RigAttackPoseTest
           java -cp "$RUNNER_TEMP/gait-tests" com.cosmerearchives.dndroguelike.LimbMeshTest
-      - name: Verify sensory and exploration mechanics
+      - name: Verify world time, lighting, sensory and exploration mechanics
         run: |
           src=app/src/main/java/com/cosmerearchives/dndroguelike
           javac -d "$RUNNER_TEMP/gait-tests" "$src/Senses.java" "$src/Exploration.java" \
-            tests/com/cosmerearchives/dndroguelike/SensesTest.java
+            "$src/WorldClock.java" "$src/WorldLighting.java" \
+            tests/com/cosmerearchives/dndroguelike/SensesTest.java \
+            tests/com/cosmerearchives/dndroguelike/WorldTimeTest.java
           java -cp "$RUNNER_TEMP/gait-tests" com.cosmerearchives.dndroguelike.SensesTest
+          java -cp "$RUNNER_TEMP/gait-tests" com.cosmerearchives.dndroguelike.WorldTimeTest
       - name: Pose sneak sprites from the active avatar atlases
         run: python3 scripts/bake-sneak.py
       - name: Build and lint
