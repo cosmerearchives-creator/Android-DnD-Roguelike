@@ -8,7 +8,7 @@ import java.util.Locale;
 /** First playable equipment foundation. All weights are pounds; coins and cosmetic clothing are weightless. */
 final class Equipment {
     enum Kind { WEAPON, ARMOR, SHIELD, CONTAINER, SUPPLY, TOOL, KEEPSAKE, MISC }
-    enum Slot { MAIN_HAND, OFF_HAND, BODY }
+    enum Slot { MAIN_HAND, OFF_HAND, BODY, HEAD, EYES, EARS, NECK, CLOAK, WRISTS, HANDS, WAIST, LEGS, FEET, LEFT_RING, RIGHT_RING, RANGED, ACCESSORY }
     static final class Item {
         final String id, name, properties, damage, damageType;
         final Kind kind;
@@ -56,7 +56,7 @@ final class Equipment {
     }
     static final class Bag {
         final List<Stack> roots=new ArrayList<>();
-        final String[] slots=new String[3];
+        final String[] slots=new String[Slot.values().length];
         boolean versatileTwoHanded;
         int strength=10, dexterity=10, constitution=10;
         int copper,silver,electrum,gold,platinum;
@@ -95,27 +95,38 @@ final class Equipment {
         boolean consume(String id){
             Stack s=find(id);if(s==null||s.count<1)return false;
             if(s.count>1)s.count--;else removeReference(roots,s);
-            if(id.equals(slots[0]))slots[0]=null;
-            if(id.equals(slots[1]))slots[1]=null;
+            if(find(id)==null)for(int i=0;i<slots.length;i++)if(id.equals(slots[i]))slots[i]=null;
             return true;
+        }
+        boolean compatible(Item item,Slot slot){
+            if(item==null)return false;
+            switch(slot){
+                case BODY:return item.kind==Kind.ARMOR||item.id.equals("common_clothes")||item.id.equals("travelers_clothes")||item.id.equals("vestments");
+                case MAIN_HAND:return item.weapon();
+                case OFF_HAND:return item.kind==Kind.SHIELD||(item.weapon()&&!item.twoHanded&&!item.ranged)||item.id.equals("torch");
+                case RANGED:return item.weapon()&&(item.ranged||item.id.equals("dart")||item.id.equals("net"));
+                default:return false;
+            }
         }
         boolean equip(String id,Slot slot){
             Item item=get(id);
-            if(item==null||find(id)==null)return false;
+            if(!compatible(item,slot)||find(id)==null)return false;
             int i=slot.ordinal();
-            if(slot==Slot.BODY){if(item.kind!=Kind.ARMOR)return false;slots[i]=id;return true;}
-            if(slot==Slot.MAIN_HAND){
-                if(item.kind!=Kind.WEAPON)return false;
-                if(item.twoHanded){slots[Slot.OFF_HAND.ordinal()]=null;versatileTwoHanded=false;}
-                if(!id.equals(slots[i]))versatileTwoHanded=false;
-                slots[i]=id;return true;
+            if(slot==Slot.OFF_HAND){
+                Item main=get(slots[0]);
+                if(main!=null&&(main.twoHanded||(main.versatile&&versatileTwoHanded)))return false;
             }
-            if(item.kind!=Kind.SHIELD&&item.kind!=Kind.WEAPON&&!id.equals("torch"))return false;
-            Item main=get(slots[0]);
-            if(main!=null&&(main.twoHanded||(main.versatile&&versatileTwoHanded)))return false;
-            if(item.kind==Kind.WEAPON&&item.twoHanded)return false;
+            int owned=0,used=0;
+            for(Stack stack:all())if(stack.item.id.equals(id))owned+=stack.count;
+            for(int j=0;j<slots.length;j++)if(j!=i&&id.equals(slots[j]))used++;
+            if(used>=owned)return false;
+            if(slot==Slot.MAIN_HAND){
+                if(item.twoHanded)slots[1]=null;
+                if(!id.equals(slots[i])||item.twoHanded)versatileTwoHanded=false;
+            }
             slots[i]=id;return true;
         }
+        void unequip(Slot slot){slots[slot.ordinal()]=null;if(slot==Slot.MAIN_HAND)versatileTwoHanded=false;}
         boolean setTwoHanded(boolean value){
             Item main=get(slots[0]);
             if(main==null||!main.versatile)return false;
