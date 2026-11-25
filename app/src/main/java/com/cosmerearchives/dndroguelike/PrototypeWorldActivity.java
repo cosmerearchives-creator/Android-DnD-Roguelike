@@ -1659,18 +1659,26 @@ public final class PrototypeWorldActivity extends Activity {
             hudPath.quadTo(w*.64f,top,w*.78f,top);
             hudPath.quadTo(w*.96f,top,w,top+18*d);
             hudPath.lineTo(w,h);hudPath.lineTo(0,h);hudPath.close();
-            c.drawPath(hudPath,paint);
+            paint.setShader(new android.graphics.LinearGradient(0,top-30*d,0,h,new int[]{0xFF24484B,0xFF102F36,0xFF081D25},null,android.graphics.Shader.TileMode.CLAMP));
+            c.drawPath(hudPath,paint);paint.setShader(null);
+            c.save();c.clipPath(hudPath);paint.setColor(0x0DDBCA9B);paint.setStrokeWidth(.5f*d);
+            for(float yy=top-40*d;yy<h;yy+=7*d){c.drawLine(0,yy,w,yy+25*d,paint);}
+            c.restore();
             paint.setStyle(Paint.Style.STROKE);paint.setStrokeWidth(1.5f*d);paint.setColor(WildlandsUi.GOLD);c.drawPath(hudPath,paint);paint.setStyle(Paint.Style.FILL);
-            float split=w*.40f, row=Math.min(61*d,(bottom-top-65*d)/2f);
-            joystick.set(14*d,top+14*d,split-10*d,top+14*d+split-24*d);
+            float split=w*.40f, row=Math.min(84*d,(bottom-top-65*d)/2f);
+            joystick.set(14*d,top+26*d,split-10*d,top+26*d+split-24*d);
             if(!stickActive){stickCenterX=joystick.centerX();stickCenterY=joystick.centerY();}
             float radius=joystick.width()*.46f;
             paint.setColor(WildlandsUi.GOLD);paint.setStyle(Paint.Style.STROKE);paint.setStrokeWidth(d);
             c.drawCircle(stickCenterX,stickCenterY,radius,paint);c.drawCircle(stickCenterX,stickCenterY,radius-4*d,paint);
             paint.setStyle(Paint.Style.FILL);paint.setColor(WildlandsUi.GOLD);
             for(int i=0;i<4;i++){double a=i*Math.PI/2;hudDiamond(c,stickCenterX+(float)Math.cos(a)*radius,stickCenterY+(float)Math.sin(a)*radius,4*d);}
-            paint.setColor(0xFFB7D6C7);
-            c.drawCircle(stickCenterX+screenStickX*radius*.65f,stickCenterY+screenStickY*radius*.65f,radius*.38f,paint);
+            float kx=stickCenterX+screenStickX*radius*.65f,ky=stickCenterY+screenStickY*radius*.65f,kr=radius*.43f;
+            paint.setColor(0xAA06171D);c.drawCircle(kx,ky+3*d,kr+2*d,paint);
+            paint.setShader(new android.graphics.RadialGradient(kx-kr*.25f,ky-kr*.35f,kr*1.5f,new int[]{0xFF527775,0xFF21454A,0xFF0A242D},null,android.graphics.Shader.TileMode.CLAMP));
+            c.drawCircle(kx,ky,kr,paint);paint.setShader(null);
+            paint.setStyle(Paint.Style.STROKE);paint.setStrokeWidth(1.4f*d);paint.setColor(0xFFD2B77D);c.drawCircle(kx,ky,kr,paint);
+            paint.setStrokeWidth(.7f*d);paint.setColor(0xFF78928A);c.drawCircle(kx,ky,kr-4*d,paint);paint.setStyle(Paint.Style.FILL);
             float mid=(split+w-10*d)/2;
             jumpHud.set(split+8*d,top+12*d,mid-3*d,top+row);
             crouchHud.set(mid+4*d,top+12*d,w-10*d,top+row);
@@ -1681,7 +1689,7 @@ public final class PrototypeWorldActivity extends Activity {
             hudControl(c,jumpHud,"↗","Jump",jumpCooldown<=0&&!jumping,d);
             hudControl(c,crouchHud,"↓","Sneak",sneaking,d);
             hudControl(c,attackButton,"⚔",inTown()&&!atPracticeTarget()?"Interact":spellSelected?"Cast":"Attack",playerRecharge<=0,d);
-            hudControl(c,secondaryHud,"➶","Attack mode",false,d);
+            hudControl(c,secondaryHud,spellSelected?"magic":motions[motionIndex]==WeaponTrials.Motion.BOW?"bow":motions[motionIndex]==WeaponTrials.Motion.UNARMED?"fist":"➶","Attack mode",false,d);
             hudControl(c,inventoryHud,"▣","Inventory",false,d);
             hudControl(c,pauseHud,"Ⅱ","Pause",false,d);
             paint.setColor(WildlandsUi.GOLD);paint.setStrokeWidth(d);
@@ -1707,14 +1715,16 @@ public final class PrototypeWorldActivity extends Activity {
             paint.setTypeface(android.graphics.Typeface.DEFAULT);
         }
         private void hudControl(Canvas c,RectF r,String icon,String label,boolean active,float d){
-            if(active){for(int i=4;i>=1;i--){innerFrame.set(r);innerFrame.inset(-i*d*.55f,-i*d*.55f);WildlandsUi.plate(c,paint,hudPath,innerFrame,9*d,Color.TRANSPARENT,((5-i)*24<<24)|0xFFD58A,1.5f*d);}}
-            WildlandsUi.plate(c,paint,hudPath,r,8*d,0xFF102D33,active?0xFFFFDA91:WildlandsUi.GOLD,active?2*d:d);
+            if(active){for(int i=4;i>=1;i--){innerFrame.set(r);innerFrame.inset(-i*d*.55f,-i*d*.55f);WildlandsUi.plate(c,paint,hudPath,innerFrame,9*d,Color.TRANSPARENT,((5-i)*11<<24)|0xFFD58A,1.1f*d);}}
+            WildlandsUi.plate(c,paint,hudPath,r,8*d,0xFF102D33,active?0xFFFFDA91:WildlandsUi.GOLD,active?1.4f*d:d);
+            c.save();c.clipPath(hudPath);
+            paint.setShader(new android.graphics.LinearGradient(0,r.top,0,r.bottom,0x554E7774,0x66030F18,android.graphics.Shader.TileMode.CLAMP));c.drawRect(r,paint);paint.setShader(null);c.restore();
             innerFrame.set(r);innerFrame.inset(3*d,3*d);
             WildlandsUi.plate(c,paint,hudPath,innerFrame,6*d,Color.TRANSPARENT,WildlandsUi.GOLD,.7f*d);
             paint.setColor(WildlandsUi.INK);paint.setTypeface(WildlandsUi.SERIF);paint.setTextAlign(Paint.Align.CENTER);
             boolean horizontal=label.equals("Inventory")||label.equals("Pause");
-            if(!icon.isEmpty())hudIcon(c,icon,horizontal?r.left+r.width()*.23f:r.centerX(),horizontal||label.isEmpty()?r.centerY():r.top+r.height()*.37f,(horizontal?23:label.isEmpty()?18:27)*d);
-            if(!label.isEmpty()){paint.setTextSize(12*d);c.drawText(label,horizontal?r.left+r.width()*.61f:r.centerX(),horizontal||icon.isEmpty()?r.centerY()-(paint.ascent()+paint.descent())/2:r.bottom-8*d,paint);}
+            if(!icon.isEmpty())hudIcon(c,icon,horizontal?r.centerX()-r.width()*.22f:r.centerX(),horizontal||label.isEmpty()?r.centerY():r.top+r.height()*.37f,(horizontal?23:label.isEmpty()?18:27)*d);
+            if(!label.isEmpty()){paint.setTextSize(12*d);c.drawText(label,horizontal?r.centerX()+r.width()*.12f:r.centerX(),horizontal||icon.isEmpty()?r.centerY()-(paint.ascent()+paint.descent())/2:r.bottom-8*d,paint);}
             paint.setTextAlign(Paint.Align.LEFT);
         }
         private void hudDiamond(Canvas c,float x,float y,float r){
@@ -1724,14 +1734,20 @@ public final class PrototypeWorldActivity extends Activity {
             c.save();c.translate(x-size/2,y-size/2);c.scale(size/32f,size/32f);
             Paint p=new Paint(Paint.ANTI_ALIAS_FLAG);p.setColor(WildlandsUi.GOLD);p.setStrokeWidth(2.7f);p.setStrokeCap(Paint.Cap.ROUND);p.setStrokeJoin(Paint.Join.ROUND);
             switch(icon){
-                case "↗":case "↓":
-                    boolean crouch=icon.equals("↓");
-                    c.drawCircle(crouch?21:22,5,4,p);
-                    p.setStrokeWidth(5);c.drawLine(19,11,crouch?12:15,crouch?20:18,p);
-                    p.setStrokeWidth(3.5f);c.drawLine(18,12,25,17,p);c.drawLine(25,17,29,12,p);
-                    c.drawLine(16,13,9,10,p);c.drawLine(9,10,4,14,p);
-                    c.drawLine(crouch?12:15,crouch?20:18,22,23,p);c.drawLine(22,23,crouch?17:26,29,p);
-                    c.drawLine(crouch?12:15,crouch?20:18,9,25,p);c.drawLine(9,25,4,29,p);break;
+                case "↗":
+                    c.drawCircle(18,5,3.5f,p);p.setStrokeWidth(4.5f);c.drawLine(17,10,14,18,p);
+                    p.setStrokeWidth(3);c.drawLine(17,11,25,4,p);c.drawLine(15,11,7,5,p);
+                    c.drawLine(14,18,23,19,p);c.drawLine(23,19,26,13,p);c.drawLine(14,18,9,25,p);c.drawLine(9,25,3,24,p);break;
+                case "↓":
+                    c.drawCircle(24,10,3.5f,p);p.setStrokeWidth(5);c.drawLine(20,14,10,19,p);
+                    p.setStrokeWidth(3);c.drawLine(20,14,25,20,p);c.drawLine(25,20,30,19,p);
+                    c.drawLine(10,19,19,23,p);c.drawLine(19,23,14,29,p);c.drawLine(10,19,5,25,p);c.drawLine(5,25,2,28,p);break;
+                case "bow":
+                    p.setStyle(Paint.Style.STROKE);c.drawArc(3,2,29,30,-90,180,false,p);c.drawLine(16,2,16,30,p);c.drawLine(3,16,29,16,p);c.drawLine(29,16,24,12,p);c.drawLine(29,16,24,20,p);break;
+                case "fist":
+                    c.drawRoundRect(7,10,25,24,4,4,p);for(int i=0;i<4;i++)c.drawRoundRect(6+i*5,5,10+i*5,17,2,2,p);c.drawRoundRect(11,23,23,30,2,2,p);break;
+                case "magic":
+                    c.drawLine(5,27,24,8,p);c.drawLine(24,1,24,15,p);c.drawLine(17,8,31,8,p);c.drawLine(19,3,29,13,p);c.drawLine(29,3,19,13,p);break;
                 case "⚔":case "➶":
                     for(int i=0;i<(icon.equals("⚔")?2:1);i++){c.save();if(i==1){c.translate(32,0);c.scale(-1,1);}
                     Path blade=new Path();blade.moveTo(27,3);blade.lineTo(25,11);blade.lineTo(10,25);blade.lineTo(7,22);blade.close();c.drawPath(blade,p);
@@ -1739,7 +1755,10 @@ public final class PrototypeWorldActivity extends Activity {
                 case "▣":c.drawRoundRect(6,8,26,29,4,4,p);p.setStyle(Paint.Style.STROKE);c.drawRoundRect(11,2,21,12,3,3,p);p.setColor(0xFF102D33);c.drawLine(12,9,12,26,p);c.drawLine(20,9,20,26,p);c.drawLine(7,20,25,20,p);break;
                 case "Ⅱ":c.drawRect(8,4,13,28,p);c.drawRect(19,4,24,28,p);break;
                 case "◎":p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(1.7f);c.drawCircle(16,16,10,p);c.drawCircle(16,16,4,p);c.drawLine(16,1,16,10,p);c.drawLine(16,22,16,31,p);c.drawLine(1,16,10,16,p);c.drawLine(22,16,31,16,p);break;
-                case "tree":p.setStrokeWidth(2.6f);c.drawLine(16,29,16,8,p);c.drawLine(8,30,24,30,p);for(int i=0;i<5;i++){float yy=10+i*3;float xx=5+i*.7f;p.setStrokeWidth(1.2f);c.drawLine(16,yy+5,xx,yy-3,p);c.drawLine(16,yy+5,32-xx,yy-3,p);c.drawLine(xx+4,yy,xx+2,yy-7,p);c.drawLine(28-xx,yy,30-xx,yy-7,p);}break;
+                case "tree":
+                    p.setStrokeWidth(2.4f);c.drawLine(16,29,16,10,p);c.drawLine(9,30,23,30,p);
+                    for(int i=0;i<9;i++){double angle=Math.PI+(i+.5)*Math.PI/9;float ex=16+(float)Math.cos(angle)*12,ey=15+(float)Math.sin(angle)*12;c.drawLine(16,20,ex,ey,p);c.drawOval(ex-3,ey-2,ex+3,ey+2,p);}
+                    for(int i=0;i<2;i++){float xx=i==0?4:28;Path fir=new Path();fir.moveTo(xx,17);fir.lineTo(xx-4,27);fir.lineTo(xx+4,27);fir.close();c.drawPath(fir,p);c.drawLine(xx,26,xx,30,p);}break;
                 default:p.setTypeface(WildlandsUi.SERIF);p.setTextAlign(Paint.Align.CENTER);p.setTextSize(28);c.drawText(icon,16,16-(p.ascent()+p.descent())/2,p);
             }c.restore();
         }
