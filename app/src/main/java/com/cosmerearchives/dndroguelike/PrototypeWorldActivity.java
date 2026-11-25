@@ -55,6 +55,7 @@ public final class PrototypeWorldActivity extends Activity {
         private static final float MELEE_REACH = 1f;
         private static final float COMBAT_NOTICE = 3.5f;
         private static final float COMBAT_LEASH = 7f;
+        private static final float LOCK_RANGE = 12f;
         private static final int GOBLIN_HP = 7, GOBLIN_AC = 12;
         private static final float PLAYER_ACTION_REFILL = 1f;
         private static final float GOBLIN_ATTACK_PERIOD = 6f;
@@ -152,6 +153,9 @@ public final class PrototypeWorldActivity extends Activity {
         private final RectF joystick = new RectF(), runButton = new RectF(), attackButton = new RectF();
         private final RectF exitButton = new RectF();
         private final RectF avatarActionButton = new RectF();
+        private final RectF targetButton=new RectF(), autoAttackButton=new RectF();
+        private Goblin lockedTarget, attackTarget;
+        private boolean dummyLocked, attackDummy, autoAttack;
         private float zoom = 1f;
 
         World(Context context, PlayerCharacter hero,boolean townSession) {
@@ -266,6 +270,8 @@ public final class PrototypeWorldActivity extends Activity {
             releaseStick();
             pace=0;
             avatarActions.play(null);
+            lockedTarget=attackTarget=null;
+            dummyLocked=attackDummy=false;
             hostile=false;
             attackRemaining=0f;
             playerImpact=false;
@@ -432,6 +438,73 @@ public final class PrototypeWorldActivity extends Activity {
             }
             return true;
         }
+        private boolean lockable(Goblin goblin) {
+            return goblin!=null && goblin.hp>0 && distanceToGoblin(goblin)<=LOCK_RANGE;
+        }
+        private boolean atPracticeTarget() {
+            return inTown() && town.training(x,y);
+        }
+        private Goblin nearestTarget() {
+            Goblin nearest=null;
+            float distance=Float.POSITIVE_INFINITY;
+            for (Goblin candidate:goblins) {
+                float candidateDistance=distanceToGoblin(candidate);
+                if (lockable(candidate) && candidateDistance<distance) {
+                    nearest=candidate;
+                    distance=candidateDistance;
+                }
+            }
+            return nearest;
+        }
+        private void updateLock() {
+            if (!lockable(lockedTarget)) lockedTarget=null;
+            if (inTown()) lockedTarget=null;
+            if (!atPracticeTarget()) dummyLocked=false;
+        }
+        private void changeTarget() {
+            updateLock();
+            if (inTown()) {
+                dummyLocked=atPracticeTarget();
+            } else {
+                int index=goblins.indexOf(lockedTarget);
+                if (index<0) lockedTarget=nearestTarget();
+                else for (int step=1;step<=goblins.size();step++) {
+                    Goblin candidate=goblins.get((index+step)%goblins.size());
+                    if (lockable(candidate)) {lockedTarget=candidate;break;}
+                }
+            }
+            if (lockedTarget==null && !dummyLocked) combatMessage("No target nearby");
+        }
+        private boolean targetInReach(Goblin target,boolean dummy,float range) {
+            if (!dummy && !lockable(target)) return false;
+            float tx=dummy?TownHub.DUMMY_X:target.x,ty=dummy?TownHub.DUMMY_Y:target.y;
+            // The training dummy itself is a solid town prop.
+            return Math.hypot(tx-x,ty-y)<=range && (dummy || shotClear(x,y,tx,ty));
+        }
+        private void acquireTarget() {
+            updateLock();
+            if (atPracticeTarget()) dummyLocked=true;
+            else if (!inTown() && lockedTarget==null) lockedTarget=nearestTarget();
+        }
+        private void faceTarget(Goblin target,boolean dummy) {
+            if (!dummy && !lockable(target)) return;
+            float dx=(dummy?TownHub.DUMMY_X:target.x)-x,dy=(dummy?TownHub.DUMMY_Y:target.y)-y;
+            if (dx*dx+dy*dy>.0001f) facing=heading(dx,dy);
+        }
+        private void tryAutoAttack() {
+            if (!autoAttack || playerRecharge>0f || attackRemaining>0f || avatarActions.active()) return;
+            acquireTarget();
+            if (lockedTarget==null && !dummyLocked) return;
+            if (!spellSelected) {
+                Equipment.Item item=Equipment.get(selectedWeapon());
+                if (item!=null && ((!freeWeaponTrials && combatBag.find(item.id)==null)
+                    || ((item.twoHanded || (item.versatile && motions[motionIndex]==WeaponTrials.Motion.HEAVY))
+                        && combatBag.slots[1]!=null))) return;
+            }
+            float range=spellSelected && knownCantrip!=null ? knownCantrip.range
+                : reach(motions[motionIndex],selectedWeapon());
+            if (targetInReach(lockedTarget,dummyLocked,range)) beginPunch();
+        }
         private boolean spendAttack() {
             if (attackRemaining>0 || playerRecharge>0 || avatarActions.active()) return false;
             attackRemaining=RigAttackPose.DURATION;
@@ -440,7 +513,18 @@ public final class PrototypeWorldActivity extends Activity {
             return true;
         }
         private void beginPunch() {
+            if (attackRemaining>0f || playerRecharge>0f || avatarActions.active()) return;
+            acquireTarget();
+            float desiredRange=spellSelected && knownCantrip!=null ? knownCantrip.range
+                : reach(motions[motionIndex],selectedWeapon());
+            if ((lockedTarget!=null || dummyLocked) && !targetInReach(lockedTarget,dummyLocked,desiredRange)) {
+                combatMessage("Target out of reach or blocked");
+                return;
+            }
             if (!spendAttack()) return;
+            attackTarget=lockedTarget;
+            attackDummy=dummyLocked;
+            faceTarget(attackTarget,attackDummy);
             pendingShove=0;
             casting=spellSelected?knownCantrip:null;
             spellAttack=casting!=null;
@@ -493,23 +577,25 @@ public final class PrototypeWorldActivity extends Activity {
             releaseStick();
             WildlandsUi.choose(getContext(),"Shove · one attack",null,
                 new String[]{"Push 5 feet","Knock prone"},-1,which->{
+                    acquireTarget();
+                    if (!targetInReach(lockedTarget,false,MELEE_REACH)) {
+                        combatMessage("No enemy in shove reach");
+                        return;
+                    }
                     if (!spendAttack()) return;
+                    attackTarget=lockedTarget;
+                    attackDummy=false;
+                    faceTarget(attackTarget,false);
                     casting=null;
+                    spellAttack=false;
                     pendingShove=which+1;
                     activeMotion=WeaponTrials.Motion.UNARMED;
                     activeWeapon="";
                 });
         }
         private void resolveShove(int mode) {
-            Goblin target=null;
-            float nearest=MELEE_REACH+.001f;
-            for (Goblin g:goblins) {
-                float d=distanceToGoblin(g);
-                if (d<=nearest && (d<.01f || heading(g.x-x,g.y-y)==facing)) {
-                    target=g;nearest=d;
-                }
-            }
-            if(target==null){combatMessage("No enemy in shove reach");return;}
+            Goblin target=attackTarget;
+            if(!targetInReach(target,false,MELEE_REACH)){combatMessage("No enemy in shove reach");return;}
             // Standard goblin STR 8 / DEX 14, no Athletics or Acrobatics proficiency.
             int attack=combatDice.nextInt(20)+1+athleticsBonus;
             int defense=combatDice.nextInt(20)+1+2;
@@ -540,6 +626,12 @@ public final class PrototypeWorldActivity extends Activity {
             double angle=facing*Math.PI/4;
             spellDx=(float)Math.sin(angle);
             spellDy=-(float)Math.cos(angle);
+            if (attackDummy || lockable(attackTarget)) {
+                float dx=(attackDummy?TownHub.DUMMY_X:attackTarget.x)-x;
+                float dy=(attackDummy?TownHub.DUMMY_Y:attackTarget.y)-y;
+                float distance=(float)Math.hypot(dx,dy);
+                if (distance>.001f) {spellDx=dx/distance;spellDy=dy/distance;}
+            }
             spellX=spellStartX=x;
             spellY=spellStartY=y;
             spellTravel=0;
@@ -601,8 +693,8 @@ public final class PrototypeWorldActivity extends Activity {
                 if (!town.training(x,y)) return;
                 float dx=TownHub.DUMMY_X-x,dy=TownHub.DUMMY_Y-y;
                 float range=reach(activeMotion,activeWeapon);
-                if (Math.hypot(dx,dy)>range || heading(dx,dy)!=facing) {
-                    combatMessage("Face the dummy within attack range");
+                if (!attackDummy || Math.hypot(dx,dy)>range) {
+                    combatMessage("Move within attack range of the dummy");
                     return;
                 }
                 if (activeMotion==WeaponTrials.Motion.BOW) fireArrow(x,y,TownHub.DUMMY_X,TownHub.DUMMY_Y);
@@ -616,16 +708,9 @@ public final class PrototypeWorldActivity extends Activity {
                 } else combatMessage("Dummy hit · "+damage+" damage · "+dummyHp+"/20");
                 return;
             }
-            Goblin target=null;
+            Goblin target=attackTarget;
             boolean ranged=activeMotion==WeaponTrials.Motion.BOW;
-            float nearest=reach(activeMotion,activeWeapon)+.001f;
-            for (Goblin goblin:goblins) {
-                float distance=distanceToGoblin(goblin);
-                if (distance>nearest || (distance>.01f &&
-                    heading(goblin.x-x,goblin.y-y)!=facing)) continue;
-                if (ranged && !shotClear(x,y,goblin.x,goblin.y)) continue;
-                target=goblin;nearest=distance;
-            }
+            if (!targetInReach(target,false,reach(activeMotion,activeWeapon))) target=null;
             if (ranged) fireArrow(x,y,target==null?punchX:target.x,target==null?punchY:target.y);
             if (target==null) {
                 if (hostile) combatMessage("No enemy in reach");
@@ -654,6 +739,7 @@ public final class PrototypeWorldActivity extends Activity {
                 combatMessage("Goblin hit · "+damage+" damage");return;
             }
             goblins.remove(target);
+            if (lockedTarget==target) lockedTarget=null;
             int reward=target.motion==WeaponTrials.Motion.THRUST ? 25 : 50;
             experience+=reward;
             if (onQuest && ++questKills>=TownHub.GOAL) {
@@ -738,6 +824,9 @@ public final class PrototypeWorldActivity extends Activity {
             if (source==null) return;
             defeatSource=null;
             avatarActions.play(null);
+            lockedTarget=attackTarget=null;
+            dummyLocked=attackDummy=false;
+            autoAttack=false;
             health=100;
             retreatFromGoblin(source);
             for (Goblin other:goblins) {
@@ -780,6 +869,14 @@ public final class PrototypeWorldActivity extends Activity {
                 paint.setColor(0xFFD27060);
                 c.drawRect(px-18,py-111,px-18+36f*goblin.hp/(goblin.motion==WeaponTrials.Motion.THRUST ? GOBLIN_HP : 10),py-107,paint);
             }
+            if (goblin==lockedTarget) drawLockMarker(c,px,py-122);
+        }
+        private void drawLockMarker(Canvas c,float x,float y) {
+            paint.setColor(WildlandsUi.GOLD);
+            paint.setStrokeWidth(2.5f);
+            c.drawLine(x-7,y-5,x,y+2,paint);
+            c.drawLine(x,y+2,x+7,y-5,paint);
+            paint.setStrokeWidth(1f);
         }
         private float elevation(float wx,float wy) {
             int tx=Math.round(wx),ty=Math.round(wy);
@@ -808,6 +905,7 @@ public final class PrototypeWorldActivity extends Activity {
             updateCantrip(dt);
             if (!inTown()) updateGoblins(dt);
             if (defeatSource!=null) return;
+            updateLock();
             // Combat keeps the weapon ready. After six peaceful seconds
             // following the last attack, the sheathed state is just idle art.
             if (hostile || attackRemaining>0f) {
@@ -829,12 +927,15 @@ public final class PrototypeWorldActivity extends Activity {
                 float travelled=(float)Math.hypot(actualX,actualY);
                 moving=travelled>0.00001f;
                 if (moving) {
-                    facing=heading(actualX,actualY);
+                    if (lockedTarget==null && !dummyLocked) facing=heading(actualX,actualY);
                     gait.advance(travelled);
                     walkCycles=gait.cycles();
                 }
             }
             blend=Math.max(0,Math.min(1,blend+(moving?10f:-13f)*dt));
+            if (attackRemaining>0f) faceTarget(attackTarget,attackDummy);
+            else faceTarget(lockedTarget,dummyLocked);
+            tryAutoAttack();
             // Lock the camera to the character. A lagging camera made the
             // joystick appear to drift and the walk animation slide.
             cameraX=x;cameraY=y;
@@ -1013,6 +1114,8 @@ public final class PrototypeWorldActivity extends Activity {
             float heroDepth=x-y;
             if (inTown()) {
                 town.props(c,cameraX,cameraY,heroDepth,townHero);
+                if (dummyLocked) drawLockMarker(c,sx(TownHub.DUMMY_X,TownHub.DUMMY_Y),
+                    sy(TownHub.DUMMY_X,TownHub.DUMMY_Y)-66f);
                 if (arrowTime>0f) drawArrow(c);
                 drawCantrip(c);
                 c.restore();
@@ -1193,6 +1296,9 @@ public final class PrototypeWorldActivity extends Activity {
             if(!inTown())button(c,shoveButton,"SHOVE");
             exitButton.set(getWidth()-94*d,18*d,getWidth()-12*d,54*d);
             avatarActionButton.set(getWidth()-137*d,62*d,getWidth()-12*d,100*d);
+            float targetWidth=Math.min(83*d,getWidth()*.22f);
+            targetButton.set(12*d,101*d,12*d+targetWidth,138*d);
+            autoAttackButton.set(16*d+targetWidth,101*d,16*d+targetWidth*2,138*d);
             motionButton.set(getWidth()-175*d,106*d,getWidth()-12*d,141*d);
             weaponButton.set(getWidth()-175*d,146*d,getWidth()-12*d,181*d);
             if (!stickActive) {stickCenterX=joystick.centerX();stickCenterY=joystick.centerY();}
@@ -1227,6 +1333,10 @@ public final class PrototypeWorldActivity extends Activity {
             button(c,exitButton,"☰  Menu");
             button(c,motionButton,(spellSelected?"Magic":motions[motionIndex].title)+"  ▾");
             button(c,avatarActionButton,avatarActions.seated()?"Stand":"Actions ›");
+            if (!inTown() || atPracticeTarget()) {
+                button(c,targetButton,"Target ›");
+                button(c,autoAttackButton,autoAttack?"Auto":"Manual");
+            }
             Equipment.Item selection=Equipment.get(selectedWeapon());
             button(c,weaponButton,spellSelected?knownCantrip.title:selection==null ? "Bare hands" : selection.name+(selection.versatile?(motions[motionIndex]==WeaponTrials.Motion.HEAVY?" (2H)":" (1H)"):"")+" ›");
             hud.set(8*d,15*d,Math.min(getWidth()-105*d,236*d),60*d);
@@ -1332,6 +1442,14 @@ public final class PrototypeWorldActivity extends Activity {
                 }
                 if(!inTown() && shoveButton.contains(px,py)){chooseShove();return true;}
                 if(avatarActionButton.contains(px,py)){showAvatarActions();return true;}
+                if (!inTown() || atPracticeTarget()) {
+                    if (targetButton.contains(px,py)) {changeTarget();return true;}
+                    if (autoAttackButton.contains(px,py)) {
+                        autoAttack=!autoAttack;
+                        if (autoAttack) acquireTarget();
+                        return true;
+                    }
+                }
                 if(runButton.contains(px,py)){if(!hostile)pace=(pace+1)%3;return true;}
                 if(attackButton.contains(px,py)){
                     interact();
