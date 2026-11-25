@@ -61,6 +61,16 @@ final class Equipment {
         int strength=10, dexterity=10, constitution=10;
         int copper,silver,electrum,gold,platinum;
         Stack find(String id){return findIn(roots,id);}
+        private Stack freshIn(List<Stack> list,String id){
+            for(Stack s:list){if(s.item.id.equals(id)&&s.remainingSeconds<0&&s.contents.isEmpty()&&s.filledPints==0)return s;Stack child=freshIn(s.contents,id);if(child!=null)return child;}return null;
+        }
+        void consolidate(){consolidateIn(roots);}
+        private void consolidateIn(List<Stack> list){
+            for(int i=0;i<list.size();i++){Stack a=list.get(i);consolidateIn(a.contents);
+                if(!a.item.stackable||a.remainingSeconds>=0||!a.contents.isEmpty()||a.filledPints!=0)continue;
+                for(int j=list.size()-1;j>i;j--){Stack b=list.get(j);if(a.item.id.equals(b.item.id)&&b.remainingSeconds<0&&b.contents.isEmpty()&&b.filledPints==0){a.count+=b.count;list.remove(j);}}
+            }
+        }
         private Stack findIn(List<Stack> list,String id){
             for(Stack s:list){if(s.item.id.equals(id))return s;Stack child=findIn(s.contents,id);if(child!=null)return child;}
             return null;
@@ -69,7 +79,7 @@ final class Equipment {
             if(qty<=0)return;
             Item item=get(id);
             if(item==null)throw new IllegalArgumentException("Unknown item "+id);
-            if(item.stackable){Stack found=find(id);if(found!=null){found.count+=qty;return;}}
+            if(item.stackable){Stack found=freshIn(roots,id);if(found!=null){found.count+=qty;return;}}
             for(int i=0;i<(item.stackable?1:qty);i++)roots.add(new Stack(item,item.stackable?qty:1));
         }
         float carriedWeight(){float sum=0;for(Stack s:roots)sum+=s.weight();return sum;}
@@ -154,7 +164,7 @@ final class Equipment {
             if(shield!=null&&shield.kind==Kind.SHIELD)ac+=2;
             return ac;
         }
-        List<Stack> all(){List<Stack> out=new ArrayList<>();collect(roots,out);return Collections.unmodifiableList(out);}
+        List<Stack> all(){consolidate();List<Stack> out=new ArrayList<>();collect(roots,out);return Collections.unmodifiableList(out);}
         private void collect(List<Stack> source,List<Stack> out){for(Stack s:source){out.add(s);collect(s.contents,out);}}
         String summary(){
             String main=slots[0]==null?"None":get(slots[0]).name;
@@ -236,7 +246,7 @@ final class Equipment {
         basic("bedroll","Bedroll",Kind.SUPPLY,7,false);
         basic("mess_kit","Mess Kit",Kind.SUPPLY,1,false);
         basic("tinderbox","Tinderbox",Kind.TOOL,1,false);
-        basic("torch","Torch",Kind.SUPPLY,1,false);
+        basic("torch","Torch",Kind.SUPPLY,1,true);
         basic("ration","Ration (1 day)",Kind.SUPPLY,2,true);
         basic("rope_hemp","Hempen Rope (50 ft)",Kind.SUPPLY,10,false);
         basic("rope_silk","Silk Rope (50 ft)",Kind.SUPPLY,5,false);
