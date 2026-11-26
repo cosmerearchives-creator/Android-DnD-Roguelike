@@ -4,6 +4,7 @@ import json
 import os
 import pathlib
 import shutil
+import sys
 
 root = pathlib.Path(__file__).resolve().parent.parent
 version = dict(line.strip().split("=", 1) for line in
@@ -16,7 +17,9 @@ if code < 1 or not all(part.isdigit() for part in name.split(".")) or len(name.s
 dist = root / "dist"
 dist.mkdir(exist_ok=True)
 apk = dist / "Android-DnD-Roguelike.apk"
-shutil.copyfile(root / "app/build/outputs/apk/release/app-release.apk", apk)
+source = pathlib.Path(sys.argv[1]).resolve() if len(sys.argv) > 1 else root / "app/build/outputs/apk/release/app-release.apk"
+if source != apk:
+    shutil.copyfile(source, apk)
 repo = os.environ.get("GITHUB_REPOSITORY", "cosmerearchives-creator/Android-DnD-Roguelike")
 manifest = {
     "versionCode": code, "versionName": name,

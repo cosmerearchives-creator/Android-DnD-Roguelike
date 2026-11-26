@@ -1,16 +1,23 @@
-name: Godot Android prototype
+name: Godot Android
 on:
   push:
     branches: [main]
-    paths: ['godot/**', '.github/workflows/godot-android.yml', 'blender/create_character.py']
+    paths: ['godot/**', '.github/workflows/godot-android.yml', 'blender/create_character.py', 'version.properties', 'scripts/prepare-release.py']
   workflow_dispatch:
+    inputs:
+      build:
+    if: github.ref == 'refs/heads/main'
+        description: Publish the verified Godot build as the latest stable release
+        type: boolean
+        default: false
 permissions:
   contents: write
 concurrency:
   group: godot-android
   cancel-in-progress: false
 jobs:
-  publish:
+  build:
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -41,17 +48,65 @@ jobs:
           test -s godot/assets/classic_study.glb
           test -s godot/assets/dagger_goblin.glb
           rm -f godot/assets/*.blend*
-      - name: Configure Android signing
+      - name: Configure Android export
         run: |
-          mkdir -p ~/.config/godot ~/.android dist
-          keytool -genkeypair -keystore ~/.android/debug.keystore -storepass android -keypass android -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug"
-          printf '[gd_resource type="EditorSettings" format=3]\n[resource]\nexport/android/java_sdk_path = "%s"\nexport/android/android_sdk_path = "%s"\nexport/android/debug_keystore = "%s/.android/debug.keystore"\n' "$JAVA_HOME" "$ANDROID_HOME" "$HOME" > ~/.config/godot/editor_settings-4.4.tres
+          mkdir -p ~/.config/godot dist
+          printf '[gd_resource type="EditorSettings" format=3]\n[resource]\nexport/android/java_sdk_path = "%s"\nexport/android/android_sdk_path = "%s"\n' "$JAVA_HOME" "$ANDROID_HOME" > ~/.config/godot/editor_settings-4.4.tres
+          python3 - <<'PYTHON'
+          import pathlib, re
+          root = pathlib.Path.cwd()
+          values = dict(line.split("=", 1) for line in (root / "version.properties").read_text().splitlines() if "=" in line)
+          code, version = values["versionCode"], values["versionName"]
+          assert re.fullmatch(r"[0-9]+", code) and int(code) > 0
+          assert re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", version)
+          path = root / "godot/export_presets.cfg"
+          content = re.sub(r"^version/code=.*$", f"version/code={code}", path.read_text(), flags=re.M)
+          path.write_text(re.sub(r"^version/name=.*$", f'version/name="{version}"', content, flags=re.M))
+          (root / "godot/release-version.json").write_text(__import__("json").dumps({"versionCode": int(code), "versionName": version}))
+          PYTHON
       - name: Import and export
         run: |
           godot --headless --path godot --editor --import
-          godot --headless --path godot --export-debug Android ../dist/Forests-of-Hell-3D.apk
-          test -s dist/Forests-of-Hell-3D.apk
+          godot --headless --path godot --quit-after 10
+          godot --headless --path godot --export-release Android ../dist/unsigned.apk
+          test -s dist/unsigned.apk
+      - name: Sign and verify against the production identity
+        env:
+          KEYSTORE: ${{ secrets.SIGNING_KEYSTORE_BASE64 }}
+          ANDROID_SIGNING_PASSWORD: android-dnd-roguelike
+        run: |
+          set -euo pipefail
+          umask 077
+          keystore=$(mktemp "$RUNNER_TEMP/forests-signing.XXXXXX")
+          trap 'rm -f "$keystore"' EXIT
+          test -n "$KEYSTORE" || { echo '::error::SIGNING_KEYSTORE_BASE64 is unavailable to this workflow.'; exit 1; }
+          printf '%s' "$KEYSTORE" | base64 --decode > "$keystore"
+          unset KEYSTORE
+          tools="$ANDROID_HOME/build-tools/35.0.0"
+          "$tools/zipalign" -P 16 -f 4 dist/unsigned.apk dist/aligned.apk
+          "$tools/apksigner" sign --ks "$keystore" --ks-type PKCS12 --ks-pass env:ANDROID_SIGNING_PASSWORD --out dist/Android-DnD-Roguelike.apk dist/aligned.apk
+          "$tools/apksigner" verify --print-certs dist/Android-DnD-Roguelike.apk > "$RUNNER_TEMP/forests-cert.txt"
+          grep -Fx 'Signer #1 certificate SHA-256 digest: e445401a6b3e1125c3096c415d6d92d068ec38f3ba6e3a4bf3cc0f701fcf587c' "$RUNNER_TEMP/forests-cert.txt"
+          version=$(sed -n 's/^versionName=//p' version.properties)
+          code=$(sed -n 's/^versionCode=//p' version.properties)
+          "$tools/aapt" dump badging dist/Android-DnD-Roguelike.apk > "$RUNNER_TEMP/forests-package.txt"
+          grep -F "package: name='com.cosmerearchives.dndroguelike' versionCode='$code' versionName='$version'" "$RUNNER_TEMP/forests-package.txt"
+          python3 scripts/prepare-release.py dist/Android-DnD-Roguelike.apk
       - uses: actions/upload-artifact@v4
         with:
           name: godot-apk-candidate
-          path: dist/Forests-of-Hell-3D.apk
+          path: |
+            dist/Android-DnD-Roguelike.apk
+            dist/update.json
+      - name: Publish stable release
+        if: github.event_name == 'workflow_dispatch' && inputs.publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag="v$(sed -n 's/^versionName=//p' version.properties)"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "Release $tag already exists."
+            exit 0
+          fi
+          gh release create "$tag" dist/Android-DnD-Roguelike.apk dist/update.json --target "$GITHUB_SHA" --title "Forests of Hell $tag" --notes "Godot Android build. Install the APK below or check for updates from the game." --latest

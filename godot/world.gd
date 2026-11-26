@@ -98,11 +98,9 @@ func _ready():
 	status = Label.new()
 	status.position = Vector2(20,30)
 	ui.add_child(status)
-	var releases := Button.new()
-	releases.text = "Updates / previous releases"
+	var releases := preload("res://release_updates.gd").new()
 	releases.position = Vector2(20,110)
 	ui.add_child(releases)
-	releases.pressed.connect(func(): OS.shell_open("https://github.com/cosmerearchives-creator/Android-DnD-Roguelike/releases"))
 	var controls := HBoxContainer.new()
 	controls.position = Vector2(365,1080)
 	ui.add_child(controls)
