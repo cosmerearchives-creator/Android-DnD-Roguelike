@@ -4,11 +4,19 @@ for variant in ("classic_study","petite_pale","classic_male","petite_male","dagg
     import sys
     sys.argv = ["blender","--","--variant",variant,"--output",str(root/"assets")]
     source = (root.parent/"blender/create_character.py").read_text()
-    exec(compile(source.split("# Row zero faces")[0],"create_character.py","exec"),{"__name__":"__main__"})
+    character = {"__name__":"__main__"}
+    exec(compile(source.split("# Row zero faces")[0],"create_character.py","exec"),character)
     bpy.ops.object.select_all(action="DESELECT")
     for obj in bpy.context.scene.objects:
         if obj.type in {"MESH","EMPTY"}: obj.select_set(True)
     bpy.ops.export_scene.gltf(filepath=str(root/"assets"/(variant+".glb")),export_format="GLB",use_selection=True)
+    if variant != "dagger_goblin":
+        import math
+        for mode, count in (("walk", 8), ("punch", 5)):
+            for frame in range(count):
+                character["pose"](mode, frame*math.tau/count if mode == "walk" else frame/(count-1))
+                bpy.context.view_layer.update()
+                bpy.ops.export_scene.gltf(filepath=str(root/"assets"/f"{variant}_{mode}_{frame}.glb"),export_format="GLB",use_selection=True)
 
 # Reuse the original world geometry and palette, without baking sprites.
 source = (root.parent/"blender/create_world.py").read_text()
