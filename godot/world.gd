@@ -10,7 +10,7 @@ var running := false
 var yaw := 0.0
 var camera_angle := 60.0
 var angle_button: Button
-var model_index := 0
+var model_index := 1
 var animation_clock := 0.0
 var punch_left := 0.0
 var current_pose := ""
@@ -31,6 +31,19 @@ func mesh_at(parent: Node3D, mesh: Mesh, pos: Vector3, color: Color) -> MeshInst
 	parent.add_child(m)
 	m.position = pos
 	return m
+func lowest_mesh(node: Node3D, relative: Transform3D) -> float:
+	var transform := relative * node.transform
+	var low := INF
+	if node is MeshInstance3D and node.mesh != null:
+		var bounds: AABB = node.get_aabb()
+		for i in range(8):
+			low = minf(low,(transform * bounds.get_endpoint(i)).y)
+	for child in node.get_children():
+		if child is Node3D: low = minf(low,lowest_mesh(child,transform))
+	return low
+func ground_visual(model: Node3D):
+	var low := lowest_mesh(model,Transform3D.IDENTITY)
+	if is_finite(low): model.position.y -= low
 func body(pos: Vector3, asset: String, color: Color) -> CharacterBody3D:
 	var b := CharacterBody3D.new()
 	add_child(b)
@@ -46,6 +59,7 @@ func body(pos: Vector3, asset: String, color: Color) -> CharacterBody3D:
 		var model = load(asset).instantiate()
 		model.name = "CharacterVisual"
 		b.add_child(model)
+		ground_visual(model)
 	else:
 		var mesh := CapsuleMesh.new()
 		mesh.radius = 0.3
@@ -115,7 +129,7 @@ void fragment() {
 		rock.rotation.y = rng.randf_range(0,TAU)
 	var profile := ConfigFile.new()
 	profile.load("user://hero.cfg")
-	model_index = clampi(int(profile.get_value("hero","model",0)),0,MODELS.size()-1)
+	model_index = clampi(int(profile.get_value("hero","model",1)),0,MODELS.size()-1)
 	player = body(Vector3.ZERO,"res://assets/%s.glb" % MODELS[model_index],Color.BEIGE)
 	goblin = body(Vector3(0,0,-12),"res://assets/dagger_goblin.glb",Color("#708238"))
 	var sun := DirectionalLight3D.new()
@@ -199,6 +213,7 @@ func show_pose(asset: String):
 		old.queue_free()
 	visual.name = "CharacterVisual"
 	player.add_child(visual)
+	ground_visual(visual)
 	current_pose = asset
 func cycle_model():
 	var next_index := (model_index + 1) % MODELS.size()
@@ -211,6 +226,7 @@ func cycle_model():
 	var visual := (load(asset) as PackedScene).instantiate()
 	visual.name = "CharacterVisual"
 	player.add_child(visual)
+	ground_visual(visual)
 	model_index = next_index
 	current_pose = MODELS[model_index]
 	model_button.text = MODEL_NAMES[model_index]
@@ -227,9 +243,14 @@ func action(title: String):
 			goblin.queue_free()
 func _physics_process(dt):
 	var direction := Vector3(stick.x,0,stick.y).rotated(Vector3.UP,yaw)
+	var vertical := player.velocity.y
 	player.velocity = direction * (30*FOOT/6) * (2 if running else 1)
+	player.velocity.y = -0.5 if player.is_on_floor() else vertical - 9.8*dt
 	player.move_and_slide()
-	if direction.length() > 0.1: player.rotation.y = atan2(-direction.x,-direction.z)
+	if is_instance_valid(goblin):
+		goblin.velocity.y = -0.5 if goblin.is_on_floor() else goblin.velocity.y - 9.8*dt
+		goblin.move_and_slide()
+	if direction.length() > 0.1: player.rotation.y = atan2(direction.x,direction.z)
 	var base: String = MODELS[model_index]
 	if punch_left > 0.0:
 		var frame := clampi(int((0.5-punch_left)*10.0),0,4)
