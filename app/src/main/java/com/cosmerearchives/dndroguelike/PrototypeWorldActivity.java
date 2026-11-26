@@ -239,8 +239,8 @@ public final class PrototypeWorldActivity extends Activity {
         private int renderRadius(){return zoomFeet>0?Math.max(VISIBLE_RADIUS,(int)Math.ceil(zoomFeet/Senses.FEET_PER_TILE)+2):VISIBLE_RADIUS;}
         private void showWorldMenu(){
             releaseStick();
-            new android.app.AlertDialog.Builder(getContext()).setTitle("Menu").setItems(new String[]{(zoomFeet==0?"✓ ":"")+"Zoom: Normal",(zoomFeet==300?"✓ ":"")+"Zoom: 300 ft",(zoomFeet==500?"✓ ":"")+"Zoom: 500 ft","Return to main menu","Cancel"},(dialog,which)->{
-                if(which<3){zoomFeet=which==0?0:which==1?300:500;invalidate();}
+            new android.app.AlertDialog.Builder(getContext()).setTitle("Menu").setItems(new String[]{(zoomFeet==0?"✓ ":"")+"Zoom: Normal",(zoomFeet==100?"✓ ":"")+"Zoom: 100 ft",(zoomFeet==200?"✓ ":"")+"Zoom: 200 ft","Return to main menu","Cancel"},(dialog,which)->{
+                if(which<3){zoomFeet=which==0?0:which==1?100:200;invalidate();}
                 else if(which==3){save();getContext().startActivity(new Intent(getContext(),MainActivity.class));((Activity)getContext()).finish();}
             }).show();
         }
