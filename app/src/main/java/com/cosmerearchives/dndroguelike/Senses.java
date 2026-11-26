@@ -4,7 +4,8 @@ import java.util.Random;
 
 final class Senses {
     static final float FEET_PER_TILE = 5f;
-    static final float DEFAULT_SIGHT = 300f;
+    static final float RANGE_SCALE = .1f;
+    static final float DEFAULT_SIGHT = 300f * RANGE_SCALE;
     static final float SNEAK_MULTIPLIER = 2f / 3f;
     static final float[] FOOTSTEP_FEET = {5f, 15f, 30f};
     static final float SEARCH_SECONDS = 8f;
@@ -38,10 +39,10 @@ final class Senses {
                 boolean keenHearing, boolean keenSmell, boolean keenSight, boolean sunlightSensitive) {
             this.normal = normal;
             this.angle = angle;
-            this.darkvision = darkvision;
-            this.blind = blind;
+            this.darkvision = darkvision * RANGE_SCALE;
+            this.blind = blind * RANGE_SCALE;
             this.tremor = tremor;
-            this.trueSight = trueSight;
+            this.trueSight = trueSight * RANGE_SCALE;
             this.hearing = hearing;
             this.perception = perception;
             this.keenHearing = keenHearing;
