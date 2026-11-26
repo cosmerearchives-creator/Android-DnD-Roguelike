@@ -67,7 +67,7 @@ for name, mesh, world, mats in portrait_copies:
 
 # Remove all the procedural head, face and hair. Retain torso, arms, legs,
 # boots and outfit, including existing per-limb pose deformation handles.
-remove_names = ("Neck", "Face and jaw", "Nose", "Mouth", "Hair cap",
+remove_names = ("Face and jaw", "Nose", "Mouth", "Hair cap",
                 "Pointed ear", "Eye", "Brow", "Long side hair", "Straight hair back",
                 "Parted fringe", "Hair sheen", "Tied hair bun", "Swept hair lock")
 for obj in list(root.children):
@@ -112,7 +112,7 @@ teeth_mat=pbr("teeth",(0.90,0.87,0.83))
 # Centre the head based on its world-space bounds, and match chin to neck.
 head = portrait[0]
 # The bust includes shoulder skin; keep it under the outfit collar.
-face_scale=0.43
+face_scale=0.49
 for o in portrait:
     for modifier in list(o.modifiers):
         if modifier.type in {"ARMATURE","PARTICLE_SYSTEM","SUBSURF"}:
@@ -134,6 +134,24 @@ for o in portrait:
     o.parent=root
     # Remove skin/hair parts that rely entirely on legacy particle rendering.
     # Rebuild long hair as curves instead.
+
+# The portrait includes a disconnected shoulder/bust shell. Trim it away
+# below the jaw and let the existing procedural neck connect face to torso.
+# Use the object's true world-space cut plane so Blender transforms stay valid.
+import bmesh
+bpy.context.view_layer.update()
+bm = bmesh.new()
+bm.from_mesh(head.data)
+plane_world = Vector((0, 0, 1.96))
+plane_local = head.matrix_world.inverted() @ plane_world
+normal_local = (head.matrix_world.to_3x3().transposed() @ Vector((0,0,1))).normalized()
+bmesh.ops.bisect_plane(
+    bm, geom=list(bm.verts) + list(bm.edges) + list(bm.faces),
+    dist=0.0001, plane_co=plane_local, plane_no=normal_local,
+    clear_inner=True, clear_outer=False)
+bm.to_mesh(head.data)
+bm.free()
+head.data.update()
 
 # Realistic hair silhouette using lightweight tapered mesh strips / curves:
 # mesh ribbons are exported reliably to glTF unlike particle systems.

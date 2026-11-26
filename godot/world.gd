@@ -55,12 +55,12 @@ func highest_mesh(node: Node3D, relative: Transform3D) -> float:
 		if child is Node3D: high = maxf(high,highest_mesh(child,transform))
 	return high
 func fit_katie_visual(model: Node3D):
-	# Converted Katie is a complete ~2.18m Z-up model; Godot import rotates Z to Y.
-	# Scale to the existing 1.7m capsule and anchor feet on the collision floor.
+	# Katie is a composite portrait-head and procedural-body asset, exported Z-up.
+	# Match the existing character height while keeping feet planted on the floor.
 	var bottom := lowest_mesh(model,Transform3D.IDENTITY)
 	var top := highest_mesh(model,Transform3D.IDENTITY)
 	if is_finite(bottom) and is_finite(top) and top > bottom + 0.01:
-		model.scale *= clampf(1.7 / (top-bottom),0.05,20.0)
+		model.scale *= clampf(2.05 / (top-bottom),0.05,20.0)
 	ground_visual(model)
 func body(pos: Vector3, asset: String, color: Color) -> CharacterBody3D:
 	var b := CharacterBody3D.new()
@@ -100,6 +100,7 @@ func _ready():
 	var floor_visual := mesh_at(ground,floor_mesh,Vector3.ZERO,Color("#526b40"))
 	var terrain_shader := Shader.new()
 	terrain_shader.code = """shader_type spatial;
+uniform sampler2D grass_texture : source_color, repeat_enable, filter_linear_mipmap;
 varying vec3 world_pos;
 void vertex() { world_pos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz; }
 float hash(vec2 p) { return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
@@ -110,13 +111,16 @@ float noise2(vec2 p) {
 }
 void fragment() {
 	vec2 p=world_pos.xz;
-	float n=noise2(p*0.32)*0.65+noise2(p*2.5)*0.25+noise2(p*18.0)*0.10;
-	ALBEDO=mix(vec3(0.18,0.30,0.16),vec3(0.24,0.39,0.19),n);
-	ALBEDO=mix(ALBEDO,vec3(0.31,0.23,0.15),smoothstep(0.72,0.88,n)*0.6);
-	ROUGHNESS=0.93;
+	vec3 blades=texture(grass_texture,p*0.27).rgb;
+	float meadow=noise2(p*0.09);
+	float soil=smoothstep(0.73,0.92,noise2(p*0.29));
+	ALBEDO=blades*mix(vec3(0.76,0.85,0.74),vec3(1.01,1.02,0.91),meadow);
+	ALBEDO=mix(ALBEDO,vec3(0.29,0.21,0.13),soil*0.19);
+	ROUGHNESS=0.95;
 }"""
 	var terrain_material := ShaderMaterial.new()
 	terrain_material.shader = terrain_shader
+	terrain_material.set_shader_parameter("grass_texture",preload("res://grass_detail.webp"))
 	floor_visual.material_override = terrain_material
 	for i in range(260):
 		var p := Vector3(rng.randf_range(-95,95),0,rng.randf_range(-95,95))
@@ -168,7 +172,7 @@ void fragment() {
 	add_child(camera)
 	camera.current = true
 	camera.projection = Camera3D.PROJECTION_ORTHOGONAL
-	camera.size = 18.0
+	camera.size = 15.0
 	camera.rotation = Vector3(-deg_to_rad(camera_angle), yaw, 0)
 	camera.far = 300 * FOOT
 	var ui := CanvasLayer.new()
