@@ -2,7 +2,7 @@ extends VBoxContainer
 
 const REPO := "https://github.com/cosmerearchives-creator/Android-DnD-Roguelike"
 const API := "https://api.github.com/repos/cosmerearchives-creator/Android-DnD-Roguelike/releases/latest"
-const HEADERS := ["Accept: application/vnd.github+json", "Cache-Control: no-cache"]
+const HEADERS := ["Accept: application/vnd.github+json", "Cache-Control: no-cache", "User-Agent: ForestsOfHell-Android-Updater"]
 var status := Label.new()
 var check := Button.new()
 var download := Button.new()
@@ -65,7 +65,12 @@ func _finish(message: String) -> void:
 func _received(result: int, response: int, _headers: PackedStringArray, body: PackedByteArray) -> void:
 	var data: Variant = JSON.parse_string(body.get_string_from_utf8()) if result == HTTPRequest.RESULT_SUCCESS and response == 200 else null
 	if not data is Dictionary:
-		_finish("Couldn't check for updates.")
+		if response == 403 or response == 429:
+			_finish("GitHub update checks limited temporarily. Retry later.")
+		elif response > 0:
+			_finish("Update server returned HTTP %d. Retry check." % response)
+		else:
+			_finish("Network unavailable. Retry check when connected.")
 		return
 	if fetching_manifest:
 		var code := int(data.get("versionCode", 0))
@@ -143,7 +148,12 @@ func _install() -> void:
 		activity.startActivity(settings)
 		_finish("Allow installs from this app, then tap Install again.")
 		return
-	var uri = uri_class.parse("content://" + package_name + ".fileprovider/filesRoot/update.apk")
+	# The actual user:// location includes Godot's app_userdata subdirectory.
+	# FileProvider must calculate the content URI from the real file path.
+	var provider = JavaClassWrapper.wrap("androidx.core.content.FileProvider")
+	var file_class = JavaClassWrapper.wrap("java.io.File")
+	var file = file_class.new(ProjectSettings.globalize_path(apk_path))
+	var uri = provider.getUriForFile(activity, package_name + ".fileprovider", file)
 	if uri == null:
 		_finish("Could not share APK with Android installer.")
 		return
