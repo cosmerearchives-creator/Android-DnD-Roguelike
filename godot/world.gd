@@ -8,6 +8,8 @@ var touch_id := -1
 var attack := 0.0
 var running := false
 var yaw := 0.0
+var camera_angle := 60.0
+var angle_button: Button
 var status: Label
 var rng := RandomNumberGenerator.new()
 func mesh_at(parent: Node3D, mesh: Mesh, pos: Vector3, color: Color) -> MeshInstance3D:
@@ -51,30 +53,35 @@ func _ready():
 	ground.position.y = -0.5
 	var floor_mesh := BoxMesh.new()
 	floor_mesh.size = box.size
-	mesh_at(ground,floor_mesh,Vector3.ZERO,Color("#536b42"))
+	mesh_at(ground,floor_mesh,Vector3.ZERO,Color("#526b40"))
 	for i in range(260):
 		var p := Vector3(rng.randf_range(-95,95),0,rng.randf_range(-95,95))
 		if p.length() < 8: continue
 		var tree := StaticBody3D.new()
 		add_child(tree)
 		tree.position = p
-		var trunk := CylinderMesh.new()
-		trunk.top_radius = 0.18
-		trunk.bottom_radius = 0.25
-		trunk.height = 3
-		mesh_at(tree,trunk,Vector3(0,1.5,0),Color("#594332"))
+		var scale_factor := rng.randf_range(1.6,3.6)
+		if rng.randf() < 0.08: scale_factor *= 1.7
+		var path := "res://assets/pine.glb" if rng.randf() < 0.55 else "res://assets/broadleaf.glb"
+		var model := (load(path) as PackedScene).instantiate() as Node3D
+		tree.add_child(model)
+		model.scale = Vector3.ONE * scale_factor
+		model.rotation.y = rng.randf_range(0,TAU)
 		var col := CollisionShape3D.new()
 		var cylinder := CylinderShape3D.new()
-		cylinder.radius = 0.25
-		cylinder.height = 3
+		cylinder.radius = 0.095 * scale_factor
+		cylinder.height = 1.1 * scale_factor
 		col.shape = cylinder
-		col.position.y = 1.5
+		col.position.y = cylinder.height / 2
 		tree.add_child(col)
-		var crown := CylinderMesh.new()
-		crown.top_radius = 0
-		crown.bottom_radius = 1.6
-		crown.height = 4
-		mesh_at(tree,crown,Vector3(0,3.5,0),Color("#284b32"))
+	for i in range(160):
+		var p := Vector3(rng.randf_range(-95,95),0,rng.randf_range(-95,95))
+		if p.length() < 3: continue
+		var rock := (preload("res://assets/boulder.glb") as PackedScene).instantiate() as Node3D
+		add_child(rock)
+		rock.position = p
+		rock.scale = Vector3.ONE * rng.randf_range(0.5,2.0)
+		rock.rotation.y = rng.randf_range(0,TAU)
 	player = body(Vector3.ZERO,"res://assets/classic_study.glb",Color.BEIGE)
 	goblin = body(Vector3(0,0,-12),"res://assets/dagger_goblin.glb",Color("#708238"))
 	var sun := DirectionalLight3D.new()
@@ -94,7 +101,7 @@ func _ready():
 	camera.current = true
 	camera.projection = Camera3D.PROJECTION_ORTHOGONAL
 	camera.size = 18.0
-	camera.rotation = Vector3(-PI/2, yaw, 0)
+	camera.rotation = Vector3(-deg_to_rad(camera_angle), yaw, 0)
 	camera.far = 300 * FOOT
 	var ui := CanvasLayer.new()
 	add_child(ui)
@@ -104,6 +111,11 @@ func _ready():
 	var releases := preload("res://release_updates.gd").new()
 	releases.position = Vector2(20,110)
 	ui.add_child(releases)
+	angle_button = Button.new()
+	angle_button.text = "Camera: 60°"
+	angle_button.position = Vector2(500,110)
+	ui.add_child(angle_button)
+	angle_button.pressed.connect(toggle_angle)
 	var controls := HBoxContainer.new()
 	controls.position = Vector2(365,1080)
 	ui.add_child(controls)
@@ -117,6 +129,9 @@ func _ready():
 	hint.text = "Drag here to move"
 	hint.position = Vector2(30,1130)
 	ui.add_child(hint)
+func toggle_angle():
+	camera_angle = 75.0 if camera_angle == 60.0 else 60.0
+	angle_button.text = "Camera: %d°" % int(camera_angle)
 func action(title: String):
 	if title == "Run": running = not running
 	elif title == "Turn": yaw += PI/4
@@ -139,8 +154,9 @@ func _physics_process(dt):
 	player.velocity = direction * (30*FOOT/6) * (2 if running else 1)
 	player.move_and_slide()
 	if direction.length() > 0.1: player.rotation.y = atan2(-direction.x,-direction.z)
-	camera.position = player.position + Vector3(0,20,0)
-	camera.rotation = Vector3(-PI/2, yaw, 0)
+	var pitch := deg_to_rad(camera_angle)
+	camera.position = player.position + Vector3(0,20*sin(pitch),20*cos(pitch)).rotated(Vector3.UP,yaw)
+	camera.rotation = Vector3(-pitch, yaw, 0)
 	attack = maxf(0,attack-dt)
 	var distance := player.position.distance_to(goblin.position)/FOOT if is_instance_valid(goblin) else 0.0
 	status.text = "FORESTS OF HELL 3D\nGoblin: %.1f ft | Attack: %.1f" % [distance,attack]
