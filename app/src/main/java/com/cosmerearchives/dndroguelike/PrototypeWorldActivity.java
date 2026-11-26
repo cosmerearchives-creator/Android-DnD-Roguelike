@@ -235,13 +235,13 @@ public final class PrototypeWorldActivity extends Activity {
         private boolean dummyLocked, attackDummy, autoAttack, autoLock;
         private final RectF jumpHud=new RectF(), crouchHud=new RectF(), secondaryHud=new RectF(), inventoryHud=new RectF(), pauseHud=new RectF();
         private float zoom = 1f;
-        private int zoomFeet;
+        private int zoomFeet=25;
         private final java.util.HashMap<Long,Senses.Sight> wideFog=new java.util.HashMap<>();
         private int renderRadius(){if(zoomFeet==0)return VISIBLE_RADIUS;float reachX=getWidth()*.5f/(zoom*HALF_W),reachY=getHeight()*.56f/(zoom*HALF_H);return Math.max(VISIBLE_RADIUS,(int)Math.ceil((reachX+reachY)*.5f)+4);}
         private void showWorldMenu(){
             releaseStick();
-            new android.app.AlertDialog.Builder(getContext()).setTitle("Menu").setItems(new String[]{(zoomFeet==0?"✓ ":"")+"Zoom: Normal",(zoomFeet==100?"✓ ":"")+"Zoom: 100 ft",(zoomFeet==200?"✓ ":"")+"Zoom: 200 ft","Return to main menu","Cancel"},(dialog,which)->{
-                if(which<3){zoomFeet=which==0?0:which==1?100:200;wideFog.clear();invalidate();}
+            new android.app.AlertDialog.Builder(getContext()).setTitle("Menu").setItems(new String[]{(zoomFeet==25?"✓ ":"")+"Zoom: 25 ft",(zoomFeet==50?"✓ ":"")+"Zoom: 50 ft",(zoomFeet==75?"✓ ":"")+"Zoom: 75 ft","Return to main menu","Cancel"},(dialog,which)->{
+                if(which<3){zoomFeet=which==0?25:which==1?50:75;wideFog.clear();invalidate();}
                 else if(which==3){save();getContext().startActivity(new Intent(getContext(),MainActivity.class));((Activity)getContext()).finish();}
             }).show();
         }
