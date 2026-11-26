@@ -2,7 +2,7 @@ extends VBoxContainer
 
 const REPO := "https://github.com/cosmerearchives-creator/Android-DnD-Roguelike"
 const LATEST_MANIFEST := REPO + "/releases/latest/download/update.json"
-const HEADERS := ["Accept: application/vnd.github+json", "Cache-Control: no-cache", "User-Agent: ForestsOfHell-Android-Updater"]
+const HEADERS := ["Accept: application/json", "Cache-Control: no-cache", "User-Agent: ForestsOfHell-Android-Updater"]
 var status := Label.new()
 var check := Button.new()
 var download := Button.new()
@@ -49,9 +49,9 @@ func _ready() -> void:
 		poll.start()
 
 func _check() -> void:
-	verified = false
+	if request.get_http_client_status() != HTTPClient.STATUS_DISCONNECTED: return
 	check.disabled = true
-	download.hide()
+	if not verified: download.hide()
 	status.text = "Checking for updates…"
 	if request.request(LATEST_MANIFEST, HEADERS) != OK:
 		_finish("Couldn't start the update check.")
