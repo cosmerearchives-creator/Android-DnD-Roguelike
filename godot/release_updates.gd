@@ -11,6 +11,11 @@ var download_url := ""
 var release_tag := ""
 var installed_code := 0
 var fetching_manifest := false
+var transfer := HTTPRequest.new()
+var expected_hash := ""
+var apk_path := "user://update.apk"
+var verified := false
+var poll := Timer.new()
 
 func _ready() -> void:
 	add_child(status)
@@ -18,7 +23,7 @@ func _ready() -> void:
 	check.pressed.connect(_check)
 	add_child(check)
 	download.hide()
-	download.pressed.connect(func(): OS.shell_open(download_url))
+	download.pressed.connect(_install)
 	add_child(download)
 	var history := Button.new()
 	history.text = "Previous releases / rollback"
@@ -28,14 +33,24 @@ func _ready() -> void:
 	request.body_size_limit = 1024 * 1024
 	request.request_completed.connect(_received)
 	add_child(request)
+	transfer.use_threads = true
+	transfer.timeout = 600
+	transfer.request_completed.connect(_downloaded)
+	add_child(transfer)
+	poll.wait_time = 300
+	poll.timeout.connect(func():
+		if not check.disabled and not verified: _check())
+	add_child(poll)
 	if FileAccess.file_exists("res://release-version.json"):
 		var build: Variant = JSON.parse_string(FileAccess.get_file_as_string("res://release-version.json"))
 		if build is Dictionary:
 			installed_code = int(build.get("versionCode", 0))
 	if OS.has_feature("android") and installed_code > 0:
 		_check()
+		poll.start()
 
 func _check() -> void:
+	verified = false
 	check.disabled = true
 	download.hide()
 	status.text = "Checking for updates…"
@@ -57,9 +72,17 @@ func _received(result: int, response: int, _headers: PackedStringArray, body: Pa
 		if data.get("versionName") != release_tag.substr(1) or data.get("apkUrl") != download_url or code <= 0:
 			_finish("Release information could not be verified.")
 		elif code > installed_code:
-			download.text = "Download " + release_tag
-			download.show()
-			_finish("Update available")
+			expected_hash = str(data.get("sha256", "")).to_lower()
+			if expected_hash.length() != 64:
+				_finish("Missing update checksum.")
+				return
+			if FileAccess.file_exists(apk_path) and FileAccess.get_sha256(apk_path) == expected_hash:
+				_ready_to_install()
+				return
+			status.text = "Downloading " + release_tag + "…"
+			transfer.download_file = apk_path
+			if transfer.request(download_url) != OK:
+				_finish("Couldn't start download.")
 		else:
 			_finish("You're up to date.")
 		return
@@ -85,6 +108,25 @@ func _received(result: int, response: int, _headers: PackedStringArray, body: Pa
 	fetching_manifest = true
 	if request.request(manifest) != OK:
 		_finish("Couldn't read release information.")
+
+func _downloaded(result: int, response: int, _headers: PackedStringArray, _body: PackedByteArray) -> void:
+	if result != HTTPRequest.RESULT_SUCCESS or response != 200 or FileAccess.get_sha256(apk_path) != expected_hash:
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(apk_path))
+		_finish("Update download failed verification. Retry check.")
+		return
+	_ready_to_install()
+
+func _ready_to_install() -> void:
+	verified = true
+	download.text = "Install " + release_tag
+	download.show()
+	_finish("Update ready to install")
+
+func _install() -> void:
+	if not verified: return
+	if OS.shell_open(ProjectSettings.globalize_path(apk_path)) != OK:
+		status.text = "Installer unavailable. Opening official APK."
+		OS.shell_open(download_url)
 
 func _explain_rollback() -> void:
 	var dialog := ConfirmationDialog.new()
