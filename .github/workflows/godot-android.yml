@@ -25,7 +25,7 @@ jobs:
       - name: Install Godot and Blender
         run: |
           sudo apt-get update
-          sudo apt-get install -y blender libegl1
+          sudo apt-get install -y blender libegl1 python3-numpy
           V=4.4.1
           BASE=https://github.com/godotengine/godot-builds/releases/download/$V-stable
           wget -q "$BASE/Godot_v$V-stable_linux.x86_64.zip"
