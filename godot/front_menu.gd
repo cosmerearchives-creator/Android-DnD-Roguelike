@@ -56,6 +56,7 @@ func main_menu():
 	if profile.has_section("hero"):
 		button("Continue",enter_world)
 	button("New Game",creator)
+	button("Bestiary",func(): get_tree().change_scene_to_file("res://bestiary.tscn"))
 	button("Settings & Updates",settings)
 func settings():
 	clear()
