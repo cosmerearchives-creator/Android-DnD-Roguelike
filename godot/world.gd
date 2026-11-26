@@ -11,6 +11,10 @@ var yaw := 0.0
 var camera_angle := 60.0
 var angle_button: Button
 var model_index := 0
+var animation_clock := 0.0
+var punch_left := 0.0
+var current_pose := ""
+var pose_cache := {}
 var model_button: Button
 const MODELS = ["classic_study", "petite_pale", "classic_male", "petite_male"]
 const MODEL_NAMES = ["Classic Ranger", "Petite Scout", "Classic Male", "Petite Male"]
@@ -159,6 +163,20 @@ void fragment() {
 	hint.text = "Drag here to move"
 	hint.position = Vector2(30,1130)
 	ui.add_child(hint)
+func show_pose(asset: String):
+	if asset == current_pose: return
+	var path := "res://assets/%s.glb" % asset
+	if not ResourceLoader.exists(path): return
+	if not pose_cache.has(asset):
+		pose_cache[asset] = load(path)
+	var visual := (pose_cache[asset] as PackedScene).instantiate()
+	var old := player.get_node_or_null("CharacterVisual")
+	if old != null:
+		player.remove_child(old)
+		old.queue_free()
+	visual.name = "CharacterVisual"
+	player.add_child(visual)
+	current_pose = asset
 func cycle_model():
 	var next_index := (model_index + 1) % MODELS.size()
 	var asset := "res://assets/%s.glb" % MODELS[next_index]
@@ -171,6 +189,7 @@ func cycle_model():
 	visual.name = "CharacterVisual"
 	player.add_child(visual)
 	model_index = next_index
+	current_pose = MODELS[model_index]
 	model_button.text = MODEL_NAMES[model_index]
 func toggle_angle():
 	camera_angle = 75.0 if camera_angle == 60.0 else 60.0
@@ -180,6 +199,7 @@ func action(title: String):
 	elif title == "Turn": yaw += PI/4
 	elif attack <= 0:
 		attack = 6
+		punch_left = 0.5
 		if is_instance_valid(goblin) and player.position.distance_to(goblin.position) <= 5*FOOT:
 			goblin.queue_free()
 func _input(event):
@@ -197,6 +217,17 @@ func _physics_process(dt):
 	player.velocity = direction * (30*FOOT/6) * (2 if running else 1)
 	player.move_and_slide()
 	if direction.length() > 0.1: player.rotation.y = atan2(-direction.x,-direction.z)
+	var base: String = MODELS[model_index]
+	if punch_left > 0.0:
+		var frame := clampi(int((0.5-punch_left)*10.0),0,4)
+		show_pose("%s_punch_%d" % [base,frame])
+		punch_left = maxf(0.0,punch_left-dt)
+	elif direction.length() > 0.1:
+		animation_clock += dt * (2.0 if running else 1.0)
+		show_pose("%s_walk_%d" % [base,int(animation_clock*10.0)%8])
+	else:
+		animation_clock = 0.0
+		show_pose(base)
 	var pitch := deg_to_rad(camera_angle)
 	camera.position = player.position + Vector3(0,20*sin(pitch),20*cos(pitch)).rotated(Vector3.UP,yaw)
 	camera.rotation = Vector3(-pitch, yaw, 0)
