@@ -13,7 +13,7 @@ permissions:
   contents: write
 concurrency:
   group: godot-android
-  cancel-in-progress: false
+  cancel-in-progress: true
 jobs:
   build:
     if: github.ref == 'refs/heads/main'
@@ -29,15 +29,16 @@ jobs:
           packages: 'platform-tools platforms;android-35 build-tools;35.0.0'
           log-accepted-android-sdk-licenses: false
       - name: Install Godot and Blender
+        timeout-minutes: 8
         run: |
-          sudo apt-get update
-          sudo apt-get install -y blender libegl1 python3-numpy
+          sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=30 update
+          sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=30 install -y blender libegl1 python3-numpy
           V=4.4.1
           BASE=https://github.com/godotengine/godot-builds/releases/download/$V-stable
-          wget -q "$BASE/Godot_v$V-stable_linux.x86_64.zip"
+          wget --timeout=45 --tries=3 --no-verbose "$BASE/Godot_v$V-stable_linux.x86_64.zip"
           unzip -q Godot_v$V-stable_linux.x86_64.zip
           sudo mv Godot_v$V-stable_linux.x86_64 /usr/local/bin/godot
-          wget -q "$BASE/Godot_v$V-stable_export_templates.tpz"
+          wget --timeout=45 --tries=3 --no-verbose "$BASE/Godot_v$V-stable_export_templates.tpz"
           unzip -q Godot_v$V-stable_export_templates.tpz
           mkdir -p ~/.local/share/godot/export_templates
           mv templates ~/.local/share/godot/export_templates/$V.stable
