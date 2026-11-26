@@ -5,6 +5,7 @@ import java.util.Random;
 final class Senses {
     static final float FEET_PER_TILE = 5f;
     static final float RANGE_SCALE = .1f;
+    static final float COMBAT_RANGE_SCALE = .2f;
     static final float DEFAULT_SIGHT = 300f * RANGE_SCALE;
     static final float SNEAK_MULTIPLIER = 2f / 3f;
     static final float[] FOOTSTEP_FEET = {5f, 15f, 30f};
