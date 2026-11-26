@@ -5,8 +5,7 @@ on:
     paths: ['godot/**', '.github/workflows/godot-android.yml', 'blender/create_character.py', 'version.properties', 'scripts/prepare-release.py']
   workflow_dispatch:
     inputs:
-      build:
-    if: github.ref == 'refs/heads/main'
+      publish:
         description: Publish the verified Godot build as the latest stable release
         type: boolean
         default: false
@@ -99,12 +98,13 @@ jobs:
             dist/Android-DnD-Roguelike.apk
             dist/update.json
       - name: Publish stable release
-        if: github.event_name == 'workflow_dispatch' && inputs.publish
+        if: github.event_name == 'push' || inputs.publish
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           tag="v$(sed -n 's/^versionName=//p' version.properties)"
+          if [[ "$GITHUB_EVENT_NAME" == push && "$tag" != v0.3.144 ]]; then exit 0; fi
           if gh release view "$tag" >/dev/null 2>&1; then
             echo "Release $tag already exists."
             exit 0
