@@ -236,11 +236,12 @@ public final class PrototypeWorldActivity extends Activity {
         private final RectF jumpHud=new RectF(), crouchHud=new RectF(), secondaryHud=new RectF(), inventoryHud=new RectF(), pauseHud=new RectF();
         private float zoom = 1f;
         private int zoomFeet;
-        private int renderRadius(){return zoomFeet>0?Math.max(VISIBLE_RADIUS,(int)Math.ceil(zoomFeet/Senses.FEET_PER_TILE)+2):VISIBLE_RADIUS;}
+        private final java.util.HashMap<Long,Senses.Sight> wideFog=new java.util.HashMap<>();
+        private int renderRadius(){if(zoomFeet==0)return VISIBLE_RADIUS;float reachX=getWidth()*.5f/(zoom*HALF_W),reachY=getHeight()*.56f/(zoom*HALF_H);return Math.max(VISIBLE_RADIUS,(int)Math.ceil((reachX+reachY)*.5f)+4);}
         private void showWorldMenu(){
             releaseStick();
             new android.app.AlertDialog.Builder(getContext()).setTitle("Menu").setItems(new String[]{(zoomFeet==0?"✓ ":"")+"Zoom: Normal",(zoomFeet==100?"✓ ":"")+"Zoom: 100 ft",(zoomFeet==200?"✓ ":"")+"Zoom: 200 ft","Return to main menu","Cancel"},(dialog,which)->{
-                if(which<3){zoomFeet=which==0?0:which==1?100:200;invalidate();}
+                if(which<3){zoomFeet=which==0?0:which==1?100:200;wideFog.clear();invalidate();}
                 else if(which==3){save();getContext().startActivity(new Intent(getContext(),MainActivity.class));((Activity)getContext()).finish();}
             }).show();
         }
@@ -808,7 +809,7 @@ public final class PrototypeWorldActivity extends Activity {
             }
             if(!inTown()) surveyDistantTerrain();
             if(!Float.isNaN(fogX) && squaredDistance(x,y,fogX,fogY)<.18f*.18f) return;
-            fogX=x;fogY=y;
+            wideFog.clear();fogX=x;fogY=y;
             fogOriginX=(int)Math.floor(x)-FOG_RADIUS;
             fogOriginY=(int)Math.floor(y)-FOG_RADIUS;
             for(int ix=0;ix<FOG_SIZE;ix++) for(int iy=0;iy<FOG_SIZE;iy++){
@@ -835,7 +836,12 @@ public final class PrototypeWorldActivity extends Activity {
         }
         private Senses.Sight fogSight(int tx,int ty) {
             int ix=tx-fogOriginX,iy=ty-fogOriginY;
-            return ix<0||iy<0||ix>=FOG_SIZE||iy>=FOG_SIZE?Senses.Sight.NONE:fog[iy*FOG_SIZE+ix];
+            if(ix>=0&&iy>=0&&ix<FOG_SIZE&&iy<FOG_SIZE)return fog[iy*FOG_SIZE+ix];
+            if(zoomFeet==0||inTown()||Senses.distanceFeet(x,y,tx+.5f,ty+.5f)>Senses.DEFAULT_SIGHT)return Senses.Sight.NONE;
+            long key=((long)tx<<32)^(ty&0xffffffffL);
+            Senses.Sight cached=wideFog.get(key);if(cached!=null)return cached;
+            Senses.Sight sight=sightAt(tx+.5f,ty+.5f,true);wideFog.put(key,sight);
+            if(sight!=Senses.Sight.NONE)exploration.discover(tx,ty);return sight;
         }
         private int fogShade(int tx,int ty) {
             if(fogSight(tx,ty)!=Senses.Sight.NONE) return 0;
