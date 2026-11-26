@@ -124,9 +124,37 @@ func _ready_to_install() -> void:
 
 func _install() -> void:
 	if not verified: return
-	if OS.shell_open(ProjectSettings.globalize_path(apk_path)) != OK:
-		status.text = "Installer unavailable. Opening official APK."
+	if FileAccess.get_sha256(apk_path) != expected_hash:
+		_finish("Update checksum changed. Check again.")
+		return
+	if not Engine.has_singleton("AndroidRuntime"):
 		OS.shell_open(download_url)
+		return
+	var runtime = Engine.get_singleton("AndroidRuntime")
+	var activity = runtime.getActivity()
+	if activity == null:
+		_finish("Android installer unavailable.")
+		return
+	var intent_class = JavaClassWrapper.wrap("android.content.Intent")
+	var uri_class = JavaClassWrapper.wrap("android.net.Uri")
+	var provider = JavaClassWrapper.wrap("androidx.core.content.FileProvider")
+	var file_class = JavaClassWrapper.wrap("java.io.File")
+	var package_name: String = activity.getPackageName()
+	if not activity.getPackageManager().canRequestPackageInstalls():
+		var settings = intent_class.new("android.settings.MANAGE_UNKNOWN_APP_SOURCES", uri_class.parse("package:" + package_name))
+		activity.startActivity(settings)
+		_finish("Allow installs from this app, then tap Install again.")
+		return
+	var file = file_class.new(ProjectSettings.globalize_path(apk_path))
+	var uri = provider.getUriForFile(activity, package_name + ".fileprovider", file)
+	if uri == null:
+		_finish("Could not share APK with Android installer.")
+		return
+	var intent = intent_class.new("android.intent.action.VIEW")
+	intent.setDataAndType(uri, "application/vnd.android.package-archive")
+	intent.addFlags(1)
+	activity.startActivity(intent)
+	_finish("Android installation requested.")
 
 func _explain_rollback() -> void:
 	var dialog := ConfirmationDialog.new()
