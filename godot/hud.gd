@@ -7,12 +7,14 @@ const TEAL = Color("#0b292e")
 var stick := Vector2.ZERO
 var finger := -1
 var toggles := {}
-var font: Font = preload("res://hud_serif.ttf")
+var font: Font = ThemeDB.fallback_font
 var hud_text := "FORESTS OF HELL"
 var buttons := {}
 func _ready():
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	set_process_input(true)
+	var bundled := load("res://hud_serif.ttf") as Font
+	if bundled != null: font = bundled
 func plate(r: Rect2, cut: float, active: bool = false):
 	var p := r.position
 	var e := r.end
@@ -74,7 +76,6 @@ func _draw():
 		for i in range(3):
 			var t := Vector2(360+side*(88+i*18),y-3)
 			draw_colored_polygon(PackedVector2Array([t+Vector2(-10,0),t+Vector2(0,-20-i%2*5),t+Vector2(10,0)]),Color("#42665c"))
-		draw_line(Vector2(360,y-15-d),Vector2(360+d,y-26-d),GOLD,1.5,true)
 	var center := Vector2(145,y+135)
 	draw_arc(center,106,0,TAU,80,GOLD,2,true)
 	draw_arc(center,98,0,TAU,80,GOLD,1,true)
