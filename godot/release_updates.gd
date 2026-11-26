@@ -137,24 +137,22 @@ func _install() -> void:
 		return
 	var intent_class = JavaClassWrapper.wrap("android.content.Intent")
 	var uri_class = JavaClassWrapper.wrap("android.net.Uri")
-	var provider = JavaClassWrapper.wrap("androidx.core.content.FileProvider")
-	var file_class = JavaClassWrapper.wrap("java.io.File")
 	var package_name: String = activity.getPackageName()
 	if not activity.getPackageManager().canRequestPackageInstalls():
 		var settings = intent_class.new("android.settings.MANAGE_UNKNOWN_APP_SOURCES", uri_class.parse("package:" + package_name))
 		activity.startActivity(settings)
 		_finish("Allow installs from this app, then tap Install again.")
 		return
-	var file = file_class.new(ProjectSettings.globalize_path(apk_path))
-	var uri = provider.getUriForFile(activity, package_name + ".fileprovider", file)
+	var uri = uri_class.parse("content://" + package_name + ".fileprovider/filesRoot/update.apk")
 	if uri == null:
 		_finish("Could not share APK with Android installer.")
 		return
-	var intent = intent_class.new("android.intent.action.VIEW")
+	var intent = intent_class.new("android.intent.action.INSTALL_PACKAGE")
 	intent.setDataAndType(uri, "application/vnd.android.package-archive")
 	intent.addFlags(1)
+	intent.addFlags(268435456)
+	_finish("Opening Android installer…")
 	activity.startActivity(intent)
-	_finish("Android installation requested.")
 
 func _explain_rollback() -> void:
 	var dialog := ConfirmationDialog.new()
