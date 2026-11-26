@@ -235,13 +235,13 @@ public final class PrototypeWorldActivity extends Activity {
         private boolean dummyLocked, attackDummy, autoAttack, autoLock;
         private final RectF jumpHud=new RectF(), crouchHud=new RectF(), secondaryHud=new RectF(), inventoryHud=new RectF(), pauseHud=new RectF();
         private float zoom = 1f;
-        private boolean wideZoom;
-        private int renderRadius(){return wideZoom?Math.max(VISIBLE_RADIUS,SIGHT_TILES+2):VISIBLE_RADIUS;}
+        private int zoomFeet;
+        private int renderRadius(){return zoomFeet>0?Math.max(VISIBLE_RADIUS,(int)Math.ceil(zoomFeet/Senses.FEET_PER_TILE)+2):VISIBLE_RADIUS;}
         private void showWorldMenu(){
             releaseStick();
-            new android.app.AlertDialog.Builder(getContext()).setTitle("Menu").setItems(new String[]{wideZoom?"Zoom: Wide (300 ft) — switch to Normal":"Zoom: Normal — switch to Wide (300 ft)","Return to main menu","Cancel"},(dialog,which)->{
-                if(which==0){wideZoom=!wideZoom;invalidate();}
-                else if(which==1){save();getContext().startActivity(new Intent(getContext(),MainActivity.class));((Activity)getContext()).finish();}
+            new android.app.AlertDialog.Builder(getContext()).setTitle("Menu").setItems(new String[]{(zoomFeet==0?"✓ ":"")+"Zoom: Normal",(zoomFeet==300?"✓ ":"")+"Zoom: 300 ft",(zoomFeet==500?"✓ ":"")+"Zoom: 500 ft","Return to main menu","Cancel"},(dialog,which)->{
+                if(which<3){zoomFeet=which==0?0:which==1?300:500;invalidate();}
+                else if(which==3){save();getContext().startActivity(new Intent(getContext(),MainActivity.class));((Activity)getContext()).finish();}
             }).show();
         }
 
@@ -1641,7 +1641,7 @@ public final class PrototypeWorldActivity extends Activity {
             if(inventoryOpen){drawInventory(c);postInvalidateOnAnimation();return;}
             float centerX=getWidth()*.5f,centerY=getHeight()*.44f;
             zoom=Math.max(.65f,Math.min(1.15f,getWidth()/768f));
-            if(wideZoom){float reach=Senses.DEFAULT_SIGHT/Senses.FEET_PER_TILE;zoom=Math.min(getWidth()*.48f/(reach*HALF_W*(float)Math.sqrt(2)),getHeight()*.23f/(reach*HALF_H*(float)Math.sqrt(2)));}
+            if(zoomFeet>0){float reach=zoomFeet/Senses.FEET_PER_TILE;zoom=Math.min(getWidth()*.48f/(reach*HALF_W*(float)Math.sqrt(2)),getHeight()*.23f/(reach*HALF_H*(float)Math.sqrt(2)));}
             c.save();c.translate(centerX,centerY);c.scale(zoom,zoom);
             int cx=(int)Math.floor(cameraX),cy=(int)Math.floor(cameraY);
             if (inTown()) town.ground(c,cameraX,cameraY,townFog,townLighting,this::fogSight,showTileGrid);
