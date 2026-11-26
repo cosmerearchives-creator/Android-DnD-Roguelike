@@ -1,0 +1,56 @@
+name: Godot Android prototype
+on:
+  push:
+    branches: [main]
+    paths: ['godot/**', '.github/workflows/godot-android.yml', 'blender/create_character.py']
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: godot-android
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - name: Install Godot and Blender
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y blender libegl1
+          V=4.4.1
+          BASE=https://github.com/godotengine/godot-builds/releases/download/$V-stable
+          wget -q "$BASE/Godot_v$V-stable_linux.x86_64.zip"
+          unzip -q Godot_v$V-stable_linux.x86_64.zip
+          sudo mv Godot_v$V-stable_linux.x86_64 /usr/local/bin/godot
+          wget -q "$BASE/Godot_v$V-stable_export_templates.tpz"
+          unzip -q Godot_v$V-stable_export_templates.tpz
+          mkdir -p ~/.local/share/godot/export_templates
+          mv templates ~/.local/share/godot/export_templates/$V.stable
+      - name: Export models
+        run: |
+          blender -b -t 2 --python-exit-code 1 --python godot/export_models.py
+          test -s godot/assets/classic_study.glb
+          test -s godot/assets/dagger_goblin.glb
+          rm -f godot/assets/*.blend*
+      - name: Configure Android signing
+        run: |
+          mkdir -p ~/.config/godot ~/.android dist
+          keytool -genkeypair -keystore ~/.android/debug.keystore -storepass android -keypass android -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug"
+          printf '[gd_resource type="EditorSettings" format=3]\n[resource]\nexport/android/java_sdk_path = "%s"\nexport/android/android_sdk_path = "%s"\nexport/android/debug_keystore = "%s/.android/debug.keystore"\n' "$JAVA_HOME" "$ANDROID_HOME" "$HOME" > ~/.config/godot/editor_settings-4.4.tres
+      - name: Import and export
+        run: |
+          godot --headless --path godot --editor --import
+          godot --headless --path godot --export-debug Android ../dist/Forests-of-Hell-3D.apk
+          test -s dist/Forests-of-Hell-3D.apk
+      - name: Publish prototype
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="3d-prototype-${GITHUB_RUN_NUMBER}"
+          gh release create "$TAG" dist/Forests-of-Hell-3D.apk --target "$GITHUB_SHA" --title "Forests of Hell 3D prototype ${GITHUB_RUN_NUMBER}" --notes "Separate experimental Android app; existing game remains installed." --prerelease --latest=false
