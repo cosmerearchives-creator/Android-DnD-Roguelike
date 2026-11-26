@@ -129,21 +129,24 @@ func _install() -> void:
 		activity.startActivity(settings)
 		_finish("Allow installs from this app, then tap Install again.")
 		return
-	# The actual user:// location includes Godot's app_userdata subdirectory.
-	# FileProvider must calculate the content URI from the real file path.
-	var provider = JavaClassWrapper.wrap("androidx.core.content.FileProvider")
-	var file_class = JavaClassWrapper.wrap("java.io.File")
-	var file = file_class.new(ProjectSettings.globalize_path(apk_path))
-	var uri = provider.getUriForFile(activity, package_name + ".fileprovider", file)
-	if uri == null:
-		_finish("Could not share APK with Android installer.")
+	# Godot's native Android openURI implementation creates the content URI,
+	# resolves the APK MIME type and grants the installer read permission.
+	# Avoid invoking FileProvider's static Java method through reflection.
+	var absolute_path := ProjectSettings.globalize_path(apk_path)
+	var error := OS.shell_open(absolute_path)
+	if error == OK:
+		_finish("Opening Android installer…")
 		return
-	var intent = intent_class.new("android.intent.action.INSTALL_PACKAGE")
-	intent.setDataAndType(uri, "application/vnd.android.package-archive")
-	intent.addFlags(1)
-	intent.addFlags(268435456)
-	_finish("Opening Android installer…")
-	activity.startActivity(intent)
+	# Keep the verified APK and provide an explicit official-download fallback.
+	var dialog := ConfirmationDialog.new()
+	dialog.title = "Installer could not open"
+	dialog.dialog_text = "Android installer handoff failed (error %d). Open the official APK download in your browser?" % error
+	dialog.confirmed.connect(func(): OS.shell_open(download_url))
+	dialog.confirmed.connect(dialog.queue_free)
+	dialog.canceled.connect(dialog.queue_free)
+	add_child(dialog)
+	dialog.popup_centered()
+	_finish("Installer handoff failed. You can retry or download in your browser.")
 
 func _explain_rollback() -> void:
 	var dialog := ConfirmationDialog.new()
