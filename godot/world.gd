@@ -55,7 +55,8 @@ func highest_mesh(node: Node3D, relative: Transform3D) -> float:
 		if child is Node3D: high = maxf(high,highest_mesh(child,transform))
 	return high
 func fit_katie_visual(model: Node3D):
-	# Blender scenes use varying scales; normalize Katie to a 1.7-metre hero.
+	# Converted Katie is a complete ~2.18m Z-up model; Godot import rotates Z to Y.
+	# Scale to the existing 1.7m capsule and anchor feet on the collision floor.
 	var bottom := lowest_mesh(model,Transform3D.IDENTITY)
 	var top := highest_mesh(model,Transform3D.IDENTITY)
 	if is_finite(bottom) and is_finite(top) and top > bottom + 0.01:
@@ -232,7 +233,8 @@ func show_pose(asset: String):
 		old.queue_free()
 	visual.name = "CharacterVisual"
 	player.add_child(visual)
-	ground_visual(visual)
+	if asset.begins_with("katie"): fit_katie_visual(visual)
+	else: ground_visual(visual)
 	current_pose = asset
 func find_imported_animator(node: Node) -> AnimationPlayer:
 	if node is AnimationPlayer: return node as AnimationPlayer
@@ -300,12 +302,7 @@ func _physics_process(dt):
 		goblin.move_and_slide()
 	if direction.length() > 0.1: player.rotation.y = atan2(direction.x,direction.z)
 	var base: String = MODELS[model_index]
-	if base == "katie":
-		# Imported rigged model: use embedded actions rather than separate frame meshes.
-		var state := "attack" if punch_left > 0.0 else ("walk" if direction.length() > 0.1 else "idle")
-		play_imported_animation(state)
-		punch_left = maxf(0.0,punch_left-dt)
-	elif punch_left > 0.0:
+	if punch_left > 0.0:
 		var frame := clampi(int((0.5-punch_left)*10.0),0,4)
 		show_pose("%s_punch_%d" % [base,frame])
 		punch_left = maxf(0.0,punch_left-dt)

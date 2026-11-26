@@ -10,3 +10,4 @@ SIGNING_KEYSTORE_BASE64.txt
 **/.godot/
 *.uid
 *.import
+blender/__pycache__/

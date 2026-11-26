@@ -1,21 +1,23 @@
-# Katie character import (Android / Godot)
+# Katie character import (Godot Android)
 
-Source: **Katie - Version 2.01.zip**, containing **Katie-Project-Red-4K.blend** (Blender 2.76). The file is not included in the repository until converted and visually verified.
+The source archive `Katie - Version 2.01.zip` was retrieved from the user's Google Drive as `Katie-drive.zip` on Stormfather. It contains `Katie-Project-Red-4K.blend` (Blender 2.76) and Blend Swap license information. The original is only a face and bust with a six-bone portrait rig, not a full-body gameplay character.
 
-## Local conversion on Stormfather
+## Completed conversion
 
-1. Copy the supplied ZIP from ChatGPT to `%USERPROFILE%\Downloads\Katie - Version 2.01.zip` on Stormfather.
-2. Double-click `Import Katie.cmd` in this repository's root.
-3. Inspect the summary for mesh counts, missing textures, and exported file size.
-4. After verifying how the character appears in Godot, commit `godot/assets/katie.glb` to `main`, bump `version.properties`, and publish with the existing signed Android pipeline.
+`blender/build_katie.py` reuses the existing Forests of Hell Petite Scout full-body meshes and deterministic walk/punch deformation. It imports and scales Katie's original face, eyes, brows, lashes and scalp; replaces Blender particle hair with mesh strands; resizes embedded maps to 1024 pixels; and produces 14 complete GLB frames (idle, 8 walk, 5 punch). The optimized model uses the game's existing collision capsule and model selector. Godot does not need a full-body armature because it swaps pre-baked GLB pose frames, matching the other game characters.
 
-For inspection only:
-`blender --background --python blender/import_katie.py -- "C:\path\Katie - Version 2.01.zip" --inspect`
+To regenerate on Stormfather, run `Import Katie.cmd`. It accepts either `%USERPROFILE%\Downloads\Katie-drive.zip` or `%USERPROFILE%\Downloads\Katie - Version 2.01.zip`. Alternatively:
 
-Export defaults: at most 65,000 triangles per mesh; textures capped at 1024 pixels per largest side; selected visible meshes and armatures; embedded glTF rig actions preserved when present. The source is a legacy .blend; old particle hair and unsupported materials may require additional cleanup after inspection. Keep separate base and adjusted source files; do not overwrite the ZIP.
+```
+blender -b -t 2 --python-exit-code 1 --python blender/build_katie.py -- "C:/path/Katie-drive.zip"
+```
 
-The in-game model selector exposes Katie **only when** the exported `godot/assets/katie.glb` exists. The imported model is normalized to approximately 1.7 m tall and grounded at its lowest geometry. Walk/idle/attack clips are used by name if present; rigging/animations not supplied by the model must be created separately.
+`godot/assets/katie.glb`, `godot/assets/katie_walk_0.glb` through `_7`, and `godot/assets/katie_punch_0.glb` through `_4` are committed to `main`. Original full-size ZIP and Blender file remain on the user's computer and are not shipped in the APK or Git repository.
 
-## Attribution
+### QA checks
 
-The source archive includes Blend Swap asset #69006, released under Creative Commons Attribution 3.0 (CC BY 3.0). Its included credit file attributes the blend files to **Rick Savage**. Attribution must be retained in distributed game credits. The original license is provided in the user's source ZIP and can be found at https://creativecommons.org/licenses/by/3.0/.
+- Verify all 14 GLB assets import, textures render, pose changes animate, feet remain on ground, and existing playable models remain selectable.
+- Confirm the APK publishes from the existing production-signed Android CI and its updater receives the new version.
+- This is a reconstructed full-body hybrid, not the original artist's intended complete body or rig. Refining proportions, clothing and hair aesthetics can follow user visual feedback.
+
+Attribution and license: `docs/KATIE_ASSET_ATTRIBUTION.md`.
