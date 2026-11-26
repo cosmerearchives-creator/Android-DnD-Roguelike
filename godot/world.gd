@@ -19,6 +19,8 @@ var model_button: Button
 const MODELS = ["classic_study", "petite_pale", "classic_male", "petite_male"]
 const MODEL_NAMES = ["Classic Ranger", "Petite Scout", "Classic Male", "Petite Male"]
 var status: Label
+var hud: Control
+var menu_panel: PanelContainer
 var rng := RandomNumberGenerator.new()
 func mesh_at(parent: Node3D, mesh: Mesh, pos: Vector3, color: Color) -> MeshInstance3D:
 	var m := MeshInstance3D.new()
@@ -134,62 +136,52 @@ void fragment() {
 	camera.far = 300 * FOOT
 	var ui := CanvasLayer.new()
 	add_child(ui)
-	status = Label.new()
-	status.position = Vector2(20,30)
-	ui.add_child(status)
+	hud = preload("res://hud.gd").new()
+	ui.add_child(hud)
+	hud.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	hud.movement.connect(func(value): stick = value)
+	hud.command.connect(hud_action)
+	menu_panel = PanelContainer.new()
+	menu_panel.position = Vector2(170,120)
+	menu_panel.custom_minimum_size = Vector2(380,0)
+	ui.add_child(menu_panel)
+	var menu := VBoxContainer.new()
+	menu_panel.add_child(menu)
 	var releases := preload("res://release_updates.gd").new()
-	releases.position = Vector2(20,110)
-	ui.add_child(releases)
+	menu.add_child(releases)
 	angle_button = Button.new()
 	angle_button.text = "Camera: 60°"
-	angle_button.position = Vector2(500,110)
-	ui.add_child(angle_button)
+	menu.add_child(angle_button)
 	angle_button.pressed.connect(toggle_angle)
 	model_button = Button.new()
 	model_button.text = MODEL_NAMES[0]
-	model_button.position = Vector2(20,190)
-	ui.add_child(model_button)
+	menu.add_child(model_button)
 	model_button.pressed.connect(cycle_model)
-	var panel := Panel.new()
-	panel.position = Vector2(0, 920)
-	panel.size = Vector2(720,360)
-	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color("#e6222925")
-	style.border_color = Color("#a38b58")
-	style.border_width_top = 3
-	panel.add_theme_stylebox_override("panel",style)
-	ui.add_child(panel)
-	var controls := HBoxContainer.new()
-	controls.position = Vector2(365,1080)
-	ui.add_child(controls)
-	for title in ["Run","Attack","Turn"]:
+	for title in ["Run","Turn","Close"]:
 		var button := Button.new()
 		button.text = title
-		button.custom_minimum_size = Vector2(105,100)
-		var button_style := StyleBoxFlat.new()
-		button_style.bg_color = Color("#343b31")
-		button_style.set_border_width_all(2)
-		button_style.border_color = Color("#a38b58")
-		button_style.set_corner_radius_all(12)
-		button.add_theme_stylebox_override("normal",button_style)
-		controls.add_child(button)
-		button.pressed.connect(func(): action(title))
-	var hint := Label.new()
-	hint.text = "Movement"
-	hint.position = Vector2(110,1190)
-	var ring := Panel.new()
-	ring.position = Vector2(65,970)
-	ring.size = Vector2(200,200)
-	ring.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var ring_style := StyleBoxFlat.new()
-	ring_style.bg_color = Color("#44343b31")
-	ring_style.border_color = Color("#a38b58")
-	ring_style.set_border_width_all(3)
-	ring_style.set_corner_radius_all(100)
-	ring.add_theme_stylebox_override("panel",ring_style)
-	ui.add_child(ring)
-	ui.add_child(hint)
+		menu.add_child(button)
+		button.pressed.connect(func():
+			if title == "Close": menu_panel.hide()
+			else: action(title))
+	menu_panel.hide()
+func hud_action(name: String):
+	if menu_panel.visible and name != "Menu": return
+	if name == "Menu":
+		menu_panel.visible = not menu_panel.visible
+		stick = Vector2.ZERO
+	elif name == "Attack": action("Attack")
+	elif name == "Pause":
+		menu_panel.show()
+		stick = Vector2.ZERO
+	else:
+		var notice := AcceptDialog.new()
+		notice.dialog_text = name + " is not yet migrated."
+		hud.add_child(notice)
+		notice.confirmed.connect(notice.queue_free)
+		notice.canceled.connect(notice.queue_free)
+		notice.popup_centered()
+
 func show_pose(asset: String):
 	if asset == current_pose: return
 	var path := "res://assets/%s.glb" % asset
@@ -229,16 +221,6 @@ func action(title: String):
 		punch_left = 0.5
 		if is_instance_valid(goblin) and player.position.distance_to(goblin.position) <= 5*FOOT:
 			goblin.queue_free()
-func _input(event):
-	if event is InputEventScreenTouch:
-		if event.pressed and event.position.x < 350 and event.position.y > 850:
-			touch_id = event.index
-			stick = Vector2.ZERO
-		elif not event.pressed and event.index == touch_id:
-			touch_id = -1
-			stick = Vector2.ZERO
-	elif event is InputEventScreenDrag and event.index == touch_id:
-		stick = (stick + event.relative/80).limit_length()
 func _physics_process(dt):
 	var direction := Vector3(stick.x,0,stick.y).rotated(Vector3.UP,yaw)
 	player.velocity = direction * (30*FOOT/6) * (2 if running else 1)
@@ -260,4 +242,3 @@ func _physics_process(dt):
 	camera.rotation = Vector3(-pitch, yaw, 0)
 	attack = maxf(0,attack-dt)
 	var distance := player.position.distance_to(goblin.position)/FOOT if is_instance_valid(goblin) else 0.0
-	status.text = "FORESTS OF HELL 3D\nGoblin: %.1f ft | Attack: %.1f" % [distance,attack]
