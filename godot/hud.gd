@@ -7,12 +7,11 @@ const TEAL = Color("#0b292e")
 var stick := Vector2.ZERO
 var finger := -1
 var toggles := {}
-var font := SystemFont.new()
+var font: Font = preload("res://hud_serif.ttf")
 var hud_text := "FORESTS OF HELL"
 var buttons := {}
 func _ready():
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
-	font.font_names = PackedStringArray(["Noto Serif", "serif"])
 	set_process_input(true)
 func plate(r: Rect2, cut: float, active: bool = false):
 	var p := r.position
@@ -20,7 +19,9 @@ func plate(r: Rect2, cut: float, active: bool = false):
 	var pts := PackedVector2Array([p+Vector2(cut,0),Vector2(e.x-cut,p.y),Vector2(e.x,p.y+cut),e-Vector2(0,cut),e-Vector2(cut,0),Vector2(p.x+cut,e.y),Vector2(p.x,e.y-cut),p+Vector2(0,cut)])
 	draw_colored_polygon(pts,Color("#364744") if active else TEAL)
 	pts.append(pts[0])
-	draw_polyline(pts,GOLD,3.0 if active else 1.5,true)
+	if active:
+		for w in [12.0,8.0,5.0]: draw_polyline(pts,Color(1.0,0.67,0.24,0.10),w,true)
+	draw_polyline(pts,INK if active else GOLD,3.0 if active else 1.2,true)
 	var inner := r.grow(-5)
 	var q := inner.position
 	var z := inner.end
@@ -30,17 +31,49 @@ func label_at(t: String, r: Rect2, px: int):
 	draw_string(font,Vector2(r.position.x+(r.size.x-font.get_string_size(t,HORIZONTAL_ALIGNMENT_LEFT,-1,px).x)/2,r.position.y+r.size.y/2+px*0.35),t,HORIZONTAL_ALIGNMENT_LEFT,-1,px,INK)
 func diamond(p: Vector2, s: float):
 	draw_colored_polygon(PackedVector2Array([p+Vector2(0,-s),p+Vector2(s,0),p+Vector2(0,s),p+Vector2(-s,0)]),INK)
+func branch(p: Vector2, angle: float, length: float, depth: int, width: float):
+	var end := p+Vector2.from_angle(angle)*length
+	draw_line(p,end,INK,width,true)
+	if depth <= 0: return
+	branch(end,angle-0.52,length*0.67,depth-1,maxf(0.7,width*0.65))
+	branch(end,angle+0.58,length*0.63,depth-1,maxf(0.7,width*0.65))
+func draw_symbol(key: String, p: Vector2):
+	if key == "Jump" or key == "Crouch":
+		var crouch := key == "Crouch"
+		draw_circle(p+Vector2(9,-19),7,INK)
+		var hip := p+Vector2(-5,8 if crouch else 2)
+		draw_line(p+Vector2(4,-10),hip,INK,10,true)
+		draw_polyline(PackedVector2Array([p+Vector2(4,-9),p+Vector2(17,-1),p+Vector2(24,-10)]),INK,5,true)
+		draw_polyline(PackedVector2Array([hip,p+Vector2(13,12),p+Vector2(7,23)]),INK,7,true)
+		draw_polyline(PackedVector2Array([hip,p+Vector2(-17,12),p+Vector2(-24,23 if not crouch else 15)]),INK,7,true)
+	else:
+		for side in ([-1,1] if key == "Attack" else [1]):
+			var d := Vector2(side*0.7,-0.7)
+			var n := Vector2(-d.y,d.x)
+			draw_colored_polygon(PackedVector2Array([p+d*29,p+d*17+n*5,p-d*12+n*5,p-d*12-n*5,p+d*17-n*5]),INK)
+			draw_line(p-d*12+n*11,p-d*12-n*11,INK,4,true)
+			draw_line(p-d*13,p-d*25,INK,5,true)
 func _draw():
 	var h := size.y
-	var y := h-430
-	draw_rect(Rect2(0,y,720,430),TEAL)
-	draw_arc(Vector2(360,y),64,PI,TAU,40,GOLD,2,true)
-	draw_line(Vector2(0,y),Vector2(296,y),GOLD,2,true)
-	draw_line(Vector2(424,y),Vector2(720,y),GOLD,2,true)
-	draw_line(Vector2(360,y-12),Vector2(360,y-48),GOLD,3,true)
-	for i in range(5):
-		var d := float(i+1)*5
-		draw_line(Vector2(360,y-15-d),Vector2(360-d,y-26-d),GOLD,1.5,true)
+	var y := h-460
+	draw_rect(Rect2(0,y,720,460),TEAL)
+	var edge := PackedVector2Array()
+	for x in range(0,721,4):
+		var dx := absf(x-360.0)
+		var lift := 70.0*sqrt(maxf(0.0,1.0-pow(dx/74.0,2.0))) if dx<74 else 0.0
+		lift = maxf(lift,28.0*exp(-pow((dx-100.0)/45.0,2.0)))
+		edge.append(Vector2(x,y-lift))
+	var fill := edge.duplicate()
+	fill.append(Vector2(720,y+2))
+	fill.append(Vector2(0,y+2))
+	draw_colored_polygon(fill,TEAL)
+	draw_polyline(edge,GOLD,2,true)
+	branch(Vector2(360,y-5),-PI/2,27,4,5)
+	for side in [-1,1]:
+		diamond(Vector2(360+side*65,y-8),7)
+		for i in range(3):
+			var t := Vector2(360+side*(88+i*18),y-3)
+			draw_colored_polygon(PackedVector2Array([t+Vector2(-10,0),t+Vector2(0,-20-i%2*5),t+Vector2(10,0)]),Color("#42665c"))
 		draw_line(Vector2(360,y-15-d),Vector2(360+d,y-26-d),GOLD,1.5,true)
 	var center := Vector2(145,y+135)
 	draw_arc(center,106,0,TAU,80,GOLD,2,true)
@@ -52,20 +85,20 @@ func _draw():
 	var glyphs := {"Jump":"↑","Crouch":"↓","Attack":"⚔","Attack Mode":"↔","Inventory":"▣","Pause":"Ⅱ","Lock":"⊕","A":"A","Menu":"≡ Menu"}
 	for key in buttons:
 		var r: Rect2 = buttons[key]
-		plate(r,12,toggles.get(key,false))
+		plate(r,15,toggles.get(key,false) or key == "Attack")
 		if key in ["Jump","Crouch","Attack","Attack Mode"]:
-			label_at(glyphs[key],Rect2(r.position,r.size*Vector2(1,0.55)),36)
+			draw_symbol(key,r.position+Vector2(r.size.x/2,30))
 			label_at(key,Rect2(r.position+Vector2(0,52),Vector2(r.size.x,45)),22)
 		else:
 			label_at(glyphs[key] + ("  "+key if key in ["Inventory","Pause"] else ""),r,24)
 	plate(Rect2(16,16,390,84),12)
-	label_at(hud_text,Rect2(20,18,382,40),22)
+	draw_string(font,Vector2(30,49),hud_text,HORIZONTAL_ALIGNMENT_LEFT,-1,24,INK)
 	draw_line(Vector2(30,58),Vector2(390,58),GOLD,1,true)
-	label_at("HP —   XP —   GOLD —",Rect2(20,60,382,35),20)
+	draw_string(font,Vector2(30,85),"HP —   XP —   GOLD —",HORIZONTAL_ALIGNMENT_LEFT,-1,22,INK)
 	draw_line(Vector2(40,y+275),Vector2(680,y+275),GOLD,1,true)
 	diamond(Vector2(360,y+275),9)
 func _input(event):
-	var center := Vector2(145,size.y-295)
+	var center := Vector2(145,size.y-325)
 	if event is InputEventScreenTouch:
 		if event.pressed:
 			if event.position.distance_to(center)<125:
