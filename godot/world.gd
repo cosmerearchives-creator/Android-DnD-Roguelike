@@ -92,6 +92,9 @@ func _ready():
 	camera = Camera3D.new()
 	add_child(camera)
 	camera.current = true
+	camera.projection = Camera3D.PROJECTION_ORTHOGONAL
+	camera.size = 18.0
+	camera.rotation = Vector3(-PI/2, yaw, 0)
 	camera.far = 300 * FOOT
 	var ui := CanvasLayer.new()
 	add_child(ui)
@@ -136,8 +139,8 @@ func _physics_process(dt):
 	player.velocity = direction * (30*FOOT/6) * (2 if running else 1)
 	player.move_and_slide()
 	if direction.length() > 0.1: player.rotation.y = atan2(-direction.x,-direction.z)
-	camera.position = player.position + Vector3(0,5,8).rotated(Vector3.UP,yaw)
-	camera.look_at(player.position + Vector3(0,1,-3).rotated(Vector3.UP,yaw))
+	camera.position = player.position + Vector3(0,20,0)
+	camera.rotation = Vector3(-PI/2, yaw, 0)
 	attack = maxf(0,attack-dt)
 	var distance := player.position.distance_to(goblin.position)/FOOT if is_instance_valid(goblin) else 0.0
 	status.text = "FORESTS OF HELL 3D\nGoblin: %.1f ft | Attack: %.1f" % [distance,attack]
