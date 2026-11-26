@@ -1,7 +1,7 @@
 extends Control
 var content: VBoxContainer
 var font: Font = preload("res://hud_serif.ttf")
-var chosen := 0
+var chosen := 1
 const MODELS = ["classic_study","petite_pale","classic_male","petite_male"]
 const NAMES = ["Classic Ranger","Petite Scout","Classic Male","Petite Male"]
 var profile := ConfigFile.new()
