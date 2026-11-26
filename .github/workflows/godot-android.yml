@@ -19,6 +19,9 @@ jobs:
           distribution: temurin
           java-version: '17'
       - uses: android-actions/setup-android@v3
+        with:
+          packages: 'platform-tools platforms;android-35 build-tools;35.0.0'
+          log-accepted-android-sdk-licenses: false
       - name: Install Godot and Blender
         run: |
           sudo apt-get update
@@ -48,9 +51,7 @@ jobs:
           godot --headless --path godot --editor --import
           godot --headless --path godot --export-debug Android ../dist/Forests-of-Hell-3D.apk
           test -s dist/Forests-of-Hell-3D.apk
-      - name: Publish prototype
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          TAG="3d-prototype-${GITHUB_RUN_NUMBER}"
-          gh release create "$TAG" dist/Forests-of-Hell-3D.apk --target "$GITHUB_SHA" --title "Forests of Hell 3D prototype ${GITHUB_RUN_NUMBER}" --notes "Separate experimental Android app; existing game remains installed." --prerelease --latest=false
+      - uses: actions/upload-artifact@v4
+        with:
+          name: godot-apk-candidate
+          path: dist/Forests-of-Hell-3D.apk
