@@ -76,7 +76,7 @@ func _ready():
 		crown.height = 4
 		mesh_at(tree,crown,Vector3(0,3.5,0),Color("#284b32"))
 	player = body(Vector3.ZERO,"res://assets/classic_study.glb",Color.BEIGE)
-	goblin = body(Vector3(0,0,-12),"res://assets/dagger_goblin.glb",Color.OLIVE_GREEN)
+	goblin = body(Vector3(0,0,-12),"res://assets/dagger_goblin.glb",Color("#708238"))
 	var sun := DirectionalLight3D.new()
 	add_child(sun)
 	sun.rotation_degrees = Vector3(-55,-35,0)
