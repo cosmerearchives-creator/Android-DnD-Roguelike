@@ -12,6 +12,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   build:
+    if: false # Godot replaces the legacy Android renderer
     runs-on: ubuntu-latest
     permissions:
       contents: write
