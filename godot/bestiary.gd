@@ -1,7 +1,7 @@
 extends Control
 # A reusable, touch-friendly creature compendium. Additional creatures can be added to ENTRIES.
 const ENTRIES = [{
-	"name": "Goblin", "asset": "res://assets/dagger_goblin.glb",
+	"name": "Goblin Warrior", "asset": "res://assets/goblin_warrior.glb",
 	"subtitle": "Small humanoid (goblinoid), neutral evil",
 	"details": [
 		["Size", "Small"], ["Creature type", "Humanoid (goblinoid)"],
@@ -29,6 +29,7 @@ var viewport: SubViewport
 var creature_root: Node3D
 var touch_points: Dictionary = {}
 var camera: Camera3D
+var preview_animator: AnimationPlayer
 
 func _panel() -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
@@ -141,6 +142,15 @@ func _ready() -> void:
 	var hint := _label("Drag to rotate  •  Pinch to zoom", 17, true)
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	preview_stack.add_child(hint)
+	# Temporary review controls make the new rig easy to approve in-game.
+	var preview_controls := HBoxContainer.new()
+	preview_controls.add_theme_constant_override("separation", 8)
+	preview_stack.add_child(preview_controls)
+	for clip in ["Idle", "Walk", "Attack"]:
+		var preview_button := _button(clip, _play_preview_animation.bind(clip))
+		preview_button.custom_minimum_size.y = 44
+		preview_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		preview_controls.add_child(preview_button)
 
 	var stats_panel := PanelContainer.new()
 	stats_panel.add_theme_stylebox_override("panel", _panel())
@@ -184,6 +194,8 @@ func _load_creature(path: String) -> void:
 		return
 	var instance: Node3D = load(path).instantiate()
 	creature_root.add_child(instance)
+	preview_animator = _find_animator(instance)
+	_play_preview_animation("Idle")
 	var bounds := _bounds_for(instance, Transform3D.IDENTITY)
 	if bounds.size.length() < 0.01:
 		return
@@ -220,6 +232,25 @@ func _bounds_for(node: Node3D, parent_transform: Transform3D) -> AABB:
 				else:
 					result = result.merge(other)
 	return result
+
+func _find_animator(node: Node) -> AnimationPlayer:
+	if node is AnimationPlayer:
+		return node as AnimationPlayer
+	for child in node.get_children():
+		var result := _find_animator(child)
+		if result != null:
+			return result
+	return null
+
+func _play_preview_animation(state: String) -> void:
+	if preview_animator == null:
+		return
+	for clip in preview_animator.get_animation_list():
+		if clip.to_lower().contains(state.to_lower()):
+			var animation := preview_animator.get_animation(clip)
+			animation.loop_mode = Animation.LOOP_NONE if state == "Attack" else Animation.LOOP_LINEAR
+			preview_animator.play(clip)
+			return
 
 func _preview_input(event: InputEvent) -> void:
 	if event is InputEventScreenTouch:

@@ -68,10 +68,11 @@ func body(pos: Vector3, asset: String, color: Color) -> CharacterBody3D:
 	b.position = pos
 	var c := CollisionShape3D.new()
 	var capsule := CapsuleShape3D.new()
-	capsule.radius = 0.3
-	capsule.height = 1.7
+	var is_goblin := asset.ends_with("/goblin_warrior.glb")
+	capsule.radius = 0.22 if is_goblin else 0.3
+	capsule.height = 1.05 if is_goblin else 1.7
 	c.shape = capsule
-	c.position.y = 0.85
+	c.position.y = capsule.height * 0.5
 	b.add_child(c)
 	if ResourceLoader.exists(asset):
 		var model = load(asset).instantiate()
@@ -164,7 +165,16 @@ void fragment() {
 	model_index = clampi(int(profile.get_value("hero","model",1)),0,MODELS.size()-1)
 	if not ResourceLoader.exists("res://assets/%s.glb" % MODELS[model_index]): model_index = 1
 	player = body(Vector3.ZERO,"res://assets/%s.glb" % MODELS[model_index],Color.BEIGE)
-	goblin = body(Vector3(0,0,-12),"res://assets/dagger_goblin.glb",Color("#708238"))
+	goblin = body(Vector3(0,0,-12),"res://assets/goblin_warrior.glb",Color("#708238"))
+	var goblin_visual := goblin.get_node_or_null("CharacterVisual")
+	if goblin_visual != null:
+		var goblin_animator := find_imported_animator(goblin_visual)
+		if goblin_animator != null:
+			for clip in goblin_animator.get_animation_list():
+				if clip.to_lower().contains("idle"):
+					goblin_animator.get_animation(clip).loop_mode = Animation.LOOP_LINEAR
+					goblin_animator.play(clip)
+					break
 	var sun := DirectionalLight3D.new()
 	add_child(sun)
 	sun.rotation_degrees = Vector3(-55,-35,0)
