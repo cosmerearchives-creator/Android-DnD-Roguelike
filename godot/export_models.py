@@ -1,6 +1,6 @@
 import bpy, pathlib
 root = pathlib.Path(__file__).resolve().parent
-for variant in ("classic_study","dagger_goblin"):
+for variant in ("classic_study","petite_pale","classic_male","petite_male","dagger_goblin"):
     import sys
     sys.argv = ["blender","--","--variant",variant,"--output",str(root/"assets")]
     source = (root.parent/"blender/create_character.py").read_text()
