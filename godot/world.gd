@@ -113,7 +113,10 @@ void fragment() {
 		rock.position = p
 		rock.scale = Vector3.ONE * rng.randf_range(0.5,2.0)
 		rock.rotation.y = rng.randf_range(0,TAU)
-	player = body(Vector3.ZERO,"res://assets/classic_study.glb",Color.BEIGE)
+	var profile := ConfigFile.new()
+	profile.load("user://hero.cfg")
+	model_index = clampi(int(profile.get_value("hero","model",0)),0,MODELS.size()-1)
+	player = body(Vector3.ZERO,"res://assets/%s.glb" % MODELS[model_index],Color.BEIGE)
 	goblin = body(Vector3(0,0,-12),"res://assets/dagger_goblin.glb",Color("#708238"))
 	var sun := DirectionalLight3D.new()
 	add_child(sun)
@@ -154,15 +157,16 @@ void fragment() {
 	menu.add_child(angle_button)
 	angle_button.pressed.connect(toggle_angle)
 	model_button = Button.new()
-	model_button.text = MODEL_NAMES[0]
+	model_button.text = MODEL_NAMES[model_index]
 	menu.add_child(model_button)
 	model_button.pressed.connect(cycle_model)
-	for title in ["Run","Turn","Close"]:
+	for title in ["Run","Turn","Main Menu","Close"]:
 		var button := Button.new()
 		button.text = title
 		menu.add_child(button)
 		button.pressed.connect(func():
 			if title == "Close": menu_panel.hide()
+			elif title == "Main Menu": get_tree().change_scene_to_file("res://front_menu.tscn")
 			else: action(title))
 	menu_panel.hide()
 func hud_action(name: String):
