@@ -150,6 +150,16 @@ void fragment() {
 	model_button.position = Vector2(20,190)
 	ui.add_child(model_button)
 	model_button.pressed.connect(cycle_model)
+	var panel := Panel.new()
+	panel.position = Vector2(0, 920)
+	panel.size = Vector2(720,360)
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color("#e6222925")
+	style.border_color = Color("#a38b58")
+	style.border_width_top = 3
+	panel.add_theme_stylebox_override("panel",style)
+	ui.add_child(panel)
 	var controls := HBoxContainer.new()
 	controls.position = Vector2(365,1080)
 	ui.add_child(controls)
@@ -157,11 +167,28 @@ void fragment() {
 		var button := Button.new()
 		button.text = title
 		button.custom_minimum_size = Vector2(105,100)
+		var button_style := StyleBoxFlat.new()
+		button_style.bg_color = Color("#343b31")
+		button_style.set_border_width_all(2)
+		button_style.border_color = Color("#a38b58")
+		button_style.set_corner_radius_all(12)
+		button.add_theme_stylebox_override("normal",button_style)
 		controls.add_child(button)
 		button.pressed.connect(func(): action(title))
 	var hint := Label.new()
-	hint.text = "Drag here to move"
-	hint.position = Vector2(30,1130)
+	hint.text = "Movement"
+	hint.position = Vector2(110,1190)
+	var ring := Panel.new()
+	ring.position = Vector2(65,970)
+	ring.size = Vector2(200,200)
+	ring.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var ring_style := StyleBoxFlat.new()
+	ring_style.bg_color = Color("#44343b31")
+	ring_style.border_color = Color("#a38b58")
+	ring_style.set_border_width_all(3)
+	ring_style.set_corner_radius_all(100)
+	ring.add_theme_stylebox_override("panel",ring_style)
+	ui.add_child(ring)
 	ui.add_child(hint)
 func show_pose(asset: String):
 	if asset == current_pose: return
