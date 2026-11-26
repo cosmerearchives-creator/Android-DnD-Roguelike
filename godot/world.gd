@@ -111,16 +111,25 @@ float noise2(vec2 p) {
 }
 void fragment() {
 	vec2 p=world_pos.xz;
-	vec3 blades=texture(grass_texture,p*0.27).rgb;
-	float meadow=noise2(p*0.09);
-	float soil=smoothstep(0.73,0.92,noise2(p*0.29));
-	ALBEDO=blades*mix(vec3(0.76,0.85,0.74),vec3(1.01,1.02,0.91),meadow);
-	ALBEDO=mix(ALBEDO,vec3(0.29,0.21,0.13),soil*0.19);
+	// Periodic seamless atlas and world-space UVs: no visible square seams.
+	// A second rotated sample breaks up the repeat pattern at distance.
+	vec2 warp=vec2(noise2(p*0.18+vec2(4.1,2.3)),noise2(p*0.17-vec2(3.7,5.2)))-vec2(0.5);
+	vec2 uv=p*0.145+warp*0.035;
+	vec2 turned=vec2(p.x*0.102+p.y*0.071,p.y*0.102-p.x*0.071)+vec2(0.38,0.61)-warp*0.028;
+	vec3 primary=texture(grass_texture,uv).rgb;
+	vec3 secondary=texture(grass_texture,turned).rgb;
+	float meadow=noise2(p*0.075);
+	float micro=noise2(p*2.8);
+	float mix_factor=0.20+0.17*noise2(p*0.14);
+	vec3 blades=mix(primary,secondary,mix_factor);
+	float soil=smoothstep(0.70,0.91,noise2(p*0.26));
+	ALBEDO=blades*(0.86+0.19*meadow+0.035*micro);
+	ALBEDO=mix(ALBEDO,vec3(0.27,0.23,0.14),soil*0.16);
 	ROUGHNESS=0.95;
 }"""
 	var terrain_material := ShaderMaterial.new()
 	terrain_material.shader = terrain_shader
-	terrain_material.set_shader_parameter("grass_texture",preload("res://grass_detail.png"))
+	terrain_material.set_shader_parameter("grass_texture",preload("res://grass_seamless.png"))
 	floor_visual.material_override = terrain_material
 	for i in range(260):
 		var p := Vector3(rng.randf_range(-95,95),0,rng.randf_range(-95,95))

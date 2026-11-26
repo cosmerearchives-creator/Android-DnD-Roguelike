@@ -67,9 +67,11 @@ for name, mesh, world, mats in portrait_copies:
 
 # Remove all the procedural head, face and hair. Retain torso, arms, legs,
 # boots and outfit, including existing per-limb pose deformation handles.
-remove_names = ("Face and jaw", "Nose", "Mouth", "Hair cap",
+remove_names = ("Face and jaw", "Nose", "Mouth", "Hair cap", "Neck",
                 "Pointed ear", "Eye", "Brow", "Long side hair", "Straight hair back",
-                "Parted fringe", "Hair sheen", "Tied hair bun", "Swept hair lock")
+                "Parted fringe", "Hair sheen", "Tied hair bun", "Swept hair lock",
+                "Mantle clasp", "Glove", "Split violet overskirt", "Sash knot",
+                "Fitted shoulder strap", "Upper torso skin")
 for obj in list(root.children):
     if obj.name.startswith(remove_names):
         bpy.data.objects.remove(obj, do_unlink=True)
@@ -103,7 +105,11 @@ face_mat=pbr("skin",(0.83,0.63,0.54),skin_image)
 body_skin_mat=pbr("body skin",(0.78,0.63,0.54))
 eyeball_mat=pbr("eyes",(0.92,0.92,0.90),eye_image)
 lash_mat=pbr("lashes",(0.10,0.07,0.055))
-hair_mat=pbr("hair",(0.16,0.075,0.045))
+hair_mat=pbr("hair",(0.105,0.055,0.033))
+hair_highlight=pbr("auburn hair highlight",(0.185,0.099,0.059))
+sleeve_mat=pbr("weathered indigo fabric",(0.21,0.15,0.27))
+seam_mat=pbr("soft plum edging",(0.39,0.26,0.43))
+leather_mat=pbr("dark worn leather",(0.16,0.108,0.076))
 teeth_mat=pbr("teeth",(0.90,0.87,0.83))
 
 # Face detail is located in the imported head's own local reference frame.
@@ -132,8 +138,12 @@ for o in portrait:
     o.location = ((o.location.x)*face_scale, (o.location.y-.026)*face_scale-.001, (o.location.z-.42)*face_scale+2.02)
     o.scale *= face_scale
     o.parent=root
-    # Remove skin/hair parts that rely entirely on legacy particle rendering.
-    # Rebuild long hair as curves instead.
+    # Rebuild long hair as curves instead of legacy particles.
+
+# The imported scalp was designed for Blender particle hair and leaves a
+# conspicuous hard rim in Godot. Rebuild the whole scalp from tapered locks.
+bpy.data.objects.remove(portrait[-1],do_unlink=True)
+portrait=portrait[:-1]
 
 # The portrait includes a disconnected shoulder/bust shell. Trim it away
 # below the jaw and let the existing procedural neck connect face to torso.
@@ -153,31 +163,100 @@ bm.to_mesh(head.data)
 bm.free()
 head.data.update()
 
+# Rework the source mannequin's most conspicuous hard joints. The imported
+# portrait ends at the jaw, so use a tapered neck instead of a bulbous sphere.
+surface=body_namespace["surface"]
+uv=body_namespace["uv"]
+linen_mat=pbr("woven charcoal linen",(0.35,0.32,0.35))
+surface("Katie natural neck", [
+    (0,0,1.75,.091,.078),(0,0,1.79,.080,.075),
+    (0,-.006,1.84,.069,.067),(0,-.009,1.90,.061,.062),
+    (0,-.013,1.97,.055,.056)],body_skin_mat)
+# The high-neck garment hides the original bare, uniformly lit mannequin
+# chest; the original tailored purple bodice still lies in front of it.
+surface("Katie linen underlayer", [
+    (0,0,1.43,.182,.147),(0,0,1.52,.202,.166),
+    (0,0,1.61,.229,.176),(0,0,1.68,.230,.151),
+    (0,0,1.74,.181,.117),(0,0,1.80,.095,.082),
+    (0,0,1.83,.081,.072)],linen_mat)
+surface("Katie fitted collar", [
+    (0,0,1.79,.096,.081),(0,0,1.82,.086,.072),
+    (0,0,1.85,.078,.067)],leather_mat)
+width=body_namespace["w"]
+for side in (-1,1):
+    limb="arm_left" if side<0 else "arm_right"
+    shoulder=.235*width*side
+    elbow=.294*width*side
+    wrist=.339*width*side
+    surface("Katie smooth sleeve", [
+        (elbow,-.006,1.34,.055,.054),
+        (.270*width*side,-.003,1.47,.070,.062),
+        (shoulder,0,1.60,.083,.078),
+        (shoulder,0,1.69,.066,.068),
+        (.211*width*side,0,1.72,.030,.041)
+    ],sleeve_mat,limb)
+    # Smaller tapered hands replace the old mitten-like round gloves.
+    uv("Katie palm",(wrist,-.034,1.010),(.036,.031,.070),body_skin_mat,limb)
+    for finger in range(4):
+        u=(finger-1.5)*.016
+        uv("Katie finger %d"%finger,
+           (wrist+u,-.040,.948-(finger%2)*.008),
+           (.009,.012,.055),body_skin_mat,limb)
+    uv("Katie thumb",(wrist-.024*side,-.052,1.008),
+       (.015,.017,.047),body_skin_mat,limb)
+    uv("Katie sleeve seam",(elbow,-.014,1.35),
+       (.057,.057,.014),seam_mat,limb)
+
 # Realistic hair silhouette using lightweight tapered mesh strips / curves:
 # mesh ribbons are exported reliably to glTF unlike particle systems.
-def add_hair_strand(index,x,z0,length):
+# Full crown covers the conspicuous bald spot in the original screenshot;
+# curved, tapered locks replace straight dangling cylindrical spikes.
+uv("Katie hair crown",(0,.054,2.175),(.149,.120,.095),hair_mat)
+def add_hair_strand(index,angle):
+    frontal=math.sin(angle)<-.38
+    sx=.134*math.cos(angle)
+    sy=.059+.109*math.sin(angle)
+    root_z=2.215-.022*max(0,math.sin(angle))
+    # A short side-parted fringe leaves the eyes and original face visible.
+    length=(.135 if abs(sx)<.072 else .33) if frontal else .40+.055*math.sin(index*1.71)
     curve=bpy.data.curves.new("Katie hair strand %02d"%index,"CURVE")
     curve.dimensions="3D"
-    curve.resolution_u=2
-    curve.bevel_depth=.009 if index%3 else .014
-    curve.bevel_resolution=2
-    spline=curve.splines.new("BEZIER");spline.bezier_points.add(3)
+    curve.resolution_u=5
+    curve.bevel_depth=.007 if index%6 else .009
+    curve.bevel_resolution=3
+    spline=curve.splines.new("BEZIER")
+    spline.bezier_points.add(4)
     for j,pt in enumerate(spline.bezier_points):
-        t=j/3
-        pt.co=(x*(1+.18*t)+.025*math.sin(index*1.7+t*2.4)*t,
-               .075+(.045*math.sin(index*2.1))*t,
-               z0-length*t)
-        pt.handle_left_type="AUTO";pt.handle_right_type="AUTO"
-    ob=bpy.data.objects.new(curve.name,curve);bpy.context.collection.objects.link(ob)
-    curve.materials.append(hair_mat); ob.parent=root
-    bpy.ops.object.select_all(action="DESELECT");ob.select_set(True)
+        t=j/4
+        sideways=.022*math.sin(index*.79+t*8.2)*t*t
+        pt.co=(sx*(1+.20*t)+sideways,
+               sy+(.040 if not frontal else -.008)*t+.014*math.sin(index*.37+t*6.0)*t*t,
+               root_z-length*t)
+        pt.handle_left_type="AUTO"
+        pt.handle_right_type="AUTO"
+        pt.radius=(.74,1.05,1.0,.59,.035)[j]
+    ob=bpy.data.objects.new(curve.name,curve)
+    bpy.context.collection.objects.link(ob)
+    curve.materials.append(hair_highlight if index%11==0 else hair_mat)
+    ob.parent=root
+    bpy.ops.object.select_all(action="DESELECT")
+    ob.select_set(True)
     bpy.context.view_layer.objects.active=ob
     bpy.ops.object.convert(target="MESH")
-for i in range(46):
-    t=i/46*math.tau
-    x=.118*math.cos(t)
-    if math.sin(t)<-.6: continue # keep face visible
-    add_hair_strand(i,x,2.17,.29+.10*(i%5)/5)
+for i in range(76):
+    add_hair_strand(i,i*math.tau/76)
+# Merge the many narrow hair curves by material into two GPU draw calls,
+# rather than exporting 76 separate meshes into every animation frame.
+for mat,label in ((hair_mat,"Katie hair locks"),(hair_highlight,"Katie highlighted locks")):
+    strands=[o for o in list(root.children) if o.type=="MESH" and
+             o.name.startswith("Katie hair strand") and o.data.materials and
+             o.data.materials[0]==mat]
+    if not strands: continue
+    bpy.ops.object.select_all(action="DESELECT")
+    for strand in strands: strand.select_set(True)
+    bpy.context.view_layer.objects.active=strands[0]
+    bpy.ops.object.join()
+    bpy.context.view_layer.objects.active.name=label
 
 # Swap skin tint on exposed arms and neck to complement the imported face.
 for obj in root.children:
@@ -188,7 +267,7 @@ for obj in root.children:
 bpy.context.view_layer.update()
 body_parts=[]
 for obj in root.children:
-    if obj.type!="MESH" or obj in portrait or obj.name.startswith("Katie hair strand"): continue
+    if obj.type!="MESH" or obj in portrait or obj.name.startswith("Katie hair") or obj.name.startswith("Katie natural neck"): continue
     if obj.name not in [o.name for o in bpy.context.scene.objects]:continue
     local=obj.matrix_local.copy()
     body_parts.append((obj,obj.get("limb") or "",[local@v.co for v in obj.data.vertices],local.inverted()))
