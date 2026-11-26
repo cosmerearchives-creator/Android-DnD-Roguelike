@@ -1,7 +1,7 @@
 extends VBoxContainer
 
 const REPO := "https://github.com/cosmerearchives-creator/Android-DnD-Roguelike"
-const API := "https://api.github.com/repos/cosmerearchives-creator/Android-DnD-Roguelike/releases/latest"
+const LATEST_MANIFEST := REPO + "/releases/latest/download/update.json"
 const HEADERS := ["Accept: application/vnd.github+json", "Cache-Control: no-cache", "User-Agent: ForestsOfHell-Android-Updater"]
 var status := Label.new()
 var check := Button.new()
@@ -10,7 +10,6 @@ var request := HTTPRequest.new()
 var download_url := ""
 var release_tag := ""
 var installed_code := 0
-var fetching_manifest := false
 var transfer := HTTPRequest.new()
 var expected_hash := ""
 var apk_path := "user://update.apk"
@@ -54,8 +53,7 @@ func _check() -> void:
 	check.disabled = true
 	download.hide()
 	status.text = "Checking for updates…"
-	fetching_manifest = false
-	if request.request(API, HEADERS) != OK:
+	if request.request(LATEST_MANIFEST, HEADERS) != OK:
 		_finish("Couldn't start the update check.")
 
 func _finish(message: String) -> void:
@@ -66,53 +64,36 @@ func _received(result: int, response: int, _headers: PackedStringArray, body: Pa
 	var data: Variant = JSON.parse_string(body.get_string_from_utf8()) if result == HTTPRequest.RESULT_SUCCESS and response == 200 else null
 	if not data is Dictionary:
 		if response == 403 or response == 429:
-			_finish("GitHub update checks limited temporarily. Retry later.")
+			_finish("GitHub download temporarily limited; retry later.")
 		elif response > 0:
-			_finish("Update server returned HTTP %d. Retry check." % response)
+			_finish("Update server returned HTTP %d." % response)
 		else:
-			_finish("Network unavailable. Retry check when connected.")
+			_finish("Network unavailable. Retry when connected.")
 		return
-	if fetching_manifest:
-		var code := int(data.get("versionCode", 0))
-		if data.get("versionName") != release_tag.substr(1) or data.get("apkUrl") != download_url or code <= 0:
-			_finish("Release information could not be verified.")
-		elif code > installed_code:
-			expected_hash = str(data.get("sha256", "")).to_lower()
-			if expected_hash.length() != 64:
-				_finish("Missing update checksum.")
-				return
-			if FileAccess.file_exists(apk_path) and FileAccess.get_sha256(apk_path) == expected_hash:
-				_ready_to_install()
-				return
-			status.text = "Downloading " + release_tag + "…"
-			transfer.download_file = apk_path
-			if transfer.request(download_url) != OK:
-				_finish("Couldn't start download.")
-		else:
-			_finish("You're up to date.")
-		return
-	release_tag = str(data.get("tag_name", ""))
+	var version_name := str(data.get("versionName", ""))
 	var format := RegEx.new()
-	format.compile("^v[0-9]+\\.[0-9]+\\.[0-9]+$")
-	if data.get("draft", true) or data.get("prerelease", true) or format.search(release_tag) == null:
-		_finish("No stable update available.")
+	format.compile("^[0-9]+\\.[0-9]+\\.[0-9]+$")
+	var code := int(data.get("versionCode", 0))
+	var next_url := REPO + "/releases/download/v" + version_name + "/Android-DnD-Roguelike.apk"
+	var checksum := str(data.get("sha256", "")).to_lower()
+	if format.search(version_name) == null or code <= 0 or str(data.get("apkUrl", "")) != next_url or checksum.length() != 64:
+		_finish("Latest release metadata failed verification.")
 		return
-	var prefix := REPO + "/releases/download/" + release_tag + "/"
-	download_url = prefix + "Android-DnD-Roguelike.apk"
-	var manifest := prefix + "update.json"
-	var listed_apk := false
-	var listed_manifest := false
-	for asset in data.get("assets", []):
-		if asset is Dictionary:
-			var url: String = asset.get("browser_download_url", "")
-			listed_apk = listed_apk or url == download_url
-			listed_manifest = listed_manifest or url == manifest
-	if not listed_apk or not listed_manifest:
-		_finish("Release files are missing.")
+	release_tag = "v" + version_name
+	download_url = next_url
+	expected_hash = checksum
+	if code <= installed_code:
+		_finish("You're up to date.")
 		return
-	fetching_manifest = true
-	if request.request(manifest) != OK:
-		_finish("Couldn't read release information.")
+	if FileAccess.file_exists(apk_path) and FileAccess.get_sha256(apk_path) == expected_hash:
+		_ready_to_install()
+		return
+	verified = false
+	download.hide()
+	status.text = "Downloading " + release_tag + "…"
+	transfer.download_file = apk_path
+	if transfer.request(download_url) != OK:
+		_finish("Couldn't start update download.")
 
 func _downloaded(result: int, response: int, _headers: PackedStringArray, _body: PackedByteArray) -> void:
 	if result != HTTPRequest.RESULT_SUCCESS or response != 200 or FileAccess.get_sha256(apk_path) != expected_hash:
