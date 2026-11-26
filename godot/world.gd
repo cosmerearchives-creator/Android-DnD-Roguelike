@@ -328,5 +328,14 @@ func _physics_process(dt):
 	var pitch := deg_to_rad(camera_angle)
 	camera.position = player.position + Vector3(0,20*sin(pitch),20*cos(pitch)).rotated(Vector3.UP,yaw)
 	camera.rotation = Vector3(-pitch, yaw, 0)
+	# Frame the player inside the unobstructed play area, not the full screen.
+	# HUD top ends at 100; bottom controls begin 460 logical pixels from bottom.
+	var view_height := get_viewport().get_visible_rect().size.y
+	var hud_height := hud.size.y
+	if view_height > 0.0 and hud_height > 560.0:
+		var target_y := (100.0 + hud_height - 460.0) * 0.5 / hud_height * view_height
+		camera.v_offset = 0.0
+		var projected_y := camera.unproject_position(player.position + Vector3.UP * 0.85).y
+		camera.v_offset = (target_y - projected_y) * camera.size / view_height
 	attack = maxf(0,attack-dt)
 	var distance := player.position.distance_to(goblin.position)/FOOT if is_instance_valid(goblin) else 0.0
