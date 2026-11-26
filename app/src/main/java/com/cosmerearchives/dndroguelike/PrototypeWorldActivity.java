@@ -59,7 +59,7 @@ public final class PrototypeWorldActivity extends Activity {
         private static final float PLATFORM_RISE = 28.7339f;
         private static final float WALK_SPEED = 1.75f;
         private static final float PLAYER_RADIUS = .20f;
-        private static final float MELEE_REACH = 1f;
+        private static final float MELEE_REACH = 1f * Senses.RANGE_SCALE;
 
         private static final float COMBAT_LEASH = 7f;
 
@@ -113,7 +113,7 @@ public final class PrototypeWorldActivity extends Activity {
             final float range;
             final int die,color;
             Cantrip(String title,float range,int die,int color) {
-                this.title=title;this.range=range;this.die=die;this.color=color;
+                this.title=title;this.range=range*Senses.RANGE_SCALE;this.die=die;this.color=color;
             }
         }
         private final Cantrip knownCantrip;
@@ -702,10 +702,10 @@ public final class PrototypeWorldActivity extends Activity {
                 if(!item.ranged && !item.id.equals("net") && !item.id.equals("dart")){
                     labels.add(item.name);ids.add(item.id);throwsWeapon.add(false);
                 } else if(item.ranged){
-                    labels.add(item.name+" · "+item.rangeNormal+" ft");ids.add(item.id);throwsWeapon.add(false);
+                    labels.add(item.name+" · "+(item.rangeNormal*Senses.RANGE_SCALE)+" ft");ids.add(item.id);throwsWeapon.add(false);
                 }
                 if(item.thrown && !item.id.equals("net")){
-                    labels.add("Throw "+item.name+" · "+item.rangeNormal+" ft");
+                    labels.add("Throw "+item.name+" · "+(item.rangeNormal*Senses.RANGE_SCALE)+" ft");
                     ids.add(item.id);throwsWeapon.add(true);
                 }
             }
@@ -726,7 +726,7 @@ public final class PrototypeWorldActivity extends Activity {
         private float reach(WeaponTrials.Motion motion,String weapon) {
             if (motion!=WeaponTrials.Motion.BOW) return MELEE_REACH;
             Equipment.Item item=Equipment.get(weapon);
-            return item==null?MELEE_REACH:item.rangeNormal/Senses.FEET_PER_TILE;
+            return item==null?MELEE_REACH:item.rangeNormal*Senses.RANGE_SCALE/Senses.FEET_PER_TILE;
         }
         private boolean shotClear(float ax,float ay,float bx,float by) {
             int samples=(int)Math.ceil(Math.hypot(bx-ax,by-ay)*8);
