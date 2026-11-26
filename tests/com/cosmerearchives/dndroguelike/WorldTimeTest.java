@@ -103,8 +103,8 @@ final class WorldTimeTest {
 
     private static void racialSenses() {
         Map map=new Map();
-        Senses.Profile elf=new Senses.Profile(300,360,60,0,0,0,60,3,false,false,false);
-        Senses.Profile drow=new Senses.Profile(300,360,120,0,0,0,60,3,false,false,false,true);
+        Senses.Profile elf=new Senses.Profile(Senses.DEFAULT_SIGHT,360,60,0,0,0,60,3,false,false,false);
+        Senses.Profile drow=new Senses.Profile(Senses.DEFAULT_SIGHT,360,120,0,0,0,60,3,false,false,false,true);
         require(Senses.sunlightDisadvantage(true,map,1,0,-1,0),"attacker in sun");
         require(Senses.sunlightDisadvantage(true,map,-1,0,1,0),"target in sun");
         require(!Senses.sunlightDisadvantage(true,map,-1,0,-2,0),"both shaded");
@@ -124,10 +124,10 @@ final class WorldTimeTest {
         require(Senses.check(dice,3,true,true)==17,"advantage and disadvantage cancel for active checks");
         map.lighting.setAmbient(WorldLighting.Ambient.DARKNESS);
         require(!Senses.sunlightDisadvantage(true,map,1,0,2,0),"night attacks have no sunlight penalty");
-        require(Senses.see(elf,map,0,0,0,12,0,false)==Senses.Sight.DARKVISION
-            && Senses.see(elf,map,0,0,0,12.01f,0,false)==Senses.Sight.NONE,"60-foot darkvision");
-        require(Senses.see(drow,map,0,0,0,24,0,false)==Senses.Sight.DARKVISION
-            && Senses.see(drow,map,0,0,0,24.01f,0,false)==Senses.Sight.NONE,"120-foot superior darkvision");
+        require(Senses.see(elf,map,0,0,0,1.2f,0,false)==Senses.Sight.DARKVISION
+            && Senses.see(elf,map,0,0,0,1.21f,0,false)==Senses.Sight.NONE,"6-foot darkvision");
+        require(Senses.see(drow,map,0,0,0,2.4f,0,false)==Senses.Sight.DARKVISION
+            && Senses.see(drow,map,0,0,0,2.41f,0,false)==Senses.Sight.NONE,"12-foot superior darkvision");
         map.magic=true;
         require(Senses.see(elf,map,0,0,0,1,0,false)==Senses.Sight.NONE
             && Senses.see(drow,map,0,0,0,1,0,false)==Senses.Sight.NONE,"magical darkness blocks both darkvision types");
