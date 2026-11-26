@@ -18,16 +18,16 @@ final class SensesTest {
     public static void main(String[] args) {
         Map map = new Map();
         require(Senses.SNEAK_MULTIPLIER*3==2,"sneak uses exactly two-thirds of walking speed");
-        Senses.Profile seismic=new Senses.Profile(300,120,0,10,30,0,60,0,false,false,false);
+        Senses.Profile seismic=new Senses.Profile(Senses.DEFAULT_SIGHT,120,0,10,30,0,60,0,false,false,false);
         require(Senses.feelsVibration(seismic,30,true,true),"grounded vibration at range");
         require(!Senses.feelsVibration(seismic,30,false,true),"airborne creature gives no vibration");
         require(!Senses.feelsVibration(seismic,30,true,false),"stationary creature gives no vibration");
-        Senses.Profile human = new Senses.Profile(300,360,0,0,0,0,60,2,false,false,false);
-        Senses.Profile drow = new Senses.Profile(300,360,120,0,0,0,60,2,false,false,false);
+        Senses.Profile human = new Senses.Profile(Senses.DEFAULT_SIGHT,360,0,0,0,0,60,2,false,false,false);
+        Senses.Profile drow = new Senses.Profile(Senses.DEFAULT_SIGHT,360,120,0,0,0,60,2,false,false,false);
         Senses.Profile goblin = Senses.GOBLIN;
-        require(Senses.see(human,map,0,0,0,0,60,false)==Senses.Sight.CLEAR,"360-degree player sight");
-        require(Senses.see(human,map,0,0,0,0,60.01f,false)==Senses.Sight.NONE,"300-foot cap");
-        require(Senses.see(goblin,map,0,0,0,0,-60,false)==Senses.Sight.CLEAR,"enemy forward 300 feet");
+        require(Senses.see(human,map,0,0,0,0,6,false)==Senses.Sight.CLEAR,"360-degree player sight");
+        require(Senses.see(human,map,0,0,0,0,6.01f,false)==Senses.Sight.NONE,"30-foot cap");
+        require(Senses.see(goblin,map,0,0,0,0,-6,false)==Senses.Sight.CLEAR,"enemy forward 30 feet");
         require(Senses.see(goblin,map,0,0,0,0,1,false)==Senses.Sight.NONE,"enemy rear blind spot");
         require(Senses.see(goblin,map,0,0,0,1,-1,false)==Senses.Sight.CLEAR,"enemy diagonal inside cone");
         require(Senses.see(goblin,map,0,0,0,1,0,false)==Senses.Sight.NONE,"enemy side outside cone");
@@ -36,11 +36,11 @@ final class SensesTest {
         require(Senses.see(goblin,map,0,0,0,0,-1,false)==Senses.Sight.CLEAR,"darkvision upgrades dim");
         map.light=Senses.Light.DARK;
         require(Senses.see(human,map,0,0,0,0,1,false)==Senses.Sight.NONE,"human darkness");
-        require(Senses.see(goblin,map,0,0,0,0,-12,false)==Senses.Sight.DARKVISION,"goblin 60 feet");
-        require(Senses.see(goblin,map,0,0,0,0,-13,false)==Senses.Sight.NONE,"goblin limit");
-        require(Senses.see(drow,map,0,0,0,0,24,false)==Senses.Sight.DARKVISION,"drow 120 feet");
+        require(Senses.see(goblin,map,0,0,0,0,-1.2f,false)==Senses.Sight.DARKVISION,"goblin 6 feet");
+        require(Senses.see(goblin,map,0,0,0,0,-1.3f,false)==Senses.Sight.NONE,"goblin limit");
+        require(Senses.see(drow,map,0,0,0,0,2.4f,false)==Senses.Sight.DARKVISION,"drow 12 feet");
         map.wall=true;
-        require(Senses.see(drow,map,0,0,0,0,24,false)==Senses.Sight.NONE,"wall blocks darkvision");
+        require(Senses.see(drow,map,0,0,0,0,2.4f,false)==Senses.Sight.NONE,"wall blocks darkvision");
         require(goblin.passive(false,false)==9 && human.passive(true,false)==17
             && human.passive(false,true)==7 && human.passive(true,true)==12,"passive perception");
         Random dice = new Random() {
