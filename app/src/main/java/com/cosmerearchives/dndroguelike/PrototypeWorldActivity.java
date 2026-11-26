@@ -235,6 +235,15 @@ public final class PrototypeWorldActivity extends Activity {
         private boolean dummyLocked, attackDummy, autoAttack, autoLock;
         private final RectF jumpHud=new RectF(), crouchHud=new RectF(), secondaryHud=new RectF(), inventoryHud=new RectF(), pauseHud=new RectF();
         private float zoom = 1f;
+        private boolean wideZoom;
+        private int renderRadius(){return wideZoom?Math.max(VISIBLE_RADIUS,SIGHT_TILES+2):VISIBLE_RADIUS;}
+        private void showWorldMenu(){
+            releaseStick();
+            new android.app.AlertDialog.Builder(getContext()).setTitle("Menu").setItems(new String[]{wideZoom?"Zoom: Wide (300 ft) — switch to Normal":"Zoom: Normal — switch to Wide (300 ft)","Return to main menu","Cancel"},(dialog,which)->{
+                if(which==0){wideZoom=!wideZoom;invalidate();}
+                else if(which==1){save();getContext().startActivity(new Intent(getContext(),MainActivity.class));((Activity)getContext()).finish();}
+            }).show();
+        }
 
         World(Context context, PlayerCharacter hero,boolean townSession) {
             super(context);
@@ -1488,7 +1497,7 @@ public final class PrototypeWorldActivity extends Activity {
         }
         private void ground(Canvas c) {
             int cx=(int)Math.floor(cameraX),cy=(int)Math.floor(cameraY);
-            int radius=VISIBLE_RADIUS+3;
+            int radius=renderRadius()+3;
             for(int tx=cx-radius;tx<=cx+radius;tx++) for(int ty=cy-radius;ty<=cy+radius;ty++){
                 float px=sx(tx+.5f,ty+.5f),py=sy(tx+.5f,ty+.5f);
                 int shade=fogShade(tx,ty);
@@ -1632,6 +1641,7 @@ public final class PrototypeWorldActivity extends Activity {
             if(inventoryOpen){drawInventory(c);postInvalidateOnAnimation();return;}
             float centerX=getWidth()*.5f,centerY=getHeight()*.44f;
             zoom=Math.max(.65f,Math.min(1.15f,getWidth()/768f));
+            if(wideZoom){float reach=Senses.DEFAULT_SIGHT/Senses.FEET_PER_TILE;zoom=Math.min(getWidth()*.48f/(reach*HALF_W*(float)Math.sqrt(2)),getHeight()*.23f/(reach*HALF_H*(float)Math.sqrt(2)));}
             c.save();c.translate(centerX,centerY);c.scale(zoom,zoom);
             int cx=(int)Math.floor(cameraX),cy=(int)Math.floor(cameraY);
             if (inTown()) town.ground(c,cameraX,cameraY,townFog,townLighting,this::fogSight,showTileGrid);
@@ -1656,13 +1666,14 @@ public final class PrototypeWorldActivity extends Activity {
             boolean actorDrawn=false;
             for (Goblin goblin:goblins) {
                 goblin.playerSight=sightAt(goblin.x,goblin.y,false);
-                goblin.drawn=goblin.playerSight==Senses.Sight.NONE || Math.abs(goblin.x-cameraX)>VISIBLE_RADIUS+1
-                    || Math.abs(goblin.y-cameraY)>VISIBLE_RADIUS+1;
+                goblin.drawn=goblin.playerSight==Senses.Sight.NONE || Math.abs(goblin.x-cameraX)>renderRadius()+1
+                    || Math.abs(goblin.y-cameraY)>renderRadius()+1;
             }
-            for(int depth=-VISIBLE_RADIUS*2;depth<=VISIBLE_RADIUS*2;depth++){
-                for(int xx=-VISIBLE_RADIUS;xx<=VISIBLE_RADIUS;xx++){
+            int rr=renderRadius();
+            for(int depth=-rr*2;depth<=rr*2;depth++){
+                for(int xx=-rr;xx<=rr;xx++){
                     int yy=xx-depth;
-                    if(Math.abs(yy)>VISIBLE_RADIUS)continue;
+                    if(Math.abs(yy)>rr)continue;
                     int tx=cx+xx,ty=cy+yy;
                     float propDepth=tx-ty;
                     for (Goblin goblin:goblins) {
@@ -2434,8 +2445,7 @@ public final class PrototypeWorldActivity extends Activity {
             if(action==MotionEvent.ACTION_DOWN||action==MotionEvent.ACTION_POINTER_DOWN) {
                 float px=e.getX(index),py=e.getY(index);
                 if(exitButton.contains(px,py)) {
-                    save();getContext().startActivity(new Intent(getContext(),MainActivity.class));
-                    ((Activity)getContext()).finish();return true;
+                    showWorldMenu();return true;
                 }
                 if (pauseHud.contains(px,py)) { togglePause(); return true; }
                 if (paused) return true;
