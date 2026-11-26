@@ -29,6 +29,6 @@ for i in range(145):
         for dy in (-size,0,size):
             ground.paste(sample,(ox+dx,oy+dy),mask)
 ground = ImageEnhance.Color(ground).enhance(0.84)
-target = root / "godot/grass_detail.webp"
-ground.save(target, "WEBP", quality=91, method=6)
+target = root / "godot/grass_detail.png"
+ground.save(target, "PNG", optimize=True)
 print("GRASS_TILE_CREATED", target, target.stat().st_size)

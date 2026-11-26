@@ -120,7 +120,7 @@ void fragment() {
 }"""
 	var terrain_material := ShaderMaterial.new()
 	terrain_material.shader = terrain_shader
-	terrain_material.set_shader_parameter("grass_texture",preload("res://grass_detail.webp"))
+	terrain_material.set_shader_parameter("grass_texture",preload("res://grass_detail.png"))
 	floor_visual.material_override = terrain_material
 	for i in range(260):
 		var p := Vector3(rng.randf_range(-95,95),0,rng.randf_range(-95,95))
