@@ -81,6 +81,11 @@ public final class PrototypeWorldActivity extends Activity {
         private final Bitmap vegetation;
         private final float[] trunkCenter = {.5f,.5f,.5f,.5f};
         private final float[] trunkWidth = {.15f,.15f,.15f,.15f};
+        private final boolean showTileGrid;
+        private final float[] groundVertices=new float[12];
+        private final int[] groundColors=new int[6];
+        private final long[] groundKeys=new long[4096];
+        private final int[] groundCache=new int[4096];
         private final Bitmap[][] factoryProps = new Bitmap[4][4];
         private final Bitmap bakedElf, bakedWalk, bakedPunch, bakedHit, sneakIdle, sneakWalk;
         private final Bitmap goblinIdle, goblinWalk, goblinAttack;
@@ -233,6 +238,7 @@ public final class PrototypeWorldActivity extends Activity {
 
         World(Context context, PlayerCharacter hero,boolean townSession) {
             super(context);
+            showTileGrid=ForestMenu.tileGrid(context);
             int lightIndex=BuildConfig.DEBUG ? ((Activity)context).getIntent().getIntExtra("visibility_light",-1) : -1;
             debugAmbient=lightIndex==1 ? WorldLighting.Ambient.TWILIGHT
                 : lightIndex==2 ? WorldLighting.Ambient.DARKNESS
@@ -315,6 +321,13 @@ public final class PrototypeWorldActivity extends Activity {
                 for (int variant=0;variant<4;variant++) {
                     factoryProps[group][variant] = trimTransparentMargins(load(context, String.format(java.util.Locale.US,
                         "factory_world/%s_%02d.png",groups[group],variant)));
+                }
+            }
+            Bitmap scenery=load(context,"blender_world/lakeside_props.webp");
+            if(scenery!=null){
+                for(int group=0;group<2;group++) for(int variant=0;variant<4;variant++){
+                    Bitmap frame=Bitmap.createBitmap(scenery,128*variant,128*group,128,128);
+                    factoryProps[group][variant]=trimTransparentMargins(frame);
                 }
             }
             for (int i=0;i<trunkCenter.length;i++) measureTrunk(factoryProps[1][i],i);
@@ -584,6 +597,7 @@ public final class PrototypeWorldActivity extends Activity {
         }
         private boolean clear(float fromX,float fromY,float wx,float wy,float radius) {
             if (inTown()) return town.clear(wx,wy,radius);
+            if(terrain.lake(wx,wy) && !terrain.lake(fromX,fromY))return false;
             int minX=(int)Math.floor(wx-radius), maxX=(int)Math.floor(wx+radius);
             int minY=(int)Math.floor(wy-radius), maxY=(int)Math.floor(wy+radius);
             for (int tx=minX;tx<=maxX;tx++) for (int ty=minY;ty<=maxY;ty++) {
@@ -625,7 +639,7 @@ public final class PrototypeWorldActivity extends Activity {
                 float distance=4.5f+combatDice.nextFloat()*5f;
                 float px=x+(float)Math.sin(angle)*distance;
                 float py=y-(float)Math.cos(angle)*distance;
-                if (!clear(px,py,px,py,.19f)) continue;
+                if (terrain.lake(px,py) || !clear(px,py,px,py,.19f)) continue;
                 boolean occupied=false;
                 for (Goblin other:goblins)
                     if (Math.hypot(other.x-px,other.y-py)<1.5f) occupied=true;
@@ -1458,52 +1472,41 @@ public final class PrototypeWorldActivity extends Activity {
         // Continuous coordinate-seeded wilderness. Draw world-space diamonds rather
         // than repeating a room bitmap; large-scale noise creates connected meadows,
         // woodland, stony ridges and a wandering trail without visible atlas seams.
+        private int landscapeColor(int halfX,int halfY) {
+            long key=((long)halfX<<32)|(halfY&0xffffffffL);
+            int slot=(int)((key^(key>>>33))*0x9e3779b97f4a7c15L>>>52);
+            if(groundCache[slot]==0 || groundKeys[slot]!=key){
+                groundKeys[slot]=key;
+                groundCache[slot]=terrain.landscapeColor(halfX*.5f,halfY*.5f);
+            }
+            return groundCache[slot];
+        }
+        private void groundVertex(int vertex,float px,float py,int halfX,int halfY) {
+            groundVertices[vertex*2]=px;
+            groundVertices[vertex*2+1]=py;
+            groundColors[vertex]=landscapeColor(halfX,halfY);
+        }
         private void ground(Canvas c) {
             int cx=(int)Math.floor(cameraX),cy=(int)Math.floor(cameraY);
-            for(int depth=-VISIBLE_RADIUS*2-3;depth<=VISIBLE_RADIUS*2+3;depth++) {
-                for(int xx=-VISIBLE_RADIUS-3;xx<=VISIBLE_RADIUS+3;xx++) {
-                    int yy=xx-depth;
-                    if(Math.abs(yy)>VISIBLE_RADIUS+3)continue;
-                    int tx=cx+xx,ty=cy+yy;
-                    float px=sx(tx+.5f,ty+.5f),py=sy(tx+.5f,ty+.5f);
-                    int shade=fogShade(tx,ty);
-                    if(shade==0xFF000000){shadeGround(c,px,py,shade);continue;}
-                    paint.setColorFilter(visualLight(tx+.5f,ty+.5f,fogSight(tx,ty)));
-                    int biome=terrain.wildernessBiome(tx,ty);
-                    int base=biome==3?0xFF6D725C:biome==2?0xFF354D3C:
-                        biome==1?0xFF496947:0xFF668457;
-                    if(terrain.trail(tx,ty))base=0xFF77634B;
-                    float tint=terrain.groundVariation(tx,ty);
-                    int delta=(int)((tint-.5f)*21);
-                    int r=Math.max(0,Math.min(255,Color.red(base)+delta));
-                    int g=Math.max(0,Math.min(255,Color.green(base)+delta));
-                    int b=Math.max(0,Math.min(255,Color.blue(base)+delta));
-                    paint.setColor(Color.rgb(r,g,b));
-                    diamond.reset();
-                    diamond.moveTo(px,py-HALF_H);
-                    diamond.lineTo(px+HALF_W,py);
-                    diamond.lineTo(px,py+HALF_H);
-                    diamond.lineTo(px-HALF_W,py);
-                    diamond.close();
-                    c.drawPath(diamond,paint);
-                    int h=terrain.decoration(tx,ty);
-                    if(!terrain.trail(tx,ty)&&h%5==0) {
-                        paint.setColor(biome==2?0x664F7652:0x667F9C65);
-                        c.drawOval(px-18,py-5,px+19,py+6,paint);
-                    }
-                    if(h%9==1) {
-                        paint.setColor(0x88502F22);
-                        c.drawCircle(px+(h%17)-8,py+((h/17)%13)-6,2.3f,paint);
-                    }
-                    if(h%13==3&&biome!=3&&!terrain.trail(tx,ty)) {
-                        paint.setColor(0xFFB3A47B);
-                        c.drawCircle(px-8,py+2,1.7f,paint);
-                        paint.setColor(0xFFB3A1C1);
-                        c.drawCircle(px+5,py-3,1.5f,paint);
-                    }
-                    paint.setColorFilter(null);
-                    shadeGround(c,px,py,shade);
-                }
+            int radius=VISIBLE_RADIUS+3;
+            for(int tx=cx-radius;tx<=cx+radius;tx++) for(int ty=cy-radius;ty<=cy+radius;ty++){
+                float px=sx(tx+.5f,ty+.5f),py=sy(tx+.5f,ty+.5f);
+                int shade=fogShade(tx,ty);
+                if(shade==Color.BLACK)continue;
+                paint.setColor(Color.WHITE);
+                paint.setColorFilter(visualLight(tx+.5f,ty+.5f,fogSight(tx,ty)));
+                int x2=tx*2,y2=ty*2;
+                groundVertex(0,px,py,x2+1,y2+1);
+                groundVertex(1,px,py-HALF_H,x2,y2+2);
+                groundVertex(2,px+HALF_W,py,x2+2,y2+2);
+                groundVertex(3,px,py+HALF_H,x2+2,y2);
+                groundVertex(4,px-HALF_W,py,x2,y2);
+                groundVertex(5,px,py-HALF_H,x2,y2+2);
+                c.drawVertices(Canvas.VertexMode.TRIANGLE_FAN,groundVertices.length,
+                    groundVertices,0,null,0,groundColors,0,null,0,0,paint);
+                paint.setColorFilter(null);
+                shadeGround(c,px,py,shade);
+                if(showTileGrid)WorldGrid.draw(c,px,py,HALF_W,HALF_H);
             }
         }
         private void prop(Canvas c,int tx,int ty) {
@@ -1631,7 +1634,7 @@ public final class PrototypeWorldActivity extends Activity {
             zoom=Math.max(.65f,Math.min(1.15f,getWidth()/768f));
             c.save();c.translate(centerX,centerY);c.scale(zoom,zoom);
             int cx=(int)Math.floor(cameraX),cy=(int)Math.floor(cameraY);
-            if (inTown()) town.ground(c,cameraX,cameraY,townFog,townLighting,this::fogSight);
+            if (inTown()) town.ground(c,cameraX,cameraY,townFog,townLighting,this::fogSight,showTileGrid);
             else ground(c);
             if (attackRemaining>0f && !spellAttack) {
                 float markerX=sx(punchX,punchY),markerY=sy(punchX,punchY);

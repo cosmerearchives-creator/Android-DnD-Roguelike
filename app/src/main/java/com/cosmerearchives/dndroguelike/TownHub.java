@@ -124,7 +124,7 @@ final class TownHub {
     private static float y(float a,float b,float cameraX,float cameraY) {
         return (a-cameraX-b+cameraY)*HALF_H;
     }
-    void ground(Canvas c,float cx,float cy,Fog fog,Lighting light,Sight sight) {
+    void ground(Canvas c,float cx,float cy,Fog fog,Lighting light,Sight sight,boolean showGrid) {
         int W=inside?8:WIDTH,H=inside?7:HEIGHT;
         for (int depth=1-H;depth<W;depth++) {
             for(int i=Math.max(0,depth);i<Math.min(W,H+depth);i++) {
@@ -147,6 +147,7 @@ final class TownHub {
                     face(c,xx,yy-HALF_H-.25f,xx+HALF_W+.45f,yy,
                         xx,yy+HALF_H+.25f,xx-HALF_W-.45f,yy);
                 }
+                if(showGrid && fogShade!=0xFF000000)WorldGrid.draw(c,xx,yy,HALF_W,HALF_H);
             }
         }
     }

@@ -31,9 +31,18 @@ final class ForestMenu extends ScrollView {
     private static final float ART_WIDTH = 781;
     private static final float ART_HEIGHT = 1536;
 
+    static final String DISPLAY_PREFS = "forest_display";
+    static final String TILE_GRID = "tile_grid";
+
+    static boolean tileGrid(Context context) {
+        return context.getSharedPreferences(DISPLAY_PREFS, Context.MODE_PRIVATE)
+            .getBoolean(TILE_GRID, false);
+    }
+
     final Button adventure;
     final Button avatar;
     final Button updates;
+    private final Button tileGrid;
     final TextView status;
 
     ForestMenu(Context context) {
@@ -70,12 +79,26 @@ final class ForestMenu extends ScrollView {
         scene.place(avatar, 102, 602, 577, 103, 40);
         scene.place(updates, 102, 722, 577, 104, 40);
 
+        tileGrid = button(context, 0, MenuIcon.GRID, false);
+        updateGridLabel(tileGrid(context));
+        tileGrid.setOnClickListener(view -> {
+            boolean enabled = !tileGrid(context);
+            context.getSharedPreferences(DISPLAY_PREFS, Context.MODE_PRIVATE)
+                .edit().putBoolean(TILE_GRID, enabled).apply();
+            updateGridLabel(enabled);
+        });
+        scene.place(tileGrid, 102, 843, 577, 104, 40);
+
         status = label(context, "");
         status.setSingleLine(false);
         status.setMaxLines(3);
         status.setCompoundDrawablePadding(Math.round(8 * getResources().getDisplayMetrics().density));
         status.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);
-        scene.place(status, 90, 884, 601, 92, 29);
+        scene.place(status, 90, 1005, 601, 92, 29);
+    }
+
+    private void updateGridLabel(boolean enabled) {
+        tileGrid.setText(enabled ? "Tile grid · On" : "Tile grid · Off");
     }
 
     private static TextView label(Context context, String value) {
@@ -178,7 +201,7 @@ final class ForestMenu extends ScrollView {
                 float y = slot.y;
                 if (!hasAdventure && child == avatar) y = 473;
                 if (!hasAdventure && child == updates) y = 602;
-                if (!hasAdventure && child == status) y -= 120;
+                if (!hasAdventure && (child == tileGrid || child == status)) y -= 120;
                 int x = Math.round(left + (slot.x + slot.span / 2) * scale - child.getMeasuredWidth() / 2f);
                 int top = Math.round(y * scale);
                 child.layout(x, top, x + child.getMeasuredWidth(), top + child.getMeasuredHeight());
@@ -194,7 +217,7 @@ final class ForestMenu extends ScrollView {
             rect.set(0, 0, ART_WIDTH, getHeight() / scale);
             canvas.drawBitmap(backdrop, null, rect, paint);
             ornament(canvas, 39, true);
-            ornament(canvas, adventure.getVisibility() == GONE ? 750 : 870, false);
+            ornament(canvas, adventure.getVisibility() == GONE ? 871 : 991, false);
             paint.setColor(GOLD);
             paint.setStrokeWidth(1.8f);
             canvas.drawLine(129, 320, 192, 320, paint);
@@ -215,7 +238,7 @@ final class ForestMenu extends ScrollView {
         }
     }
 
-    private enum MenuIcon { PLAY, AVATAR, UPDATE }
+    private enum MenuIcon { PLAY, AVATAR, UPDATE, GRID }
 
     private static void diamond(Canvas canvas, Path path, Paint paint, float x, float y, float radius) {
         path.reset();
@@ -289,6 +312,14 @@ final class ForestMenu extends ScrollView {
                     canvas.drawOval(81, 27, 101, 51, paint);
                     canvas.drawRoundRect(70, 50, 112, 76, 12, 12, paint);
                     canvas.drawRect(70, 65, 112, 76, paint);
+                    break;
+                case GRID:
+                    paint.setStyle(Paint.Style.STROKE);
+                    paint.setStrokeWidth(3);
+                    canvas.drawRect(71, 33, 111, 73, paint);
+                    canvas.drawLine(91, 33, 91, 73, paint);
+                    canvas.drawLine(71, 53, 111, 53, paint);
+                    paint.setStyle(Paint.Style.FILL);
                     break;
                 case UPDATE:
                     paint.setStyle(Paint.Style.STROKE);

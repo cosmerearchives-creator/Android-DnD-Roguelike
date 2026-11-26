@@ -110,6 +110,41 @@ final class WorldTerrain {
         if(forest>.47f)return 1;
         return 0;
     }
+    // Sample continuous terrain colors in world space so neighboring cells share edges.
+    int landscapeColor(float x,float y) {
+        float broad=field(x,y,13,314);
+        float grain=field(x,y,3,313);
+        int grass=mix(0xFF456126,0xFF91AE58,broad*.68f+grain*.32f);
+        float ridge=field(x+900,y-400,36,303);
+        grass=mix(grass,0xFF85816C,smooth(clamp((ridge-.67f)/.15f)));
+        float trail=(field(x,0,34,311)-.5f)*11f;
+        float dirt=clamp((1.8f-Math.abs(y-trail))*.72f);
+        int land=mix(grass,mix(0xFF78503D,0xFFAA7957,grain),smooth(dirt));
+        if(x<3.5f || x>14.5f || y<-14.5f || y>-5.5f)return land;
+        float shore=lakeDistance(x,y);
+        land=mix(land,0xFFAD9265,smooth(clamp((1.17f-shore)*6)));
+        return mix(land,mix(0xFF346D71,0xFF568D8A,grain),smooth(clamp((1.05f-shore)*12)));
+    }
+
+    private float lakeDistance(float x,float y) {
+        float dx=(x-9f)/4.3f,dy=(y+10f)/3.3f;
+        return dx*dx+dy*dy+(field(x,y,3,317)-.5f)*.21f;
+    }
+
+    boolean lake(float x,float y) {
+        return x>4 && x<14 && y>-14 && y<-6 && lakeDistance(x,y)<.98f;
+    }
+
+    private static float clamp(float value) { return Math.max(0f,Math.min(1f,value)); }
+
+    private static int mix(int a,int b,float weight) {
+        int t=Math.round(weight*256), inv=256-t;
+        int r=(((a>>16)&255)*inv+((b>>16)&255)*t)>>8;
+        int g=(((a>>8)&255)*inv+((b>>8)&255)*t)>>8;
+        int blue=((a&255)*inv+(b&255)*t)>>8;
+        return 0xff000000|(r<<16)|(g<<8)|blue;
+    }
+
     /** A meandering path whose center drifts gradually rather than repeating diagonals. */
     boolean trail(int x,int y) {
         float center=(field(x,0,34,311)-.5f)*11f;
@@ -135,6 +170,7 @@ final class WorldTerrain {
     /** 1 tree, 2 bush, 0 boulder, 3 ruin, 4 ancient tree. */
 
     int wildernessProp(int x,int y) {
+        if(lake(x+.5f,y+.5f))return -1;
         if(ancientTree(x,y))return 4;
         if(ancientFootprint(x,y))return -1;
         if(Math.abs(x)<3&&Math.abs(y)<3||trail(x,y))return -1;

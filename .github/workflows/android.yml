@@ -145,6 +145,19 @@ jobs:
 
 
           PY
+      - name: Verify lakeside scenery atlas
+        run: |
+          python3 - <<'PY'
+          from PIL import Image
+          with Image.open('app/src/main/assets/blender_world/lakeside_props.webp') as atlas:
+              assert atlas.mode == 'RGBA' and atlas.size == (512, 256)
+              for i in range(8):
+                  x, y = (i % 4) * 128, (i // 4) * 128
+                  bbox = atlas.crop((x, y, x + 128, y + 128)).getchannel('A').getbbox()
+                  assert bbox and bbox[0] > 0 and bbox[1] > 0 and bbox[2] < 128 and bbox[3] < 128, i
+                  if i >= 4:
+                      assert bbox[3] - bbox[1] > bbox[2] - bbox[0], 'Tree must be upright'
+          PY
       - name: Verify Blender baked world and Petite Pale assets
         run: python3 scripts/verify-blender-world.py
       - name: Verify articulated gait math
