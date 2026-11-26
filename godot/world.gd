@@ -16,8 +16,8 @@ var punch_left := 0.0
 var current_pose := ""
 var pose_cache := {}
 var model_button: Button
-const MODELS = ["classic_study", "petite_pale", "classic_male", "petite_male"]
-const MODEL_NAMES = ["Classic Ranger", "Petite Scout", "Classic Male", "Petite Male"]
+const MODELS = ["classic_study", "petite_pale", "classic_male", "petite_male", "katie"]
+const MODEL_NAMES = ["Classic Ranger", "Petite Scout", "Classic Male", "Petite Male", "Katie"]
 var status: Label
 var hud: Control
 var menu_panel: PanelContainer
@@ -44,6 +44,23 @@ func lowest_mesh(node: Node3D, relative: Transform3D) -> float:
 func ground_visual(model: Node3D):
 	var low := lowest_mesh(model,Transform3D.IDENTITY)
 	if is_finite(low): model.position.y -= low
+func highest_mesh(node: Node3D, relative: Transform3D) -> float:
+	var transform := relative * node.transform
+	var high := -INF
+	if node is MeshInstance3D and node.mesh != null:
+		var bounds: AABB = node.get_aabb()
+		for i in range(8):
+			high = maxf(high,(transform * bounds.get_endpoint(i)).y)
+	for child in node.get_children():
+		if child is Node3D: high = maxf(high,highest_mesh(child,transform))
+	return high
+func fit_katie_visual(model: Node3D):
+	# Blender scenes use varying scales; normalize Katie to a 1.7-metre hero.
+	var bottom := lowest_mesh(model,Transform3D.IDENTITY)
+	var top := highest_mesh(model,Transform3D.IDENTITY)
+	if is_finite(bottom) and is_finite(top) and top > bottom + 0.01:
+		model.scale *= clampf(1.7 / (top-bottom),0.05,20.0)
+	ground_visual(model)
 func body(pos: Vector3, asset: String, color: Color) -> CharacterBody3D:
 	var b := CharacterBody3D.new()
 	add_child(b)
@@ -59,7 +76,8 @@ func body(pos: Vector3, asset: String, color: Color) -> CharacterBody3D:
 		var model = load(asset).instantiate()
 		model.name = "CharacterVisual"
 		b.add_child(model)
-		ground_visual(model)
+		if asset.ends_with("/katie.glb"): fit_katie_visual(model)
+		else: ground_visual(model)
 	else:
 		var mesh := CapsuleMesh.new()
 		mesh.radius = 0.3
@@ -130,6 +148,7 @@ void fragment() {
 	var profile := ConfigFile.new()
 	profile.load("user://hero.cfg")
 	model_index = clampi(int(profile.get_value("hero","model",1)),0,MODELS.size()-1)
+	if not ResourceLoader.exists("res://assets/%s.glb" % MODELS[model_index]): model_index = 1
 	player = body(Vector3.ZERO,"res://assets/%s.glb" % MODELS[model_index],Color.BEIGE)
 	goblin = body(Vector3(0,0,-12),"res://assets/dagger_goblin.glb",Color("#708238"))
 	var sun := DirectionalLight3D.new()
@@ -215,10 +234,38 @@ func show_pose(asset: String):
 	player.add_child(visual)
 	ground_visual(visual)
 	current_pose = asset
+func find_imported_animator(node: Node) -> AnimationPlayer:
+	if node is AnimationPlayer: return node as AnimationPlayer
+	for child in node.get_children():
+		var found := find_imported_animator(child)
+		if found != null: return found
+	return null
+func play_imported_animation(state: String):
+	var visual := player.get_node_or_null("CharacterVisual")
+	if visual == null: return
+	var animator := find_imported_animator(visual)
+	if animator == null: return
+	var clip := ""
+	for candidate in animator.get_animation_list():
+		if candidate.to_lower().contains(state):
+			clip = candidate
+			break
+	if clip.is_empty() and state == "attack":
+		for candidate in animator.get_animation_list():
+			if candidate.to_lower().contains("punch"):
+				clip = candidate
+				break
+	if clip.is_empty():
+		if animator.is_playing(): animator.stop()
+	elif not animator.is_playing() or animator.current_animation != clip:
+		animator.play(clip)
 func cycle_model():
 	var next_index := (model_index + 1) % MODELS.size()
+	for ignored in range(MODELS.size()):
+		if ResourceLoader.exists("res://assets/%s.glb" % MODELS[next_index]): break
+		next_index = (next_index + 1) % MODELS.size()
 	var asset := "res://assets/%s.glb" % MODELS[next_index]
-	if not ResourceLoader.exists(asset): return
+	if not ResourceLoader.exists(asset) or next_index == model_index: return
 	var old := player.get_node_or_null("CharacterVisual")
 	if old != null:
 		player.remove_child(old)
@@ -226,7 +273,8 @@ func cycle_model():
 	var visual := (load(asset) as PackedScene).instantiate()
 	visual.name = "CharacterVisual"
 	player.add_child(visual)
-	ground_visual(visual)
+	if MODELS[next_index] == "katie": fit_katie_visual(visual)
+	else: ground_visual(visual)
 	model_index = next_index
 	current_pose = MODELS[model_index]
 	model_button.text = MODEL_NAMES[model_index]
@@ -252,7 +300,12 @@ func _physics_process(dt):
 		goblin.move_and_slide()
 	if direction.length() > 0.1: player.rotation.y = atan2(direction.x,direction.z)
 	var base: String = MODELS[model_index]
-	if punch_left > 0.0:
+	if base == "katie":
+		# Imported rigged model: use embedded actions rather than separate frame meshes.
+		var state := "attack" if punch_left > 0.0 else ("walk" if direction.length() > 0.1 else "idle")
+		play_imported_animation(state)
+		punch_left = maxf(0.0,punch_left-dt)
+	elif punch_left > 0.0:
 		var frame := clampi(int((0.5-punch_left)*10.0),0,4)
 		show_pose("%s_punch_%d" % [base,frame])
 		punch_left = maxf(0.0,punch_left-dt)

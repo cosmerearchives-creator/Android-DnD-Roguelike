@@ -7,3 +7,6 @@ local.properties
 *.pem
 SIGNING_KEYSTORE_BASE64.txt
 .idea/
+**/.godot/
+*.uid
+*.import
