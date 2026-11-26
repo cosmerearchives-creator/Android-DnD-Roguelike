@@ -10,6 +10,10 @@ var running := false
 var yaw := 0.0
 var camera_angle := 60.0
 var angle_button: Button
+var model_index := 0
+var model_button: Button
+const MODELS = ["classic_study", "petite_pale", "classic_male", "petite_male"]
+const MODEL_NAMES = ["Classic Ranger", "Petite Scout", "Classic Male", "Petite Male"]
 var status: Label
 var rng := RandomNumberGenerator.new()
 func mesh_at(parent: Node3D, mesh: Mesh, pos: Vector3, color: Color) -> MeshInstance3D:
@@ -34,6 +38,7 @@ func body(pos: Vector3, asset: String, color: Color) -> CharacterBody3D:
 	b.add_child(c)
 	if ResourceLoader.exists(asset):
 		var model = load(asset).instantiate()
+		model.name = "CharacterVisual"
 		b.add_child(model)
 	else:
 		var mesh := CapsuleMesh.new()
@@ -53,7 +58,27 @@ func _ready():
 	ground.position.y = -0.5
 	var floor_mesh := BoxMesh.new()
 	floor_mesh.size = box.size
-	mesh_at(ground,floor_mesh,Vector3.ZERO,Color("#526b40"))
+	var floor_visual := mesh_at(ground,floor_mesh,Vector3.ZERO,Color("#526b40"))
+	var terrain_shader := Shader.new()
+	terrain_shader.code = """shader_type spatial;
+varying vec3 world_pos;
+void vertex() { world_pos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz; }
+float hash(vec2 p) { return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
+float noise2(vec2 p) {
+	vec2 i=floor(p), f=fract(p);
+	f=f*f*(3.0-2.0*f);
+	return mix(mix(hash(i),hash(i+vec2(1,0)),f.x),mix(hash(i+vec2(0,1)),hash(i+vec2(1,1)),f.x),f.y);
+}
+void fragment() {
+	vec2 p=world_pos.xz;
+	float n=noise2(p*0.32)*0.65+noise2(p*2.5)*0.25+noise2(p*18.0)*0.10;
+	ALBEDO=mix(vec3(0.18,0.30,0.16),vec3(0.24,0.39,0.19),n);
+	ALBEDO=mix(ALBEDO,vec3(0.31,0.23,0.15),smoothstep(0.72,0.88,n)*0.6);
+	ROUGHNESS=0.93;
+}"""
+	var terrain_material := ShaderMaterial.new()
+	terrain_material.shader = terrain_shader
+	floor_visual.material_override = terrain_material
 	for i in range(260):
 		var p := Vector3(rng.randf_range(-95,95),0,rng.randf_range(-95,95))
 		if p.length() < 8: continue
@@ -116,6 +141,11 @@ func _ready():
 	angle_button.position = Vector2(500,110)
 	ui.add_child(angle_button)
 	angle_button.pressed.connect(toggle_angle)
+	model_button = Button.new()
+	model_button.text = MODEL_NAMES[0]
+	model_button.position = Vector2(20,190)
+	ui.add_child(model_button)
+	model_button.pressed.connect(cycle_model)
 	var controls := HBoxContainer.new()
 	controls.position = Vector2(365,1080)
 	ui.add_child(controls)
@@ -129,6 +159,19 @@ func _ready():
 	hint.text = "Drag here to move"
 	hint.position = Vector2(30,1130)
 	ui.add_child(hint)
+func cycle_model():
+	var next_index := (model_index + 1) % MODELS.size()
+	var asset := "res://assets/%s.glb" % MODELS[next_index]
+	if not ResourceLoader.exists(asset): return
+	var old := player.get_node_or_null("CharacterVisual")
+	if old != null:
+		player.remove_child(old)
+		old.queue_free()
+	var visual := (load(asset) as PackedScene).instantiate()
+	visual.name = "CharacterVisual"
+	player.add_child(visual)
+	model_index = next_index
+	model_button.text = MODEL_NAMES[model_index]
 func toggle_angle():
 	camera_angle = 75.0 if camera_angle == 60.0 else 60.0
 	angle_button.text = "Camera: %d°" % int(camera_angle)
