@@ -25,6 +25,7 @@ const MODEL_NAMES = ["Classic Ranger", "Petite Scout", "Classic Male", "Petite M
 var status: Label
 var hud: Control
 var menu_panel: PanelContainer
+var inventory_panel: Control
 var rng := RandomNumberGenerator.new()
 func mesh_at(parent: Node3D, mesh: Mesh, pos: Vector3, color: Color) -> MeshInstance3D:
 	var m := MeshInstance3D.new()
@@ -228,12 +229,37 @@ void fragment() {
 			elif title == "Main Menu": get_tree().change_scene_to_file("res://front_menu.tscn")
 			else: action(title))
 	menu_panel.hide()
+func toggle_inventory() -> void:
+	if is_instance_valid(inventory_panel):
+		inventory_panel.queue_free()
+		inventory_panel=null
+		hud.set_process_input(true)
+		return
+	if is_instance_valid(menu_panel): menu_panel.hide()
+	stick=Vector2.ZERO
+	hud.set_process_input(false)
+	var overlay:=preload("res://inventory_screen.tscn").instantiate() as Control
+	inventory_panel=overlay
+	hud.get_parent().add_child(overlay)
+	overlay.set_model(MODELS[model_index])
+	overlay.equipment_changed.connect(func(slot: String, id: String):
+		if slot=="Body" and MODELS[model_index]=="female_base":
+			leather_equipped=(id=="leather_armor")
+			update_leather_armor())
+	overlay.closed.connect(func():
+		if is_instance_valid(inventory_panel):
+			inventory_panel.queue_free()
+			inventory_panel=null
+			hud.set_process_input(true))
+
 func hud_action(name: String):
+	if is_instance_valid(inventory_panel): return
 	if menu_panel.visible and name != "Menu": return
 	if name == "Menu":
 		menu_panel.visible = not menu_panel.visible
 		stick = Vector2.ZERO
 	elif name == "Attack": action("Attack")
+	elif name == "Inventory": toggle_inventory()
 	elif name == "Pause":
 		menu_panel.show()
 		stick = Vector2.ZERO
