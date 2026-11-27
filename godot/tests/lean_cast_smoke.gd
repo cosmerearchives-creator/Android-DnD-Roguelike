@@ -3,6 +3,7 @@ extends SceneTree
 const Shared = preload("res://humanoid_shared_animations.gd")
 const Goblins = preload("res://goblin_variants.gd")
 const Quad = preload("res://quadruped_shared_animations.gd")
+const Combat = preload("res://creature_combat_stats.gd")
 
 func _initialize() -> void:
     call_deferred("_run")
@@ -310,6 +311,122 @@ func _run() -> void:
     if not beetle_found:
         _fail("Fire Beetle did not spawn with SPAWNTEST marker and corrected scale")
         return
+    # Every imported monster has an authoritative 2014 5e combat definition.
+    for profile in [
+            {"kind":"Goblin Warrior","ac":15,"hp":7,"bonus":4,"sides":6,"damage_bonus":2},
+            {"kind":"Twig Blight","ac":13,"hp":4,"bonus":3,"sides":4,"damage_bonus":1},
+            {"kind":"Fire Beetle","ac":13,"hp":4,"bonus":1,"sides":6,"damage_bonus":-1},
+            {"kind":"Wolf","ac":13,"hp":11,"bonus":4,"sides":4,"damage_bonus":2}]:
+        var stats: Dictionary = Combat.get_monster(profile.kind)
+        if stats.is_empty() or int(stats.ac)!=int(profile.ac) or int(stats.hp)!=int(profile.hp) or int(stats.attack_bonus)!=int(profile.bonus) or int(stats.damage_sides)!=int(profile.sides) or int(stats.damage_bonus)!=int(profile.damage_bonus):
+            _fail("Creature combat stats diverge from Bestiary: " + str(profile.kind))
+            return
+    print("COMBAT_MONSTER_STATS_OK 4 creatures")
+    # Lock-on takes the nearest living enemy and holds it while valid.
+    var nearby_goblin: CharacterBody3D = null
+    for mob in world.enemies.mobs:
+        if mob.kind == "Goblin Warrior":
+            nearby_goblin = mob.body
+            break
+    if nearby_goblin == null:
+        _fail("No Goblin Warrior available for target lock test")
+        return
+    nearby_goblin.global_position = world.player.global_position+Vector3(0,0,1.2)
+    world.hud_action("Lock")
+    if not world.lock_enabled or not world.hud.toggles.get("Lock",false) or world.locked_target != nearby_goblin or not world.target_marker.visible:
+        _fail("Automatic lock-on failed to acquire nearest enemy")
+        return
+    world.hud_action("A")
+    if not world.auto_attack_enabled or not world.hud.toggles.get("A",false) or not world.hud.toggles.get("Attack Mode",false):
+        _fail("Automatic attack toggle not synchronized across controls")
+        return
+    world.attack=0.0
+    world._physics_process(0.0)
+    if absf(world.attack-world.TEST_ATTACK_COOLDOWN_SECONDS)>0.0001 or world.punch_left<=0.0:
+        _fail("Automatic attack did not fire when target entered melee reach")
+        return
+    var attack_timer: float = world.attack
+    world._physics_process(0.0)
+    if absf(world.attack-attack_timer)>0.0001:
+        _fail("Automatic attack bypassed its one-second cooldown")
+        return
+    print("AUTO_ATTACK_AND_LOCK_OK")
+    # Combat has actual dice and HP loss, not the previous one-hit deletion.
+    var durable_goblin: CharacterBody3D = nearby_goblin
+    var strike_profile := {"attack_bonus":100, "damage_bonus":0,
+        "damage_dice":1, "damage_sides":1}
+    var successful_hit := false
+    for attempt in 15:
+        var outcome: Dictionary = world.enemies.damage_target(durable_goblin,strike_profile)
+        if bool(outcome.get("hit",false)):
+            successful_hit=true
+            if not world.enemies.target_is_alive(durable_goblin):
+                _fail("Goblin destroyed after a 1-damage attack")
+                return
+            if int(world.enemies.get_target_stats(durable_goblin).hp)>=7:
+                _fail("Goblin HP failed to decrease")
+                return
+            break
+    if not successful_hit:
+        _fail("Dice test produced 15 consecutive natural ones")
+        return
+    # Enemy aggression must produce real attack callbacks when in range.
+    var mob_index := -1
+    for i in world.enemies.mobs.size():
+        if world.enemies.mobs[i].body == durable_goblin:
+            mob_index=i
+            break
+    if mob_index<0:
+        _fail("Damaged goblin not present in enemy combat state")
+        return
+    world.enemies.mobs[mob_index].attack_cooldown=0.0
+    var count_before: int = world.enemies.attack_events
+    world.enemies._physics_process(0.016)
+    if world.enemies.attack_events<=count_before:
+        _fail("Aggressive goblin did not attempt an attack in melee range")
+        return
+    var hp_before: int = world.player_hp
+    world._on_enemy_attack("Goblin Warrior",true,3,"Scimitar")
+    if world.player_hp != hp_before-3 or not world.hud.combat_status.contains(str(world.player_hp)):
+        _fail("Enemy weapon damage failed to update player HP and HUD")
+        return
+    print("MONSTER_DAMAGE_AND_AGGRESSION_OK")
+    # Beetle is explicitly facing-corrected and can bite independently of
+    # humanoid skeletons; it retains its visible SPAWNTEST marker.
+    var enemy_beetle: CharacterBody3D = null
+    for mob in world.enemies.mobs:
+        if mob.kind == "Fire Beetle":
+            enemy_beetle=mob.body
+            break
+    if enemy_beetle == null:
+        _fail("No beetle available to test orientation and aggression")
+        return
+    var beetle_visual := enemy_beetle.get_node_or_null("CharacterVisual") as Node3D
+    if beetle_visual==null or absf(absf(beetle_visual.rotation.y)-PI)>0.001:
+        _fail("Beetle visual forward correction is missing")
+        return
+    for direction in [Vector3.FORWARD, Vector3.BACK, Vector3.LEFT, Vector3.RIGHT]:
+        enemy_beetle.rotation.y=atan2(-direction.x,-direction.z)
+        if (-beetle_visual.global_transform.basis.z).normalized().dot(direction)>-0.99:
+            _fail("Beetle imported model rotates against its movement direction")
+            return
+    enemy_beetle.global_position=world.player.global_position+Vector3(0,0,1.1)
+    for i in world.enemies.mobs.size():
+        if world.enemies.mobs[i].body==enemy_beetle:
+            world.enemies.mobs[i].attack_cooldown=0.0
+            break
+    var previous_events: int = world.enemies.attack_events
+    world.enemies._physics_process(0.016)
+    if world.enemies.attack_events<=previous_events:
+        _fail("Fire Beetle did not perform an attack in its detection radius")
+        return
+    world.hud_action("A")
+    world.hud_action("Lock")
+    if world.auto_attack_enabled or world.lock_enabled or world.target_marker.visible:
+        _fail("Auto combat toggles failed to release")
+        return
+    print("BEETLE_FACING_AND_ATTACK_OK")
+
     world.toggle_inventory()
     if world.inventory_panel == null or world.inventory_panel.hero_model not in ["human_adventurer", "male_human"]:
         _fail("Inventory portrait is not using a registered playable human")

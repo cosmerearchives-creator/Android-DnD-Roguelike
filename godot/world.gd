@@ -2,6 +2,7 @@ extends Node3D
 const FOOT = 0.3048
 const GOBLINS = preload("res://goblin_variants.gd")
 const SHARED = preload("res://humanoid_shared_animations.gd")
+const COMBAT = preload("res://creature_combat_stats.gd")
 var player: CharacterBody3D
 var enemies
 var camera: Camera3D
@@ -18,6 +19,15 @@ var jump_cooldown := 0.0
 var jump_animation_left := 0.0
 var running := false
 var sneaking := false
+const AUTO_LOCK_RANGE := 12.0
+const AUTO_ATTACK_RANGE := 5.0 * FOOT
+var auto_attack_enabled := false
+var lock_enabled := false
+var locked_target: CharacterBody3D
+var target_marker: Label3D
+var player_hp := int(COMBAT.TEST_PLAYER.hp)
+var combat_notice := ""
+var combat_notice_left := 0.0
 var yaw := 0.0
 var camera_angle := 60.0
 var angle_button: Button
@@ -162,6 +172,7 @@ void fragment() {
 	add_child(enemies)
 	enemies.cleared_goblins=quest_goblin_kills
 	enemies.setup(player)
+	enemies.on_player_hit = _on_enemy_attack
 	enemies.on_kill=func(count: int):
 		quest_goblin_kills=mini(count,10)
 		var quest_writer:=ConfigFile.new()
@@ -195,6 +206,19 @@ void fragment() {
 	hud.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	hud.movement.connect(func(value): stick = value)
 	hud.command.connect(hud_action)
+	var marker := Label3D.new()
+	marker.name = "TargetLockMarker"
+	marker.text = "LOCKED"
+	marker.font_size = 52
+	marker.pixel_size = 0.004
+	marker.outline_size = 8
+	marker.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	marker.no_depth_test = true
+	marker.modulate = Color("#ffe17e")
+	marker.visible = false
+	add_child(marker)
+	target_marker = marker
+	_update_combat_hud()
 	menu_panel = PanelContainer.new()
 	menu_panel.position = Vector2(170,120)
 	menu_panel.custom_minimum_size = Vector2(380,0)
@@ -243,6 +267,18 @@ func hud_action(name: String):
 		menu_panel.visible = not menu_panel.visible
 		stick = Vector2.ZERO
 	elif name == "Attack": action("Attack")
+	elif name == "Lock":
+		lock_enabled = not lock_enabled
+		if not lock_enabled:
+			locked_target = null
+		_refresh_target()
+		hud.toggles["Lock"] = lock_enabled
+		hud.queue_redraw()
+	elif name == "A" or name == "Attack Mode":
+		auto_attack_enabled = not auto_attack_enabled
+		hud.toggles["A"] = auto_attack_enabled
+		hud.toggles["Attack Mode"] = auto_attack_enabled
+		hud.queue_redraw()
 	elif name == "Jump": action("Jump")
 	elif name == "Crouch":
 		sneaking = not sneaking
@@ -283,11 +319,82 @@ func action(title: String):
 			jump_cooldown = TEST_JUMP_COOLDOWN_SECONDS
 			jump_animation_left = 0.65
 			player.velocity.y = JUMP_VELOCITY
-	elif title == "Attack" and attack <= 0:
-		attack = TEST_ATTACK_COOLDOWN_SECONDS
-		punch_left = 0.5
-		if is_instance_valid(enemies):
-			enemies.defeat_nearest(5*FOOT)
+	elif title == "Attack":
+		_attack_once()
+
+func _on_enemy_attack(kind: String, hit: bool, damage: int, attack_name: String) -> void:
+	if player_hp <= 0: return
+	if hit:
+		player_hp = maxi(0,player_hp-damage)
+		_show_combat_notice("%s %s: -%d HP" % [kind, attack_name, damage])
+		if player_hp == 0:
+			_show_combat_notice("DEFEATED - return to the main menu")
+	else:
+		_show_combat_notice("%s missed you" % kind)
+	_update_combat_hud()
+
+func _show_combat_notice(message: String) -> void:
+	combat_notice = message
+	combat_notice_left = 1.6
+	_update_combat_hud()
+
+func _refresh_target() -> void:
+	if not is_instance_valid(enemies): return
+	if not lock_enabled:
+		locked_target = null
+	else:
+		if not enemies.target_is_alive(locked_target) or enemies.flat_distance(
+			player.global_position, locked_target.global_position) > AUTO_LOCK_RANGE*1.5:
+			locked_target = enemies.nearest_target(player.global_position,AUTO_LOCK_RANGE)
+	if is_instance_valid(target_marker):
+		target_marker.visible = is_instance_valid(locked_target)
+		if is_instance_valid(locked_target):
+			var info: Dictionary = enemies.get_target_stats(locked_target)
+			target_marker.global_position = locked_target.global_position + Vector3(0,1.8,0)
+			if not info.is_empty():
+				target_marker.text = "LOCK  %s  %d/%d HP" % [
+					str(info.kind),int(info.hp),int(info.max_hp)]
+
+func _attack_once() -> void:
+	if attack > 0.0 or player_hp <= 0: return
+	attack = TEST_ATTACK_COOLDOWN_SECONDS
+	punch_left = 0.5
+	if not is_instance_valid(enemies): return
+	var target: CharacterBody3D = locked_target if enemies.target_is_alive(locked_target) else null
+	if target == null:
+		target = enemies.nearest_target(player.global_position,AUTO_ATTACK_RANGE)
+	if not is_instance_valid(target): return
+	var horizontal_distance: float = enemies.flat_distance(player.global_position,target.global_position)
+	if horizontal_distance > AUTO_ATTACK_RANGE:
+		_show_combat_notice("Target out of melee range")
+		return
+	var facing := target.global_position-player.global_position
+	facing.y = 0.0
+	if facing.length_squared() > 0.001:
+		player.rotation.y = atan2(facing.x,facing.z)
+	var result: Dictionary = enemies.damage_target(target,COMBAT.TEST_PLAYER)
+	if not bool(result.get("valid",false)):return
+	if not bool(result.get("hit",false)):
+		_show_combat_notice("Miss: %s (AC %d)" % [str(result.kind),
+			int(enemies.get_target_stats(target).get("ac",0))])
+	elif bool(result.get("defeated",false)):
+		_show_combat_notice("Defeated %s" % str(result.kind))
+	else:
+		_show_combat_notice("Hit %s for %d (%d HP left)" % [
+			str(result.kind),int(result.damage),int(result.remaining_hp)])
+	_refresh_target()
+
+func _update_combat_hud() -> void:
+	if not is_instance_valid(hud): return
+	var value := "HP %d/%d   AC %d" % [
+		player_hp,int(COMBAT.TEST_PLAYER.hp),int(COMBAT.TEST_PLAYER.ac)]
+	if auto_attack_enabled: value += "   AUTO"
+	if lock_enabled: value += "   LOCK"
+	if hud.combat_status != value or hud.combat_notice != combat_notice:
+		hud.combat_status = value
+		hud.combat_notice = combat_notice
+		hud.queue_redraw()
+
 func _physics_process(dt):
 	var direction := Vector3(stick.x,0,stick.y).rotated(Vector3.UP,yaw)
 	var stick_running := stick.length() >= RUN_STICK_THRESHOLD
@@ -298,7 +405,14 @@ func _physics_process(dt):
 	player.velocity.z = direction.z * WALK_SPEED * speed_multiplier
 	player.velocity.y = -0.5 if player.is_on_floor() and vertical <= 0.0 else vertical - 9.8*dt
 	player.move_and_slide()
-	if direction.length() > 0.1:
+	_refresh_target()
+	var look_at_target := is_instance_valid(locked_target) and lock_enabled
+	if look_at_target:
+		var facing := locked_target.global_position-player.global_position
+		facing.y=0.0
+		if facing.length_squared()>0.001:
+			player.rotation.y=atan2(facing.x,facing.z)
+	elif direction.length() > 0.1:
 		player.rotation.y = atan2(direction.x,direction.z)
 	if jump_animation_left > 0.0:
 		play_imported_animation("jump")
@@ -322,4 +436,12 @@ func _physics_process(dt):
 		camera.v_offset = (target_y - projected_y) * camera.size / view_height
 	attack = maxf(0.0, attack-dt)
 	jump_cooldown = maxf(0.0, jump_cooldown-dt)
+	combat_notice_left = maxf(0.0,combat_notice_left-dt)
+	if combat_notice_left == 0.0 and not combat_notice.is_empty():
+		combat_notice = ""
+	if auto_attack_enabled and attack <= 0.0 and player_hp > 0 and not is_instance_valid(inventory_panel) and not menu_panel.visible:
+		var target: CharacterBody3D = locked_target if enemies.target_is_alive(locked_target) else enemies.nearest_target(player.global_position,AUTO_ATTACK_RANGE)
+		if is_instance_valid(target) and enemies.flat_distance(player.global_position,target.global_position) <= AUTO_ATTACK_RANGE:
+			_attack_once()
+	_update_combat_hud()
 

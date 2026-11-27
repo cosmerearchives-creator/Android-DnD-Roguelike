@@ -9,6 +9,8 @@ var finger := -1
 var toggles := {}
 var font: Font = ThemeDB.fallback_font
 var hud_text := "FORESTS OF HELL"
+var combat_status := "HP 20/20   AC 10"
+var combat_notice := ""
 var buttons := {}
 func _ready():
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -89,13 +91,16 @@ func _draw():
 		plate(r,15,toggles.get(key,false) or key == "Attack")
 		if key in ["Jump","Crouch","Attack","Attack Mode"]:
 			draw_symbol(key,r.position+Vector2(r.size.x/2,30))
-			label_at(key,Rect2(r.position+Vector2(0,52),Vector2(r.size.x,45)),22)
+			label_at("AUTO ON" if key == "Attack Mode" and toggles.get(key,false) else key,
+				Rect2(r.position+Vector2(0,52),Vector2(r.size.x,45)),22)
 		else:
 			label_at(glyphs[key] + ("  "+key if key in ["Inventory","Pause"] else ""),r,24)
 	plate(Rect2(16,16,390,84),12)
 	draw_string(font,Vector2(30,49),hud_text,HORIZONTAL_ALIGNMENT_LEFT,-1,24,INK)
 	draw_line(Vector2(30,58),Vector2(390,58),GOLD,1,true)
-	draw_string(font,Vector2(30,85),"HP —   XP —   GOLD —",HORIZONTAL_ALIGNMENT_LEFT,-1,22,INK)
+	draw_string(font,Vector2(30,85),combat_status,HORIZONTAL_ALIGNMENT_LEFT,-1,21,INK)
+	if not combat_notice.is_empty():
+		draw_string(font,Vector2(310,y-18),combat_notice,HORIZONTAL_ALIGNMENT_LEFT,-1,20,GOLD)
 	draw_line(Vector2(40,y+275),Vector2(680,y+275),GOLD,1,true)
 	diamond(Vector2(360,y+275),9)
 func _input(event):

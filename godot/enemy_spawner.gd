@@ -4,6 +4,7 @@ extends Node3D
 const FOOT := 0.3048
 const GOBLINS = preload("res://goblin_variants.gd")
 const SHARED = preload("res://humanoid_shared_animations.gd")
+const COMBAT = preload("res://creature_combat_stats.gd")
 const BEETLE = "res://assets/fire_beetle.glb"
 const TWIG_BLIGHT = "res://assets/twig_blight.glb"
 const SPAWNTEST_KINDS := ["Fire Beetle"]
@@ -14,7 +15,8 @@ const STARTING_POPULATION := 9
 # code used to turn them as though their forward axis were -Z.
 # Apply the correction only to their *visuals*, not collision bodies.
 const VISUAL_FORWARD_OFFSETS := {
-    "Goblin Warrior": PI
+    "Goblin Warrior": PI,
+    "Fire Beetle": PI
 }
 const MAX_RANGE := 37.0
 const SPAWN_MIN := 14.0
@@ -28,6 +30,8 @@ var ai_clock := 0.0
 var initial_population := false
 var cleared_goblins := 0
 var on_kill: Callable
+var on_player_hit: Callable
+var attack_events := 0
 
 func _ready() -> void:
 	rng.randomize()
@@ -172,11 +176,20 @@ func _spawn(path: String, kind: String) -> void:
 		tag.position.y = desired_height + 0.22
 		body.add_child(tag)
 	var animator: AnimationPlayer = _animator(mesh) if kind == "Fire Beetle" else SHARED.attach(mesh)
+	var stats: Dictionary = COMBAT.get_monster(kind)
+	if stats.is_empty():
+		push_error("Unregistered enemy combat stats: " + kind)
+		body.queue_free()
+		return
 	mobs.append({
 		"body":body, "animator":animator, "kind":kind,
 		"spawntest":kind in SPAWNTEST_KINDS,
+		"stats":stats, "hp":int(stats.hp), "max_hp":int(stats.hp),
+		"provoked":false, "attack_cooldown":rng.randf_range(0.4,1.1),
+		"attack_anim":0.0,
+		"visual_rest_position":mesh.position,
 		"direction":Vector3.ZERO,"timer":rng.randf_range(0.2,2.0),
-		"speed":rng.randf_range(0.65,1.0) if kind != "Fire Beetle" else 0.75,
+		"speed":float(stats.speed_ft)*FOOT/6.0*rng.randf_range(0.9,1.0),
 	})
 	_set_anim(mobs.back(), "idle")
 
@@ -190,84 +203,167 @@ func _animator(node: Node) -> AnimationPlayer:
 func _set_anim(mob: Dictionary, state: String) -> void:
 	var anim: AnimationPlayer = mob.animator
 	if not is_instance_valid(anim): return
-	var chosen := ""
-	for clip in anim.get_animation_list():
-		if clip.to_lower().contains(state):
-			chosen=clip
-			break
-	if chosen.is_empty() and state == "idle":
+	var kind: String = mob.kind
+	var wanted := ""
+	if state == "attack":
+		wanted = "Attack_Claw_01_BackSwipe" if kind == "Twig Blight" else "Axe_Spin_Attack" if kind == "Goblin Warrior" else "Walk"
+	elif state == "walk":
+		wanted = "Walk" if kind == "Fire Beetle" else "Movement_WalkMale_01_Standard"
+	else:
+		wanted = "Walk" if kind == "Fire Beetle" else "Idle"
+	if not anim.has_animation(wanted):
 		for clip in anim.get_animation_list():
-			if clip.to_lower().contains("walk"):
-				chosen=clip
+			if clip.to_lower().contains(state):
+				wanted = clip
 				break
-	if chosen.is_empty(): return
-	if anim.current_animation != chosen or not anim.is_playing():
-		var resource := anim.get_animation(chosen)
-		if resource != null: resource.loop_mode=Animation.LOOP_LINEAR
-		anim.play(chosen)
+	if not anim.has_animation(wanted): return
+	if anim.current_animation != wanted or not anim.is_playing():
+		var resource := anim.get_animation(wanted)
+		resource.loop_mode = Animation.LOOP_NONE if state == "attack" and kind != "Fire Beetle" else Animation.LOOP_LINEAR
+		anim.play(wanted)
+
+func flat_distance(a: Vector3, b: Vector3) -> float:
+	return Vector2(a.x-b.x, a.z-b.z).length()
+
+func nearest_target(origin: Vector3, max_distance: float) -> CharacterBody3D:
+	var closest: CharacterBody3D = null
+	var closest_distance := max_distance
+	for mob in mobs:
+		var enemy: CharacterBody3D = mob.body
+		if not is_instance_valid(enemy) or int(mob.hp) <= 0: continue
+		var distance := flat_distance(origin, enemy.global_position)
+		if distance < closest_distance:
+			closest = enemy
+			closest_distance = distance
+	return closest
+
+func target_is_alive(target: CharacterBody3D) -> bool:
+	if not is_instance_valid(target): return false
+	for mob in mobs:
+		if mob.body == target and int(mob.hp) > 0:
+			return true
+	return false
+
+func get_target_stats(target: CharacterBody3D) -> Dictionary:
+	if not is_instance_valid(target): return {}
+	for mob in mobs:
+		if mob.body == target:
+			return {"kind":str(mob.kind),"hp":int(mob.hp),
+				"max_hp":int(mob.max_hp),"ac":int(mob.stats.ac)}
+	return {}
+
+func damage_target(target: CharacterBody3D, attack_stats: Dictionary) -> Dictionary:
+	var outcome := {"valid":false, "hit":false, "damage":0, "defeated":false}
+	if not target_is_alive(target): return outcome
+	for index in mobs.size():
+		var mob: Dictionary = mobs[index]
+		if mob.body != target: continue
+		outcome.valid = true
+		outcome.kind = str(mob.kind)
+		mob.provoked = true
+		var roll: Dictionary = COMBAT.attack_roll(rng, int(attack_stats.attack_bonus), int(mob.stats.ac))
+		outcome.hit = bool(roll.hit)
+		outcome.critical = bool(roll.critical)
+		if bool(roll.hit):
+			var damage := COMBAT.damage_roll(rng, attack_stats, bool(roll.critical))
+			mob.hp = maxi(0, int(mob.hp)-damage)
+			outcome.damage = damage
+			outcome.remaining_hp = int(mob.hp)
+			outcome.defeated = int(mob.hp) == 0
+			if outcome.defeated:
+				_defeat_index(index)
+		return outcome
+	return outcome
+
+func _defeat_index(index: int) -> void:
+	var mob: Dictionary = mobs[index]
+	if str(mob.kind) == "Goblin Warrior":
+		cleared_goblins += 1
+		if on_kill.is_valid(): on_kill.call(cleared_goblins)
+	var body: CharacterBody3D = mob.body
+	mobs.remove_at(index)
+	if is_instance_valid(body): body.queue_free()
+
+func _enemy_attack(mob: Dictionary) -> void:
+	var stats: Dictionary = mob.stats
+	var roll: Dictionary = COMBAT.attack_roll(rng, int(stats.attack_bonus), COMBAT.TEST_PLAYER.ac)
+	var hit: bool = bool(roll.hit)
+	var damage := COMBAT.damage_roll(rng, stats, bool(roll.critical)) if hit else 0
+	mob.attack_cooldown = float(stats.attack_interval)
+	mob.attack_anim = 0.48
+	attack_events += 1
+	_set_anim(mob, "attack")
+	if on_player_hit.is_valid():
+		on_player_hit.call(str(mob.kind), hit, damage, str(stats.attack_label))
 
 func _physics_process(delta: float) -> void:
 	if not initial_population or not is_instance_valid(player): return
 	spawn_clock += delta
 	ai_clock += delta
 	if spawn_clock >= SPAWN_INTERVAL:
-		spawn_clock = 0
+		spawn_clock = 0.0
 		if mobs.size() < MAX_ENEMIES:
 			_spawn_random()
-	for i in range(mobs.size()-1,-1,-1):
-		var mob: Dictionary = mobs[i]
+	for index in range(mobs.size()-1,-1,-1):
+		var mob: Dictionary = mobs[index]
 		var body: CharacterBody3D = mob.body
 		if not is_instance_valid(body):
-			mobs.remove_at(i)
+			mobs.remove_at(index)
 			continue
-		if body.global_position.distance_to(player.global_position)>MAX_RANGE:
+		var distance := flat_distance(body.global_position,player.global_position)
+		if distance > MAX_RANGE:
 			body.queue_free()
-			mobs.remove_at(i)
+			mobs.remove_at(index)
 			continue
+		mob.attack_cooldown = maxf(0.0, float(mob.attack_cooldown)-delta)
+		mob.attack_anim = maxf(0.0, float(mob.attack_anim)-delta)
 		mob.timer = float(mob.timer)-delta
 		if float(mob.timer)<=0.0:
-			mob.timer=rng.randf_range(1.5,4.0)
+			mob.timer = rng.randf_range(1.5,4.0)
 			var move_angle := rng.randf_range(0.0,TAU)
-			mob.direction=Vector3(cos(move_angle),0,sin(move_angle)) if rng.randf() > 0.18 else Vector3.ZERO
-		var direction: Vector3=mob.direction
-		# Keep wandering creatures in the active area, without chasing the player.
-		if body.global_position.distance_to(player.global_position)>24.0:
-			direction=(player.global_position-body.global_position)
+			mob.direction = Vector3(cos(move_angle),0,sin(move_angle)) if rng.randf()>0.18 else Vector3.ZERO
+		var stats: Dictionary = mob.stats
+		var hostile := (bool(stats.aggressive) or bool(mob.provoked)) and distance <= float(stats.notice_m)
+		var direction: Vector3 = mob.direction
+		if hostile:
+			direction = player.global_position-body.global_position
+			direction.y=0.0
+			direction = direction.normalized()
+			if distance <= float(stats.reach_ft)*FOOT*0.90:
+				direction=Vector3.ZERO
+				if float(mob.attack_cooldown)<=0.0:
+					# The attack callback applies the actual creature stat block.
+					_enemy_attack(mob)
+		elif distance > 24.0:
+			direction = player.global_position-body.global_position
 			direction.y=0.0
 			direction=direction.normalized()
-		var speed: float = mob.speed
-		body.velocity.x=direction.x*speed
-		body.velocity.z=direction.z*speed
-		body.velocity.y=-0.5 if body.is_on_floor() else body.velocity.y-9.8*delta
+		body.velocity.x = direction.x*float(mob.speed)
+		body.velocity.z = direction.z*float(mob.speed)
+		body.velocity.y = -0.5 if body.is_on_floor() else body.velocity.y-9.8*delta
 		body.move_and_slide()
-		if direction.length_squared()>0.05:
-			body.rotation.y=atan2(-direction.x,-direction.z)
-		_set_anim(mob,"walk" if direction.length_squared()>0.05 else "idle")
+		var facing: Vector3 = direction
+		if hostile and facing.length_squared()<0.05:
+			facing=player.global_position-body.global_position
+			facing.y=0.0
+		if facing.length_squared()>0.05:
+			body.rotation.y=atan2(-facing.x,-facing.z)
+		if str(mob.kind) == "Fire Beetle":
+			# No native Bite clip exists; a short physical lunge clearly marks
+			# its attack without modifying its 27-bone skeleton or Walk clip.
+			var beetle_visual := body.get_node_or_null("CharacterVisual") as Node3D
+			if beetle_visual != null:
+				var phase := (0.48-float(mob.attack_anim))/0.48
+				var distance_lunge := 0.15*sin(clampf(phase,0.0,1.0)*PI) if float(mob.attack_anim)>0.0 else 0.0
+				beetle_visual.position = mob.visual_rest_position + Vector3(0,0,-distance_lunge)
+		if float(mob.attack_anim)<=0.0:
+			_set_anim(mob,"walk" if direction.length_squared()>0.05 else "idle")
 
+# Backward-compatible manual attack entrypoint, now doing real hit and damage
+# rolls rather than instantly deleting a creature on every button press.
 func defeat_nearest(range_meters: float) -> bool:
 	if not is_instance_valid(player): return false
-	var nearest: CharacterBody3D = null
-	var nearest_dist := range_meters
-	for mob in mobs:
-		var body: CharacterBody3D=mob.body
-		if not is_instance_valid(body): continue
-		var dist := player.global_position.distance_to(body.global_position)
-		if dist <= nearest_dist:
-			nearest=body
-			nearest_dist=dist
-	if nearest==null: return false
-	var defeated_name := ""
-	for mob in mobs:
-		if mob.body == nearest:
-			defeated_name = str(mob.kind)
-			break
-	if defeated_name == "Goblin Warrior":
-		cleared_goblins += 1
-		if on_kill.is_valid(): on_kill.call(cleared_goblins)
-	for i in range(mobs.size()-1,-1,-1):
-		if mobs[i].body == nearest:
-			mobs.remove_at(i)
-			break
-	nearest.queue_free()
-	return true
-
+	var nearest := nearest_target(player.global_position, range_meters)
+	if nearest == null: return false
+	var result := damage_target(nearest, COMBAT.TEST_PLAYER)
+	return bool(result.get("defeated",false))
