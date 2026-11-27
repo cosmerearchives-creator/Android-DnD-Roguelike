@@ -48,7 +48,12 @@ static func _source_bone_name(bone: String) -> String:
     return bone.trim_prefix("mixamorig_").trim_prefix("mixamorig:")
 
 static func _target_bone(source_name: String, destination: Skeleton3D) -> int:
-    var candidates: Array = ALIASES.get(source_name, [source_name])
+    if destination.find_bone("Bone_018") >= 0 and destination.find_bone("Bone_023") >= 0:
+        var custom: Dictionary = {"LeftHand": "Bone_018", "RightHand": "Bone_023", "LeftHandThumb1": "Bone_031", "LeftHandThumb2": "Bone_030", "LeftHandThumb3": "Bone_029", "LeftHandThumb4": "Bone_028", "LeftHandIndex1": "Bone_043", "LeftHandIndex2": "Bone_042", "LeftHandIndex3": "Bone_041", "LeftHandIndex4": "Bone_040", "LeftHandMiddle1": "Bone_039", "LeftHandMiddle2": "Bone_038", "LeftHandMiddle3": "Bone_037", "LeftHandMiddle4": "Bone_036", "LeftHandRing1": "Bone_035", "LeftHandRing2": "Bone_034", "LeftHandRing3": "Bone_033", "LeftHandRing4": "Bone_032", "LeftHandPinky1": "Bone_047", "LeftHandPinky2": "Bone_046", "LeftHandPinky3": "Bone_045", "LeftHandPinky4": "Bone_044", "RightHandThumb1": "Bone_069", "RightHandThumb2": "Bone_068", "RightHandThumb3": "Bone_067", "RightHandThumb4": "Bone_066", "RightHandIndex1": "Bone_065", "RightHandIndex2": "Bone_064", "RightHandIndex3": "Bone_063", "RightHandIndex4": "Bone_062", "RightHandMiddle1": "Bone_061", "RightHandMiddle2": "Bone_060", "RightHandMiddle3": "Bone_059", "RightHandMiddle4": "Bone_058", "RightHandRing1": "Bone_053", "RightHandRing2": "Bone_052", "RightHandRing3": "Bone_051", "RightHandRing4": "Bone_050", "RightHandPinky1": "Bone_057", "RightHandPinky2": "Bone_056", "RightHandPinky3": "Bone_055", "RightHandPinky4": "Bone_054"}
+        if custom.has(source_name):
+            return destination.find_bone(custom[source_name])
+    var candidates: Array = [source_name]
+    candidates.append_array(ALIASES.get(source_name, []))
     for candidate in candidates:
         for candidate_name in [str(candidate), "mixamorig:" + str(candidate), "mixamorig_" + str(candidate)]:
             var index := destination.find_bone(candidate_name)
@@ -116,6 +121,21 @@ static func attach(model: Node3D, in_place: bool = true) -> AnimationPlayer:
         var dest_idx := _target_bone(_source_bone_name(source_name), destination)
         if dest_idx >= 0:
             mappings[source_name] = [bone_idx, dest_idx]
+    if destination.find_bone("Bone_018") >= 0:
+        for required in ["LeftForeArm", "RightForeArm", "LeftUpLeg", "RightUpLeg", "LeftLeg", "RightLeg", "LeftHand", "RightHand"]:
+            var found := false
+            for mapped_name in mappings:
+                if _source_bone_name(mapped_name) == required:
+                    found = true
+                    break
+            if not found:
+                push_error("Missing required goblin bone: " + required)
+                source_instance.free()
+                return null
+        if mappings.size() < 60:
+            push_error("Incomplete goblin mapping")
+            source_instance.free()
+            return null
     if mappings.size() < 8:
         source_instance.free()
         return null
@@ -199,7 +219,7 @@ static func attach(model: Node3D, in_place: bool = true) -> AnimationPlayer:
                         new_path += ":" + String(path.get_concatenated_subnames())
                     exact.track_set_path(track, NodePath(new_path))
             if library.has_animation(name):
-                library.remove_animation(name)
+                library.rename_animation(name, "Shared_" + name)
             library.add_animation(name, exact)
         player.set_meta("native_reference_clips", reference.get_animation_list())
     # Standing pose derived once from the first Walking frame. This ensures
