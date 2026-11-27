@@ -104,9 +104,10 @@ def blend(a,b,t):
     t=max(0.0,min(1.0,t))
     return {a:1-t,b:t}
 def weights(point, index):
-    if index in rigid:
-        return {rigid[index]:1.0}
     x,y,z = point
+    prop = rigid.get(index)
+    if prop == "RHand":
+        return {prop: 1.0}
     if z < .37:
         side="L" if x < -.005 else "R"
         # Central cloth/coat belongs to the hips; legs remain independently movable.
@@ -122,21 +123,50 @@ def weights(point, index):
         return {"Hips":1-leg,part:leg}
     if z > .785:
         return blend("Spine","Head",(z-.775)/.095)
-    # Arms: shoulder/torso transition gradually over a narrow band.
-    side="L" if x < 0 else "R"
-    reach=max(0.0,min(1.0,(abs(x)-.095)/.11))
-    if z > .72:
-        reach*=max(0.0,min(1.0,(.80-z)/.08))
-    arm_part=side+"UpperArm" if z>.53 else side+"Forearm"
-    if z < .425:
-        arm_part=side+"Hand"
-    body_part="Hips" if z < .45 else "Spine"
-    return {body_part:1-reach,arm_part:reach}
-for vertex in mesh.data.vertices:
-    w = weights(points[vertex.index],vertex.index)
-    for name, value in w.items():
-        if value > 1e-6:
-            groups[name].add([vertex.index],value,"REPLACE")
+    # Blend across the shoulder, elbow and wrist. A height threshold at
+    # either joint makes adjacent shells follow different rigid transforms.
+    side = "L" if x < 0 else "R"
+    def ramp(value, low, high):
+        t = max(0.0, min(1.0, (value - low) / (high - low)))
+        return t * t * (3.0 - 2.0 * t)
+
+    reach = ramp(abs(x), .105, .205) * (1.0 - ramp(z, .735, .805))
+    upper = ramp(z, .47, .59)
+    hand = (1.0 - upper) * (1.0 - ramp(z, .395, .46))
+    forearm = 1.0 - upper - hand
+    hips = 1.0 - ramp(z, .39, .50)
+    result = {
+        "Hips": (1.0 - reach) * hips,
+        "Spine": (1.0 - reach) * (1.0 - hips),
+        side + "UpperArm": reach * upper,
+        side + "Forearm": reach * forearm,
+        side + "Hand": reach * hand,
+    }
+
+    # The sword component also reaches back into the upper arm. Keep its
+    # forward blade rigid and fade to arm weights across the rear overlap.
+    if prop == "LHand":
+        rigid_share = 1.0 - ramp(y, -.12, -.045) * ramp(z, .48, .58)
+        result = {name: weight * (1.0 - rigid_share) for name, weight in result.items()}
+        result[prop] += rigid_share
+    return result
+
+# glTF splits vertices at UV and normal boundaries. Identical source
+# positions must use the same weights or those seams can open in motion.
+coincident = {}
+for index, point in enumerate(points):
+    key = tuple(round(component, 6) for component in point)
+    coincident.setdefault(key, []).append(index)
+for indices in coincident.values():
+    combined = {}
+    for index in indices:
+        for name, weight in weights(points[index], index).items():
+            combined[name] = combined.get(name, 0.0) + weight
+    strongest = sorted(combined.items(), key=lambda item: -item[1])[:4]
+    total = sum(weight for _, weight in strongest)
+    for name, weight in strongest:
+        if weight > 1e-6:
+            groups[name].add(indices, weight / total, "REPLACE")
 modifier = mesh.modifiers.new("Goblin Warrior Skin", "ARMATURE")
 modifier.object = arm
 mesh.parent = arm
@@ -217,6 +247,6 @@ if "--preview" in sys.argv:
         for track in arm.animation_data.nla_tracks:
             track.mute=track.name!=name
         scene.frame_set(frame)
-        scene.render.filepath=str(ROOT / "godot" / ("goblin_warrior_"+name.lower()+"_preview.png"))
+        scene.render.filepath=str(OUTPUT.parent / ("goblin_warrior_"+name.lower()+"_preview.png"))
         bpy.ops.render.render(write_still=True)
         print("RENDERED",name,scene.render.filepath)
