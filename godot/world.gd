@@ -17,6 +17,9 @@ var punch_left := 0.0
 var current_pose := ""
 var pose_cache := {}
 var model_button: Button
+var leather_button: Button
+var leather_equipped := false
+const FEMALE_LEATHER := "res://assets/leather_armor_female.glb"
 const MODELS = ["classic_study", "petite_pale", "classic_male", "petite_male", "katie", "female_base"]
 const MODEL_NAMES = ["Classic Ranger", "Petite Scout", "Classic Male", "Petite Male", "Katie", "Female Base"]
 var status: Label
@@ -218,6 +221,12 @@ void fragment() {
 	model_button.text = MODEL_NAMES[model_index]
 	menu.add_child(model_button)
 	model_button.pressed.connect(cycle_model)
+	leather_button = Button.new()
+	leather_button.pressed.connect(func():
+		leather_equipped = not leather_equipped
+		update_leather_armor())
+	menu.add_child(leather_button)
+	update_leather_armor()
 	for title in ["Run","Turn","Main Menu","Close"]:
 		var button := Button.new()
 		button.text = title
@@ -309,6 +318,36 @@ func cycle_model():
 	model_index = next_index
 	current_pose = MODELS[model_index]
 	model_button.text = MODEL_NAMES[model_index]
+	update_leather_armor()
+
+func update_leather_armor() -> void:
+	var compatible: bool = MODELS[model_index] == "female_base"
+	leather_button.visible = compatible
+	leather_button.text = "Remove Leather Armor" if leather_equipped else "Equip Leather Armor"
+	if not compatible:
+		return
+	var visual := player.get_node_or_null("CharacterVisual")
+	var skeletons := visual.find_children("*", "Skeleton3D", true, false)
+	if skeletons.is_empty():
+		return
+	var skeleton := skeletons[0] as Skeleton3D
+	var equipped := skeleton.get_node_or_null("LeatherArmor") as MeshInstance3D
+	if equipped != null:
+		equipped.visible = leather_equipped
+		return
+	if not leather_equipped:
+		return
+	var armor_scene := (load(FEMALE_LEATHER) as PackedScene).instantiate()
+	var source := armor_scene.find_children("*", "MeshInstance3D", true, false)[0] as MeshInstance3D
+	var armor := MeshInstance3D.new()
+	armor.name = "LeatherArmor"
+	armor.mesh = source.mesh
+	armor.skin = source.skin
+	armor.transform = source.transform
+	armor.skeleton = NodePath("..")
+	skeleton.add_child(armor)
+	armor_scene.free()
+
 func toggle_angle():
 	camera_angle = 75.0 if camera_angle == 60.0 else 60.0
 	angle_button.text = "Camera: %d°" % int(camera_angle)

@@ -70,3 +70,7 @@ Bestiary now switches between Goblin Warrior and Classic Study. Classic Study ke
 ## v0.3.167 imported Female Base
 
 New characters default to Female Base. Existing model indices are preserved for saved profiles. The user-supplied GLB has 231,098 triangles and keeps its source geometry and textures. The derivative adds a 22-bone review rig and baked Idle, Walk and Attack clips. Godot 4.4.1 desktop smoke tests verify model selection and playback. Android frame time and deformation in motion still need device review before reducing quality. Source SHA-256 is 5918341f8661534c9df8a320d05f3e1a9c70910aaaeab104ce2c603409bb1cad. The user confirmed permission to redistribute the model and textures.
+
+## v0.3.169 Female Base Leather Armor preview
+
+Female Base can equip or remove the standalone Leather Armor model through the in-game Menu. The armor uses the active character skeleton and is loaded on first equip. Its Blender source keeps the components editable and its GLB combines them into four material surfaces. This preview is a session toggle. Inventory and armor-class integration remain future work. The second model fit awaits the chosen male base.
