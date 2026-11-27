@@ -21,6 +21,7 @@ const ENTRIES = [{
 		["Shortbow", "Ranged Weapon Attack: +4 to hit, range 80/320 ft., one target. Hit: 5 (1d6 + 2) piercing damage."]
 	]
 }]
+const WALK_COMPARISON := "res://assets/classic_study_shared_walk.glb"
 const GOLD := Color("#cfb576")
 const PALE := Color("#f3dfb8")
 const DARK := Color("#0b292e")
@@ -30,6 +31,12 @@ var creature_root: Node3D
 var touch_points: Dictionary = {}
 var camera: Camera3D
 var preview_animator: AnimationPlayer
+var preview_model: Node3D
+var preview_controls: HBoxContainer
+var preview_title: Label
+var preview_subtitle: Label
+var comparison_button: Button
+var showing_comparison := false
 
 func _panel() -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
@@ -96,12 +103,12 @@ func _ready() -> void:
 	header.add_child(blank)
 
 	var entry := ENTRIES[0]
-	var creature_title := _label(entry.name, 36, true)
-	creature_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	layout.add_child(creature_title)
-	var subtitle := _label(entry.subtitle, 19)
-	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	layout.add_child(subtitle)
+	preview_title = _label(entry.name, 36, true)
+	preview_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	layout.add_child(preview_title)
+	preview_subtitle = _label(entry.subtitle, 19)
+	preview_subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	layout.add_child(preview_subtitle)
 
 	var preview_panel := PanelContainer.new()
 	preview_panel.add_theme_stylebox_override("panel", _panel())
@@ -143,7 +150,7 @@ func _ready() -> void:
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	preview_stack.add_child(hint)
 	# Temporary review controls make the new rig easy to approve in-game.
-	var preview_controls := HBoxContainer.new()
+	preview_controls = HBoxContainer.new()
 	preview_controls.add_theme_constant_override("separation", 8)
 	preview_stack.add_child(preview_controls)
 	for clip in ["Idle", "Walk", "Attack"]:
@@ -151,6 +158,9 @@ func _ready() -> void:
 		preview_button.custom_minimum_size.y = 44
 		preview_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		preview_controls.add_child(preview_button)
+	comparison_button = _button("Compare Walk on Classic Study", _toggle_walk_comparison)
+	comparison_button.custom_minimum_size.y = 44
+	preview_stack.add_child(comparison_button)
 
 	var stats_panel := PanelContainer.new()
 	stats_panel.add_theme_stylebox_override("panel", _panel())
@@ -164,7 +174,7 @@ func _ready() -> void:
 	contents.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	contents.add_theme_constant_override("separation", 9)
 	scroll.add_child(contents)
-	contents.add_child(_label("ATTRIBUTES", 29, true))
+	contents.add_child(_label("GOBLIN WARRIOR ATTRIBUTES", 29, true))
 	for line in entry.details:
 		_add_stat(contents, line[0], line[1])
 	contents.add_child(_label("SPECIAL ABILITIES", 29, true))
@@ -189,16 +199,33 @@ func _add_description(parent: VBoxContainer, name: String, description: String) 
 	parent.add_child(_label(name, 23, true))
 	parent.add_child(_label(description, 20))
 
-func _load_creature(path: String) -> void:
-	if not ResourceLoader.exists(path):
+func _toggle_walk_comparison() -> void:
+	var next_comparison := not showing_comparison
+	var path: String = WALK_COMPARISON if next_comparison else ENTRIES[0].asset
+	if not _load_creature(path, "Walk"):
+		comparison_button.text = "Walk preview unavailable"
 		return
+	showing_comparison = next_comparison
+	preview_title.text = "Classic Study · Shared Walk" if showing_comparison else ENTRIES[0].name
+	preview_subtitle.text = "Goblin Warrior Walk on a taller rig" if showing_comparison else ENTRIES[0].subtitle
+	preview_controls.visible = not showing_comparison
+	comparison_button.text = "Return to Goblin Warrior" if showing_comparison else "Compare Walk on Classic Study"
+
+func _load_creature(path: String, state := "Idle") -> bool:
+	if not ResourceLoader.exists(path):
+		return false
 	var instance: Node3D = load(path).instantiate()
-	creature_root.add_child(instance)
-	preview_animator = _find_animator(instance)
-	_play_preview_animation("Idle")
 	var bounds := _bounds_for(instance, Transform3D.IDENTITY)
 	if bounds.size.length() < 0.01:
-		return
+		instance.free()
+		return false
+	if is_instance_valid(preview_model):
+		creature_root.remove_child(preview_model)
+		preview_model.queue_free()
+	preview_model = instance
+	creature_root.add_child(instance)
+	preview_animator = _find_animator(instance)
+	_play_preview_animation(state)
 	var center := bounds.get_center()
 	instance.position = -center
 	var height := maxf(bounds.size.y, 0.2)
@@ -208,6 +235,7 @@ func _load_creature(path: String) -> void:
 	camera.look_at(Vector3.ZERO)
 	camera.near = 0.02
 	camera.far = 500.0
+	return true
 
 func _bounds_for(node: Node3D, parent_transform: Transform3D) -> AABB:
 	var local := parent_transform * node.transform
