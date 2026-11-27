@@ -20,3 +20,6 @@ Source files indicate current Godot PC/Android menu/world/bestiary/inventory, en
 
 ## Commit verification
 This section is populated once the remote push and SHA check complete.
+
+## 2026-11-27 continuation — male leather armor v0.3.190
+The historical 0.3.188 audit above remains intact. At implementation time the latest prior commit was `8d717ea` (0.3.189 / versionCode 210). New implementation candidate: versionName 0.3.190 / versionCode 211, new `godot/assets/male_human_leather_armored.glb` and complete source `blender/leather_armor/`, plus world/inventory equip visual switching and animation lab target. The original male GLB hash `f5211616730dc2fa1a68a35bcf6bf85f31575a9bfff96142a41b1a7d63a64c48` is preserved; original female source stays untouched in the Windows Leather Armor Review folder. Tests documented in `TEST_CHECKLIST.md`. Before claiming publication verify GitHub workflow artifacts, release/version matching and the updater manifest. Unrelated untracked models and scripts remain untouched. Local editable review and renders are at `G:\ChatGPT Projects\Forests of Hell\Male Leather Armor Review`.

@@ -4,6 +4,7 @@ const GOBLINS = preload("res://goblin_variants.gd")
 const SHARED = preload("res://humanoid_shared_animations.gd")
 const COMBAT = preload("res://creature_combat_stats.gd")
 const PLATFORM = preload("res://platform_layout.gd")
+const INVENTORY = preload("res://inventory_data.gd")
 var player: CharacterBody3D
 var enemies
 var camera: Camera3D
@@ -44,6 +45,36 @@ var model_index := 0
 var punch_left := 0.0
 const MODELS = ["human_adventurer", "male_human"]
 const MODEL_NAMES = ["Human Adventurer", "Male Human"]
+func _player_asset() -> String:
+	if MODELS[model_index]=="male_human":
+		var inv = INVENTORY.new()
+		if inv.equipped_id("Body")=="leather_armor":
+			return "res://assets/male_human_leather_armored.glb"
+	return "res://assets/%s.glb" % MODELS[model_index]
+
+func _refresh_player_visual() -> void:
+	if not is_instance_valid(player): return
+	var asset := _player_asset()
+	if not ResourceLoader.exists(asset):
+		push_error("Equipped character visual missing: "+asset)
+		return
+	var was_first_person := first_person
+	if was_first_person: set_first_person(false)
+	first_person_meshes.clear()
+	var old_visual := player.get_node_or_null("CharacterVisual")
+	if old_visual != null:
+		player.remove_child(old_visual)
+		old_visual.queue_free()
+	var fresh: Node3D = (load(asset) as PackedScene).instantiate()
+	fresh.name = "CharacterVisual"
+	player.add_child(fresh)
+	ground_visual(fresh)
+	var animator = SHARED.attach(fresh)
+	if animator != null and animator.has_animation("Idle"): animator.play("Idle")
+	if was_first_person: set_first_person(true)
+
+func _on_equipment_changed(slot: String, _item_id: String) -> void:
+	if slot=="Body" and MODELS[model_index]=="male_human": _refresh_player_visual()
 var status: Label
 var hud: Control
 var menu_panel: PanelContainer
@@ -177,8 +208,9 @@ void fragment() {
 	var profile := ConfigFile.new()
 	profile.load("user://hero.cfg")
 	model_index = clampi(int(profile.get_value("hero","model",0)),0,MODELS.size()-1)
-	if not ResourceLoader.exists("res://assets/%s.glb" % MODELS[model_index]): push_error("Human model is missing")
-	player = body(Vector3.ZERO,"res://assets/%s.glb" % MODELS[model_index],Color.BEIGE)
+	var hero_asset := _player_asset()
+	if not ResourceLoader.exists(hero_asset): push_error("Human model is missing")
+	player = body(Vector3.ZERO,hero_asset,Color.BEIGE)
 	var quest_save:=ConfigFile.new()
 	if quest_save.load("user://quest_progress.cfg")==OK:
 		quest_goblin_kills=clampi(int(quest_save.get_value("goblins","defeated",0)),0,10)
@@ -345,6 +377,7 @@ func toggle_inventory(tab: String = "") -> void:
 	var overlay:=preload("res://inventory_screen.tscn").instantiate() as Control
 	inventory_panel=overlay
 	hud.get_parent().add_child(overlay)
+	overlay.equipment_changed.connect(_on_equipment_changed)
 	overlay.set_model(MODELS[model_index])
 	overlay.set_goblin_kills(quest_goblin_kills)
 	if tab != "": overlay._select_tab(tab)

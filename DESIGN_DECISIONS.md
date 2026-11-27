@@ -15,3 +15,6 @@ These are user-approved **design targets**, not assertions that the latest Godot
 - **Historical notes:** Older generated rigs and compressed WebP atlases remain historical implementation records, **not approval** to generate rigs or compress new textures.
 
 Source detail: `docs/roadmap-world.md`, `docs/roadmap-asset-pipeline.md`, `docs/inventory-tabs-and-spawn.md`, `docs/racial-backlog.md`.
+
+## Approved equipment visual behavior — 2026-11-27
+The confirmed original female leather armor design is the visual reference. The male receives a fitted, anatomically adjusted variant while keeping his **existing user-approved skeleton completely untouched**. In Godot, the same `leather_armor` Body item selects the male fitted model for world and inventory; removing or replacing it restores the underlying original male visual. Armor material appearance stays faithful to the recovered reference. Neither armor should be permanently fused into the original source body/rig.

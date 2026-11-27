@@ -27,3 +27,12 @@ Each item must be marked PASS / FAIL / NOT RUN with command, device, version and
 - [ ] Final user report includes completed/not completed, tests, version, commit, actual publication and links.
 
 Example local smoke (Windows PowerShell, with Godot on PATH): `godot --headless --path godot --script res://tests/inventory_tabs_smoke.gd`. Some PC tests require `FOH_TEST_PC=1`; consult their script and workflow before invocation.
+
+## v0.3.190 targeted test evidence — 2026-11-27, Stormfather
+- PASS: Original male GLB SHA256 intact; 84 matching skinned bone names and parent relationships, exported rest-transform error less than 0.000005 model units.
+- PASS: Male armor GLB retains all four original leather PBR material values. Three extracted male image companions are byte-identical to the original male texture source images; base GLB binary and original Running clip preserved in combined asset.
+- PASS: Blender 5.3 combined asset import: 2 skinned meshes on one original 84-bone skeleton; front, rear, gameplay and Running previews produced.
+- PASS: Godot 4.5.1 headless editor import and `godot/tests/male_leather_armor_smoke.gd`: 84 bones, 2 skinned meshes, shared animation 65 mapped bones/40 clips, leather armor inventory preview loaded.
+- PASS: `inventory_smoke.gd` (1280/1536), `inventory_tabs_smoke.gd` (1280/1536), and `pc_platform_smoke.gd` (`FOH_TEST_PC=1`), including PC first-person/camera checks.
+- NOT RUN: actual Windows/Android visual game playthrough and runtime FPS profiling. Android SDK build-tools path warning appeared during local Godot editor startup. PC-platform smoke logged RID leakage warnings on shutdown.
+- PENDING: verify remote `main` push, signed Android APK, PC ZIP and updater manifest, then record confirmed release URLs.

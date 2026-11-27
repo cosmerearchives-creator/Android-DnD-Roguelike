@@ -1,4 +1,10 @@
 # Consolidated change log (non-destructive index)
+
+## v0.3.190 — fitted male leather armor with equip visuals (2026-11-27)
+- Adapted the recovered female leather armor design to the original user-approved 84-bone male rig; changed only armor geometry/weights. Original male and female assets remain unchanged.
+- Exported a fitted standalone male armor GLB and an armored male GLB that retains the exact original male binary buffer, skeleton hierarchy, Running animation and full-resolution embedded textures.
+- Male Leather Armor on the Body equipment slot selects the armored model in the inventory portrait and active game world; unequipping reverts the male to his original appearance. Added armored male variant to Humanoid Animation Lab.
+- Godot 4.5.1 headless import and targeted armor/inventory/PC smoke tests pass. Hardware visual and release-artifact verification remain separate gates; see `TEST_CHECKLIST.md` and `KNOWN_ISSUES.md`.
 ## 2026-11-27 — documentation continuity milestone
 Nine root documentation files established/updated from repository and existing docs; no gameplay, tracked asset or build configuration changes; no application version increment. Verification and commit SHA recorded in `HANDOFF.md` after push.
 

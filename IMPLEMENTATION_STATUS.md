@@ -18,3 +18,6 @@ Audited 2026-11-27 against checkout `ca48539a876ccf6f9355bbc11f1d89788abd1202` (
 
 ## Pending verification
 End-to-end Android and Windows build, model/skeleton/bone-map completeness, original texture vs imported output, device frame times, latest GitHub release artifacts, multiplayer/quests/items as applicable, save compatibility, F11 and updater smoke. See `TEST_CHECKLIST.md`, `KNOWN_ISSUES.md`.
+
+## v0.3.190 update — fitted male leather armor
+**Implemented and locally tested, release not independently confirmed by these checks:** standalone fitted male armor and combined male/armor GLB, equipped Leather Armor visual switching in Godot's male inventory portrait and current world player, restoration on unequip, and animation-lab target. Existing male rig untouched; 84/84 bone names and hierarchy match source, 65 animated shared bone mappings and 40 clips reported. Original male textures compare byte-for-byte to imported companion files. Godot 4.5.1 headless GLB import and `male_leather_armor_smoke.gd`, `inventory_smoke.gd`, `inventory_tabs_smoke.gd`, and `pc_platform_smoke.gd` passed. Hardware visual, GPU cost, PC ZIP, signed APK and updater confirmation remain outstanding until explicitly checked.

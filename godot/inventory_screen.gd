@@ -538,6 +538,8 @@ func _load_model() -> void:
 	if not is_instance_valid(equipped_body):return
 	for child in equipped_body.get_children():child.queue_free()
 	var path:="res://assets/%s.glb" % hero_model
+	if hero_model=="male_human" and data.equipped_id("Body")=="leather_armor":
+		path="res://assets/male_human_leather_armored.glb"
 	if not ResourceLoader.exists(path):return
 	var body:Node3D=(load(path) as PackedScene).instantiate()
 	body.name="PortraitModel"

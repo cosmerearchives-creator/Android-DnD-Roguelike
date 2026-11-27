@@ -15,3 +15,6 @@ Entries below distinguish **unverified** from **reproduced defects**. No fresh g
 | Workspace hygiene | Local pre-existing untracked model textures, environmental GLBs and Python scripts | Keep out of documentation commit; owner must decide future integration explicitly |
 
 Update status only with evidence; an old bug note or old test pass is not automatically a current reproduced issue.
+
+## Male fitted leather armor — outstanding release/device gates
+The male Leather Armor variant passes Blender rest/running previews and Godot headless checks. **Not yet hardware-verified:** PC/Android onscreen body/cloth overlap during full locomotion/combat, first-person near-camera occlusion with added armor surfaces, frame-time/memory increase from the extra skinned mesh, and signed APK/PC release assets. Godot `pc_platform_smoke.gd` passed but produced shutdown RID-leak warnings; classify those as a regression-monitoring warning rather than a demonstrated new armor defect. No materials were downscaled. The old user's original armor/rig files are unchanged.

@@ -8,6 +8,7 @@ const TARGETS := [
     {"name": "Human Adventurer (Mixamo)", "asset": "res://assets/human_adventurer.glb"},
     {"name": "Goblin Warrior (Mixamo)", "asset": "res://assets/goblin_warrior.glb"},
     {"name": "Male Human", "asset": "res://assets/male_human.glb"},
+    {"name": "Male Human (Leather Armor)", "asset": "res://assets/male_human_leather_armored.glb"},
     {"name": "Twig Blight", "asset": "res://assets/twig_blight.glb"}
 ]
 var viewport: SubViewport

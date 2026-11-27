@@ -80,6 +80,7 @@ jobs:
           godot --headless --path godot --script res://tests/enemy_spawn_smoke.gd
           godot --headless --path godot --script res://tests/inventory_smoke.gd
           godot --headless --path godot --script res://tests/inventory_tabs_smoke.gd
+          godot --headless --path godot --script res://tests/male_leather_armor_smoke.gd
           FOH_TEST_PC=1 godot --headless --path godot --script res://tests/pc_platform_smoke.gd
           godot --headless --path godot --script res://tests/pc_update_smoke.gd
           godot --headless --path godot --quit-after 10

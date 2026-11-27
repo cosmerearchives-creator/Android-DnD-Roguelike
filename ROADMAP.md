@@ -16,3 +16,6 @@ Asset provenance and skeleton/bone-map approval -> rig/animation import -> enemy
 
 ## Classification
 Only a successful verified published artifact is **Published**; source presence = **Implemented/unverified** unless a cited test was run. Deferred mechanics are **Approved** or **Proposed**, not finished. Review each work item against these gates.
+
+## Completed implementation candidate — male leather armor v0.3.190
+Original female leather set recovered; male fitted armor now assembled on the existing approved 84-bone male skeleton **without altering that rig**, added to the game as an equipment-dependent male visual in the inventory preview and overworld, and selectable in Humanoid Animation Lab. Headless engine import and targeted smoke tests pass. Remaining acceptance: live PC/Android visual comparison, running/jumping/attacking clipping checks on hardware, performance measurements, and successful CI-published binary/update verification. Separate female/current-rig adoption and broader equipment-class visual coverage remain future work.
