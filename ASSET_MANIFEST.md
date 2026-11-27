@@ -44,3 +44,6 @@ Validation: original source GLB SHA256, 23 extracted image byte comparisons, God
 
 ## v0.3.194 custom desktop UI art
 - New reproducible Python/Pillow art generator: blender/ui_skin/polish_v194_art.py. PNGs in godot/ui_skin/{panel,panel_active,slot,slot_active,button,button_active,tab,tab_active,header,portrait_backdrop}.png. First nine are original 256x256 RGBA full-quality 9-slice textures for Godot actual interactive controls, portrait backdrop is original 380x620 charcoal/stone texture behind existing verified game GLB. No new model/rig, skeleton, bone map or animation changes. Legacy v0.3.192 SVG art preserved. Initial discarded art drafts are not part of published assets.
+
+## v0.3.195 decorative UI textures
+- Nine source-generated 512px RGBA unchanged-quality PNGs: godot/ui_skin/panel.png, panel_active.png, header.png, slot.png, slot_active.png, button.png, button_active.png, tab.png, tab_active.png. Portrait backdrop 650×1060 RGBA godot/ui_skin/portrait_backdrop.png; no user-provided image/textures downscaled, modified or removed. Source: blender/ui_skin/forge_v195_art.py, square_v195_art.py. No new GLB, bones, rigs or animation. Stable game item atlas unchanged.

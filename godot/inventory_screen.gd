@@ -105,7 +105,7 @@ func _frame_type(kind: String = "panel", active: bool = false) -> StyleBoxTextur
 	var tex := load(path) as Texture2D
 	var style := StyleBoxTexture.new()
 	style.texture = tex
-	var border := 38 if kind=="panel" else 24 if kind=="header" else 18 if kind=="slot" else 20
+	var border := 74 if kind=="panel" else 52 if kind=="header" else 22
 	style.texture_margin_left = border
 	style.texture_margin_right = border
 	style.texture_margin_top = border
@@ -678,7 +678,7 @@ func _render_items() -> void:
 		var id:=str(stack.id)
 		var item:Dictionary=data.detail(id)
 		var cell:=_button("",func():_select_item(id),18)
-		cell.custom_minimum_size=Vector2(73,73) if desktop_layout else Vector2(98,88)
+		cell.custom_minimum_size=Vector2(79,77) if desktop_layout else Vector2(98,88)
 		cell.add_theme_stylebox_override("normal",_compact_frame(selection==id))
 		item_grid.add_child(cell)
 		var icon: Texture2D=data.icon(id)
@@ -706,10 +706,10 @@ func _render_items() -> void:
 	elif active_tab=="Materials" and entries.is_empty():
 		var notice:=_label("No materials collected.",22)
 		item_grid.add_child(notice)
-	for i in range(maxi(0,24-count)):
+	for i in range(maxi(0,(33 if desktop_layout else 24)-count)):
 		var blank:=PanelContainer.new()
 		blank.add_theme_stylebox_override("panel",_compact_frame())
-		blank.custom_minimum_size=Vector2(73,73) if desktop_layout else Vector2(98,88)
+		blank.custom_minimum_size=Vector2(79,77) if desktop_layout else Vector2(98,88)
 		item_grid.add_child(blank)
 
 func _render_details() -> void:
@@ -777,13 +777,40 @@ func _construct_desktop() -> void:
 	canvas.scale = Vector2(w/1600.0,h/900.0)
 	add_child(canvas)
 	desktop_canvas = canvas
-	var masthead := _fixed_panel(canvas,Rect2(15,86,618,61))
+	# Decorative status strip is positioned above the inventory rather than
+	# competing with the top-right character statistics.
+	var hud_art := Panel.new()
+	hud_art.name = "DecorativeStatusHeader"
+	hud_art.position = Vector2(18,8)
+	hud_art.size = Vector2(285,71)
+	hud_art.add_theme_stylebox_override("panel",_frame_type("tab"))
+	hud_art.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	canvas.add_child(hud_art)
+	var brand := _label("FORESTS OF HELL",20)
+	brand.position=Vector2(30,9)
+	brand.size=Vector2(225,28)
+	hud_art.add_child(brand)
+	var hp := _label("Character Inventory",14)
+	hp.position=Vector2(30,35)
+	hp.size=Vector2(217,18)
+	hud_art.add_child(hp)
+	var top_ornament := _fixed_panel(canvas,Rect2(323,12,930,59))
+	top_ornament.add_theme_stylebox_override("panel",_frame_type("tab"))
+	top_ornament.name = "DecorativeTopCompass"
+	top_ornament.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var long_rule := ColorRect.new()
+	long_rule.color = Color("#a9793f")
+	long_rule.position=Vector2(63,29)
+	long_rule.size=Vector2(795,2)
+	long_rule.mouse_filter=Control.MOUSE_FILTER_IGNORE
+	top_ornament.add_child(long_rule)
+	var masthead := _fixed_panel(canvas,Rect2(16,88,621,63))
 	masthead.name = "InventoryTitlePanel"
 	var heading := _label("INVENTORY",39,HORIZONTAL_ALIGNMENT_CENTER)
-	heading.position = Vector2(130,8)
-	heading.size = Vector2(352,43)
+	heading.position = Vector2(130,17)
+	heading.size = Vector2(352,36)
 	masthead.add_child(heading)
-	var top_band := _fixed_panel(canvas,Rect2(638,132,947,84))
+	var top_band := _fixed_panel(canvas,Rect2(642,134,938,78))
 	top_band.name = "InventoryHeaderBand"
 	top_band.add_theme_stylebox_override("panel",_frame_type("panel"))
 	var close := _button("CLOSE",func():closed.emit(),19)
@@ -818,8 +845,8 @@ func _construct_desktop() -> void:
 	# Dedicated visual portrait stage, distinct from the outer metallic frame.
 	var portrait_stage := Panel.new()
 	portrait_stage.name = "PortraitStage"
-	portrait_stage.position = Vector2(129,15)
-	portrait_stage.size = Vector2(356,613)
+	portrait_stage.position = Vector2(128,9)
+	portrait_stage.size = Vector2(362,624)
 	portrait_stage.add_theme_stylebox_override("panel",_portrait_style())
 	portrait_stage.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	character_panel.add_child(portrait_stage)
@@ -834,8 +861,8 @@ func _construct_desktop() -> void:
 	portrait_stage.add_child(portrait_art)
 	left_view = SubViewportContainer.new()
 	left_view.stretch = true
-	left_view.position = Vector2(132,22)
-	left_view.size = Vector2(350,566)
+	left_view.position = Vector2(135,20)
+	left_view.size = Vector2(350,585)
 	left_view.mouse_filter = Control.MOUSE_FILTER_STOP
 	character_panel.add_child(left_view)
 	preview = SubViewport.new()
@@ -896,29 +923,29 @@ func _construct_desktop() -> void:
 			divider.color = Color("#8b6037")
 			stats_panel.add_child(divider)
 		var header := _label(stat_names[col],19,HORIZONTAL_ALIGNMENT_CENTER)
-		header.position = Vector2(x+5,11)
+		header.position = Vector2(x+5,27)
 		header.size = Vector2(216,32)
 		stats_panel.add_child(header)
 		var line := ColorRect.new()
 		line.color = Color("#946438")
-		line.position = Vector2(x+15,46)
+		line.position = Vector2(x+15,54)
 		line.size = Vector2(194,1)
 		stats_panel.add_child(line)
 		var info := _label("",16)
 		info.name = "CharacterStatBlock%d" % col
-		info.position = Vector2(x+16,55)
-		info.size = Vector2(199,140)
+		info.position = Vector2(x+16,64)
+		info.size = Vector2(199,123)
 		info.add_theme_color_override("font_color",Color("#e5cea3"))
 		stats_panel.add_child(info)
 	var equipment_inventory := _fixed_panel(desktop_equipment,Rect2(648,339,937,310))
 	equipment_inventory.name = "EquipmentInventoryGrid"
 	var carry_heading := _label("Inventory",25)
 	carry_heading.name = "CarryHeading"
-	carry_heading.position = Vector2(26,9)
+	carry_heading.position = Vector2(28,14)
 	carry_heading.size = Vector2(535,41)
 	equipment_inventory.add_child(carry_heading)
 	var sorting := _button("Sort: Name  ▼",_sort_items,18)
-	sorting.position = Vector2(765,10)
+	sorting.position = Vector2(765,13)
 	sorting.size = Vector2(150,41)
 	equipment_inventory.add_child(sorting)
 	var scroll := ScrollContainer.new()
@@ -930,8 +957,8 @@ func _construct_desktop() -> void:
 	item_grid = GridContainer.new()
 	item_grid.columns = 11
 	item_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	item_grid.add_theme_constant_override("h_separation",3)
-	item_grid.add_theme_constant_override("v_separation",4)
+	item_grid.add_theme_constant_override("h_separation",0)
+	item_grid.add_theme_constant_override("v_separation",0)
 	scroll.add_child(item_grid)
 	var item_details := _fixed_panel(desktop_equipment,Rect2(648,661,937,219))
 	item_details.name = "EquippedItemDetails"
@@ -973,8 +1000,8 @@ func _desktop_slot(parent: Control, slot: String, location: Vector2, extent: Vec
 	button.add_theme_stylebox_override("pressed",_compact_frame(true))
 	parent.add_child(button)
 	var caption := _label("EYES (GOGGLES)" if slot=="Eyes" else slot.to_upper(),12,HORIZONTAL_ALIGNMENT_CENTER)
-	caption.position = Vector2(5,4)
-	caption.size = Vector2(extent.x-10,16)
+	caption.position = Vector2(4,-4)
+	caption.size = Vector2(extent.x-8,19)
 	caption.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	button.add_child(caption)
 	var icon := TextureRect.new()
@@ -1039,11 +1066,11 @@ func _make_list_layout_desktop() -> void:
 	var main := _fixed_panel(_list_panel,Rect2(282,9,829,645))
 	main.name = "CollectionPanel"
 	content_header = _label("",26)
-	content_header.position = Vector2(23,12)
+	content_header.position = Vector2(30,22)
 	content_header.size = Vector2(562,43)
 	main.add_child(content_header)
 	var sort := _button("Sort: Name  ▼",_sort_items,18)
-	sort.position = Vector2(651,10)
+	sort.position = Vector2(651,20)
 	sort.size = Vector2(153,42)
 	main.add_child(sort)
 	list_scroll = ScrollContainer.new()
@@ -1212,7 +1239,7 @@ func _refresh_desktop_list() -> void:
 func _equip_selected() -> void:
 	if selection.is_empty(): return
 	var kind := str(data.detail(selection).get("type",""))
-	var slot := current_slot
+	var slot := _compatible_selected_slot()
 	if slot.is_empty() or not data.compatible(selection,slot):
 		if kind=="Armor": slot="Body"
 		elif kind=="Shield": slot="Off Hand"
@@ -1232,59 +1259,80 @@ func _render_desktop_equipment_details() -> void:
 		details.add_child(_label("Select an inventory item or equipment slot.",23))
 		return
 	var top := HBoxContainer.new()
-	top.custom_minimum_size.y = 127
-	top.add_theme_constant_override("separation",15)
+	top.custom_minimum_size.y = 130
+	top.add_theme_constant_override("separation",17)
 	details.add_child(top)
+	var preview_frame := PanelContainer.new()
+	preview_frame.name = "SelectedItemFrame"
+	preview_frame.add_theme_stylebox_override("panel",_compact_frame(true))
+	preview_frame.custom_minimum_size = Vector2(138,130)
+	top.add_child(preview_frame)
 	var picture := TextureRect.new()
 	picture.texture = data.icon(selection)
-	picture.custom_minimum_size = Vector2(130,126)
+	picture.custom_minimum_size = Vector2(111,105)
 	picture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	picture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	top.add_child(picture)
+	picture.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	preview_frame.add_child(picture)
 	var info := VBoxContainer.new()
-	info.custom_minimum_size.x = 440
+	info.custom_minimum_size.x = 435
+	info.add_theme_constant_override("separation",3)
 	top.add_child(info)
-	info.add_child(_label(str(item.get("name",selection)),26))
-	info.add_child(_label(str(item.get("type","Item")),19))
-	info.add_child(_label("Weight: %.1f lb" % float(item.get("weight",0)),19))
-	info.add_child(_label("Slot: "+current_slot if current_slot!="" else _item_description(selection),16))
-	var compare := VBoxContainer.new()
-	compare.custom_minimum_size.x = 258
-	top.add_child(compare)
-	if compare_visible and current_slot!="":
-		var previous: String = data.equipped_id(current_slot)
-		var former: Dictionary = data.detail(previous)
-		compare.add_child(_label("COMPARE",20))
-		compare.add_child(_label("Equipped: "+str(former.get("name","Nothing")),18))
-		if not former.is_empty():
-			compare.add_child(_label("Weight: %.1f lb" % float(former.get("weight",0)),17))
+	info.add_child(_label(str(item.get("name",selection)),28))
+	info.add_child(_label(str(item.get("type","Item")),18))
+	var summary := _label(_item_description(selection),17)
+	summary.custom_minimum_size = Vector2(425,68)
+	info.add_child(summary)
+	var divider := VSeparator.new()
+	divider.custom_minimum_size.x = 1
+	top.add_child(divider)
+	var properties := VBoxContainer.new()
+	properties.custom_minimum_size.x = 260
+	properties.add_theme_constant_override("separation",3)
+	top.add_child(properties)
+	if compare_visible and _compatible_selected_slot() != "":
+		var former: Dictionary = data.detail(data.equipped_id(_compatible_selected_slot()))
+		properties.add_child(_label("COMPARISON",19))
+		properties.add_child(_label("Equipped: "+str(former.get("name","Nothing")),16))
+		properties.add_child(_label("Weight: %.1f lb" % float(former.get("weight",0)),16))
 	else:
-		compare.add_child(_label("Properties",20))
-		compare.add_child(_label(_item_property_text(selection),16))
+		properties.add_child(_label("PROPERTIES",20))
+		properties.add_child(_label(_item_property_text(selection),17))
+		properties.add_child(_label("Weight: %.1f lb" % float(item.get("weight",0)),17))
+		properties.add_child(_label("Slot: "+_compatible_selected_slot() if _compatible_selected_slot() != "" else "Not equippable",16))
 	var actions := HBoxContainer.new()
 	actions.add_theme_constant_override("separation",12)
 	details.add_child(actions)
-	var equip := _button("⚔ Equip",_equip_selected,19)
-	equip.custom_minimum_size = Vector2(184,55)
+	var equip := _button("Equip",_equip_selected,20)
+	equip.custom_minimum_size = Vector2(184,46)
 	var item_kind := str(item.get("type",""))
 	equip.disabled = item_kind not in ["Armor","Shield","Weapon"] or data.count_of(selection)==0
 	actions.add_child(equip)
 	var comparison := _button("Compare",func():
 		compare_visible = not compare_visible
 		_render_desktop_equipment_details(),19)
-	comparison.custom_minimum_size = Vector2(184,55)
-	comparison.disabled = current_slot==""
+	comparison.custom_minimum_size = Vector2(184,46)
+	comparison.disabled = _compatible_selected_slot() == ""
 	actions.add_child(comparison)
 	var drop := _button("Drop",func():pass,19)
-	drop.custom_minimum_size = Vector2(184,55)
+	drop.custom_minimum_size = Vector2(184,46)
 	drop.disabled = true
 	drop.tooltip_text = "World drops and pickup persistence are not implemented yet."
 	actions.add_child(drop)
 	var inspect := _button("Details",func():
 		compare_visible = not compare_visible
 		_render_desktop_equipment_details(),19)
-	inspect.custom_minimum_size = Vector2(184,55)
+	inspect.custom_minimum_size = Vector2(184,46)
 	actions.add_child(inspect)
+
+func _compatible_selected_slot() -> String:
+	if selection.is_empty(): return ""
+	if current_slot!="" and data.compatible(selection,current_slot): return current_slot
+	match str(data.detail(selection).get("type","")):
+		"Armor": return "Body"
+		"Shield": return "Off Hand"
+		"Weapon": return "Main Hand"
+	return ""
 
 func _render_desktop_list_details() -> void:
 	_replace_children(detail_panel)
@@ -1320,18 +1368,18 @@ func _render_desktop_list_details() -> void:
 		return
 	var big := TextureRect.new()
 	big.texture = data.icon(selection)
-	big.position = Vector2(25,24)
-	big.size = Vector2(143,146)
+	big.position = Vector2(27,39)
+	big.size = Vector2(132,130)
 	big.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	big.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	detail_panel.add_child(big)
-	_desktop_detail_label(str(item.get("name",selection)),Vector2(187,26),Vector2(243,65),31)
-	_desktop_detail_label(str(item.get("type","Item")),Vector2(187,99),Vector2(243,50),19)
-	_desktop_detail_label("WEIGHT",Vector2(28,203),Vector2(395,41),22)
-	_desktop_detail_label("%.1f lb per item" % float(item.get("weight",0)),Vector2(28,250),Vector2(389,41),20)
-	_desktop_detail_label("PROPERTIES",Vector2(28,310),Vector2(390,39),22)
-	_desktop_detail_label("%s  |  Owned: %d" % [_item_property_text(selection),data.count_of(selection)],Vector2(28,352),Vector2(386,70),18)
-	_desktop_detail_label(_item_description(selection),Vector2(28,433),Vector2(393,92),18)
+	_desktop_detail_label(str(item.get("name",selection)),Vector2(182,44),Vector2(242,56),29)
+	_desktop_detail_label(str(item.get("type","Item")),Vector2(182,105),Vector2(243,46),19)
+	_desktop_detail_label("WEIGHT",Vector2(34,213),Vector2(386,37),22)
+	_desktop_detail_label("%.1f lb per item" % float(item.get("weight",0)),Vector2(34,256),Vector2(380,38),20)
+	_desktop_detail_label("PROPERTIES",Vector2(34,315),Vector2(370,39),22)
+	_desktop_detail_label("%s  |  Owned: %d" % [_item_property_text(selection),data.count_of(selection)],Vector2(34,356),Vector2(370,64),18)
+	_desktop_detail_label(_item_description(selection),Vector2(34,437),Vector2(372,87),18)
 	var type := str(item.get("type",""))
 	footer_action.text = "Equip" if type in ["Weapon","Armor","Shield"] else "Use"
 	footer_action.disabled = type not in ["Weapon","Armor","Shield"]

@@ -57,6 +57,21 @@ func _run() -> void:
 			if not screen.desktop_equipment.visible:
 				_fail("Equipment panel disappeared")
 				return
+	screen._select_tab("Equipment")
+	screen.selection = "chain_mail"
+	screen.current_slot = "Cloak"
+	screen._refresh()
+	if screen._compatible_selected_slot() != "Body":
+		_fail("Chain Mail shows stale Cloak slot rather than Body")
+		return
+	if screen.find_child("SelectedItemFrame",true,false) == null:
+		_fail("Large framed selected item missing")
+		return
+	screen.selection = "longsword"
+	screen.current_slot = "Body"
+	if screen._compatible_selected_slot() != "Main Hand":
+		_fail("Longsword showed Body slot instead of Main Hand")
+		return
 	if not ResourceLoader.exists("res://ui_skin/panel.png") or not ResourceLoader.exists("res://ui_skin/slot.png") or not ResourceLoader.exists("res://ui_skin/tab_active.png") or not ResourceLoader.exists("res://ui_skin/portrait_backdrop.png"):
 		_fail("The custom artwork assets are missing")
 		return

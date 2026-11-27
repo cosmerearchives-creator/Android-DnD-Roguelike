@@ -1,0 +1,20 @@
+# v0.3.195 — Sculpted inventory UI pass and correct slot details
+
+Date: 2026-11-27. User requested implementation/publishing to approach their approved 4-tab ornately carved bronze-and-leather target image rather than continuing the very flat v0.3.194 treatment.
+
+## Implementation
+- Replaced v0.3.194 panel/button/slot/tab skin images in-place with source-generated original 512x512 full-quality RGBA artwork. Large panels have independent carved corner scrollwork, rivets, layered forged-bronze highlights, black tool grooves and embossed organic leather texture. Small interactable controls use separate clean rectangular nine-slice artwork, eliminating oval or crowded borders when scaled to 74px slots and 45px buttons. Nine-slice source margins correspond to each family; no screenshot baked into controls.
+- Portrait background generated at 650x1060 RGBA resolution, improved soft charcoal/stone material with suggested multi-tier stone dais; **the live player GLB and rig, animations and model ownership were not changed**. The perspective stage is an image, not an actual new 3D model.
+- Added an ornamental noninteractive top status/compass bar, preserving full world pause and keeping the real gameplay HUD hidden. Varying device resolutions remain handled by previous code.
+- Existing 15 equipment slots, item sorting, 4 tabs, character stats, quests, materials and paused interaction retained. Equipment inventory cells now use a consistent 11x3 grid, no fake items. Enlarged item preview has its own active border, description and supported rule properties.
+- Fixed bug where selected Chain Mail showed 'Slot: Cloak' when a different equipment slot had previously been clicked. The displayed slot and comparison now derive from the selected item's actual compatibility, with 2014 5e armor -> Body, shield -> Off Hand, weapons -> Main Hand fallback. Underlying game inventory equip model already enforced compatibility; this is a presentation consistency fix.
+- Added explicit new regression checks into inventory_desktop_layout_smoke.gd: selecting Chain Mail while Cloak is selected shows Body; Longsword with Body selected shows Main Hand; preview frame present.
+- Source artwork scripts are in blender/ui_skin/forge_v195_art.py and square_v195_art.py. Original v0.3.194 files were the only deliberate texture replacements; no user-provided art degraded. Four-screen actual Windows Godot 1600x900 review screenshots are written to G:/ChatGPT Projects/Forests of Hell/Inventory Review/*.png.
+
+## Verification and limitations
+- Local Godot 4.5.1 graphical OpenGL compatibility exported all four screenshot tabs without errors. No reference screenshot was substituted for actual UI controls.
+- Godot smoke tests PASS locally: portrait inventory_smoke 720x1280/1536, portrait inventory_tabs_smoke both sizes, desktop inventory_desktop_layout_smoke 1600x900 with added compatible slot asserts, pause/HUD, display/camera persistence, male leather armor, terrain/tavern scene+physics, ground-cover, enemy spawning, lean cast, PC platform and updater.
+- A temporary testing session initially inherited FOH_TEST_PC=1 while running a portrait layout test, reporting false overlap; rerun without desktop env passed all six portrait tabs. Another desktop test initially detected decreased HUD-dimming opacity; restored to previous tested 0.86 and passed.
+- **Visual fidelity remains incomplete**: user target uses hand-authored sculpted bronze and leather, realistically illuminated item grids, 3D stone plinth and detailed equipment placeholder icons; these new programmatic textured frames are another approximation, though more layered. More dedicated artwork and slot-icon source assets are required for close reproduction. User-provided target art images are conversation references, not guaranteed isolated assets.
+- Current source data lacks five ability scores and actual proficiencies; these remain explicitly missing (do not fabricate values).
+- CI builds, signer, release manifests and actual Android/Windows published assets should be verified separately after push; Android device FPS and visual review not yet done.
