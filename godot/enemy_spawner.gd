@@ -320,23 +320,29 @@ func _enemy_attack(mob: Dictionary) -> void:
 	if on_player_hit.is_valid():
 		on_player_hit.call(str(mob.kind), hit, damage, str(stats.attack_label))
 
+# Separate scheduling from movement so the spawn-distance regression checks
+# initial positions, not positions after one or more AI movement ticks.
+func _advance_initial_spawn(delta: float) -> void:
+	if initial_remaining <= 0: return
+	initial_timer -= delta
+	if initial_timer > 0.0 or not _startup_assets_ready(): return
+	if initial_index == 0:
+		_spawn(BEETLE,"Fire Beetle")
+	elif initial_index == 1:
+		_spawn(TWIG_BLIGHT,"Twig Blight")
+	else:
+		_spawn_random()
+	initial_index += 1
+	initial_remaining -= 1
+	initial_timer = INITIAL_SPAWN_INTERVAL
+	if initial_remaining == 0:
+		spawn_clock = 0.0
+
 func _physics_process(delta: float) -> void:
 	if not initial_population or not is_instance_valid(player): return
 	ai_clock += delta
 	if initial_remaining > 0:
-		initial_timer -= delta
-		if initial_timer <= 0.0 and _startup_assets_ready():
-			if initial_index == 0:
-				_spawn(BEETLE,"Fire Beetle")
-			elif initial_index == 1:
-				_spawn(TWIG_BLIGHT,"Twig Blight")
-			else:
-				_spawn_random()
-			initial_index += 1
-			initial_remaining -= 1
-			initial_timer = INITIAL_SPAWN_INTERVAL
-			if initial_remaining == 0:
-				spawn_clock = 0.0
+		_advance_initial_spawn(delta)
 	else:
 		spawn_clock += delta
 		if spawn_clock >= SPAWN_INTERVAL:

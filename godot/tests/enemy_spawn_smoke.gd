@@ -31,7 +31,7 @@ func _run() -> void:
 	var previous := 0
 	var spawn_points: Array[Vector3] = []
 	for step in range(spawner.STARTING_POPULATION):
-		spawner._physics_process(spawner.INITIAL_SPAWN_INTERVAL + 0.01)
+		spawner._advance_initial_spawn(spawner.INITIAL_SPAWN_INTERVAL + 0.01)
 		if spawner.mobs.size()-previous > 1:
 			printerr("Startup creates multiple creatures in one frame")
 			quit(3);return
@@ -41,7 +41,7 @@ func _run() -> void:
 	if spawner.initial_remaining!=0 or spawner.mobs.size()<5:
 		printerr("Startup queue did not finish",spawner.initial_remaining,spawner.mobs.size())
 		quit(3);return
-	# Validate the creation points, not current positions after AI movement.
+	# Validate exact creation points while AI movement is paused by the test.
 	for i in range(spawn_points.size()):
 		var position:Vector3=spawn_points[i]
 		var distance:float=position.distance_to(hero.global_position)
