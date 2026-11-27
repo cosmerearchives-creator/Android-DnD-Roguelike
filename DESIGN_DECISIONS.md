@@ -18,3 +18,8 @@ Source detail: `docs/roadmap-world.md`, `docs/roadmap-asset-pipeline.md`, `docs/
 
 ## Approved equipment visual behavior — 2026-11-27
 The confirmed original female leather armor design is the visual reference. The male receives a fitted, anatomically adjusted variant while keeping his **existing user-approved skeleton completely untouched**. In Godot, the same `leather_armor` Body item selects the male fitted model for world and inventory; removing or replacing it restores the underlying original male visual. Armor material appearance stays faithful to the recovered reference. Neither armor should be permanently fused into the original source body/rig.
+
+
+## Forest terrain/tavern visual standard — 2026-11-27
+Ground remains exactly 5×5ft (1.524m) per tile and effectively flat. Six types are grass, dirt, fallen leaves, moss, mud and rocky soil. The base ground is collidable independently from cosmetic tiles, which are batched to protect frame time and can later gain blending/vegetation. Original texture quality and channels are retained. The provided extremely dense grass mesh is not repeated; a separate 4-vertex material-preserving derivative is used, original untouched.
+The supplied tavern is an open-roof room, not a complete roofed exterior. Keep that original look in this milestone; do not invent a roof or change character rig sizes to make the entrance work. Scale building independently to provide clearance for a provisional 8ft playable race. Existing arch is approximately 5ft wide around 9ft height; collision opening is 2.1m. Follow with furnishings, services and roof design later.

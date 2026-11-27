@@ -36,3 +36,10 @@ Example local smoke (Windows PowerShell, with Godot on PATH): `godot --headless 
 - PASS: `inventory_smoke.gd` (1280/1536), `inventory_tabs_smoke.gd` (1280/1536), and `pc_platform_smoke.gd` (`FOH_TEST_PC=1`), including PC first-person/camera checks.
 - NOT RUN: actual Windows/Android visual game playthrough and runtime FPS profiling. Android SDK build-tools path warning appeared during local Godot editor startup. PC-platform smoke logged RID leakage warnings on shutdown.
 - PENDING: verify remote `main` push, signed Android APK, PC ZIP and updater manifest, then record confirmed release URLs.
+
+
+## v0.3.191 environment evidence — 2026-11-27, Stormfather
+PASS `python scripts/verify_terrain_import.py`: all 7 terrain/tavern GLBs validated, 5 original ground and the tavern source GLB SHA256 verified, all 23 full-resolution extracted image bytes equal embedded original bytes; grass source hash in derivative verified; all 4 material map roles kept.
+PASS Blender 5.3 import/measure and original tavern arch cross-section probe. PASS Godot 4.5.1 editor import, actual PC OpenGL 3.3 NVIDIA GTX1080Ti graphical scene screenshot at 1280×720 (see `Tavern Review\godot-tavern-and-ground.png`).
+PASS nine headless scripted tests with exit=0: terrain_tavern_smoke, terrain_tavern_physics, lean_cast_smoke, enemy_spawn_smoke, inventory_smoke, inventory_tabs_smoke, male_leather_armor_smoke, pc_update_smoke, pc_platform_smoke (with FOH_TEST_PC=1). Physics test sampled ten doorway approach locations using an 8-foot tall capsule and 2.1m entrance gap. 530 terrain cells in 6 batches.
+NOT RUN: on-device Android render and sustained FPS/memory, signed release install and auto-update, full biome seamless transitions, NPC tavern interactions. LIMITATION: Godot4.5.1 normal headless main-scene boot logged dummy renderer/resource preload errors; graphical main menu launch was successful. Verify GitHub 4.4.1 CI separately.

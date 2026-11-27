@@ -19,3 +19,8 @@ Only a successful verified published artifact is **Published**; source presence 
 
 ## Completed implementation candidate — male leather armor v0.3.190
 Original female leather set recovered; male fitted armor now assembled on the existing approved 84-bone male skeleton **without altering that rig**, added to the game as an equipment-dependent male visual in the inventory preview and overworld, and selectable in Humanoid Animation Lab. Headless engine import and targeted smoke tests pass. Remaining acceptance: live PC/Android visual comparison, running/jumping/attacking clipping checks on hardware, performance measurements, and successful CI-published binary/update verification. Separate female/current-rig adoption and broader equipment-class visual coverage remain future work.
+
+
+## Ground terrain and tavern milestone — v0.3.191
+BASE LAYER TESTED LOCALLY: six 5ft ground assets (grass/dirt/leaves/moss/mud/rocky), deterministic region around starting hub, six MultiMesh batches, full original PBR sources. Tavern open-roof room placed in cleared approach, floor at grade, wide navigable entry, simplified walls/hearth collision.
+NEXT: refine biome transitions and reduce visible square patch boundaries; then independent detail overlays (twigs, pebbles, roots), small vegetation, bushes/trees, lighting and future weather. Full-building roof and interior NPCs/services are future tavern steps; verify Android FPS/memory and visuals before expanding terrain area. Avoid geometry/texture downscale without permission.

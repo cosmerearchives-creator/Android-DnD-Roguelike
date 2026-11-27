@@ -186,11 +186,14 @@ void fragment() {
 	terrain_material.shader = terrain_shader
 	terrain_material.set_shader_parameter("grass_texture",preload("res://grass_seamless.png"))
 	floor_visual.material_override = terrain_material
+	# Layer imported 5ft terrain above the existing continuous, collidable grass floor.
+	# Terrain is generated in six MultiMesh batches, one asset per frame.
+	add_child(preload("res://terrain_layer.gd").new())
 	# Generate the same positions, scales, rotations and proportions as before
 	# without creating/rendering/colliding 400+ objects in a single frame.
 	for i in range(260):
 		var p := Vector3(rng.randf_range(-95,95),0,rng.randf_range(-95,95))
-		if p.length() < 8: continue
+		if p.length() < 8 or (p.x > 5.0 and p.x < 35.0 and absf(p.z) < 12.5): continue
 		var scale_factor := rng.randf_range(1.6,3.6)
 		if rng.randf() < 0.08: scale_factor *= 1.7
 		var path := "res://assets/pine.glb" if rng.randf() < 0.55 else "res://assets/broadleaf.glb"
@@ -198,13 +201,16 @@ void fragment() {
 			"path":path,"rotation":rng.randf_range(0,TAU)})
 	for i in range(160):
 		var p := Vector3(rng.randf_range(-95,95),0,rng.randf_range(-95,95))
-		if p.length() < 3: continue
+		if p.length() < 3 or (p.x > 5.0 and p.x < 35.0 and absf(p.z) < 12.5): continue
 		scenery_jobs.append({"kind":"rock","position":p,
 			"scale":rng.randf_range(0.5,2.0),"rotation":rng.randf_range(0,TAU)})
 	# Build nearby scenery first so the immediate play area does not pop in
 	# after distant trees. This changes only build order, not placement.
 	scenery_jobs.sort_custom(func(a: Dictionary,b: Dictionary) -> bool:
 		return (a.position as Vector3).length_squared() < (b.position as Vector3).length_squared())
+	# Tavern opens toward the spawn along the dirt approach; build it first
+	# while the existing loading overlay remains active.
+	scenery_jobs.insert(0, {"kind":"tavern","position":Vector3(21,0,0)})
 	var profile := ConfigFile.new()
 	profile.load("user://hero.cfg")
 	model_index = clampi(int(profile.get_value("hero","model",0)),0,MODELS.size()-1)
@@ -291,7 +297,12 @@ void fragment() {
 	menu_panel.hide()
 	_sync_pc_mouse_mode()
 func _place_scenery(job: Dictionary) -> void:
-	if str(job.kind) == "tree":
+	if str(job.kind) == "tavern":
+		var tavern := preload("res://tavern_site.gd").new() as StaticBody3D
+		tavern.position = job.position
+		tavern.rotation.y = -PI / 2.0
+		add_child(tavern)
+	elif str(job.kind) == "tree":
 		var tree := StaticBody3D.new()
 		add_child(tree)
 		tree.position = job.position
