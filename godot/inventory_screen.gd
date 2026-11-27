@@ -82,10 +82,10 @@ func _frame(active: bool = false) -> StyleBox:
 	if tex==null:return _style(Color("#315052") if active else PANEL,3 if active else 2)
 	var style:=StyleBoxTexture.new()
 	style.texture=tex
-	style.texture_margin_left=28
-	style.texture_margin_right=28
-	style.texture_margin_top=27
-	style.texture_margin_bottom=27
+	style.texture_margin_left=16
+	style.texture_margin_right=16
+	style.texture_margin_top=16
+	style.texture_margin_bottom=16
 	style.content_margin_left=7
 	style.content_margin_right=7
 	style.content_margin_top=6
@@ -142,6 +142,10 @@ func _construct() -> void:
 	# Logical coordinates remain 720 wide, with a flexible vertical inventory area.
 	canvas.scale=Vector2(scale_x,1.0)
 	var head:=_fixed_panel(canvas,Rect2(16,110,688,92))
+	var crest:=Polygon2D.new()
+	crest.color=Color("#092b30")
+	crest.polygon=PackedVector2Array([Vector2(235,4),Vector2(270,-9),Vector2(305,-24),Vector2(344,-30),Vector2(383,-24),Vector2(418,-9),Vector2(453,4)])
+	head.add_child(crest)
 	var title:=_label("Inventory",42,HORIZONTAL_ALIGNMENT_CENTER)
 	title.position=Vector2(155,18)
 	title.size=Vector2(440,58)
@@ -172,11 +176,12 @@ func _construct() -> void:
 	left_view=SubViewportContainer.new()
 	left_view.stretch=true
 	left_view.position=Vector2(14,16)
-	left_view.size=Vector2(left_width,equipment_height-32)
+	left_view.size=Vector2(left_width,equipment_height-75)
 	left_view.mouse_filter=Control.MOUSE_FILTER_STOP
 	primary.add_child(left_view)
 	preview=SubViewport.new()
 	preview.size=Vector2i(400,620)
+	preview.own_world_3d=true
 	preview.transparent_bg=true
 	preview.render_target_update_mode=SubViewport.UPDATE_ALWAYS
 	left_view.add_child(preview)
@@ -199,7 +204,9 @@ func _construct() -> void:
 	preview_camera=Camera3D.new()
 	scene.add_child(preview_camera)
 	preview_camera.current=true
-	preview_camera.position=Vector3(0,1.20,4.0)
+	preview_camera.projection=Camera3D.PROJECTION_ORTHOGONAL
+	preview_camera.size=2.35
+	preview_camera.position=Vector3(0,0.95,4.0)
 	preview_camera.look_at(Vector3(0,0.95,0))
 	left_view.gui_input.connect(_rotate_preview)
 	# Pedestal outline and portrait-turn buttons from the approved layout.
@@ -216,21 +223,19 @@ func _construct() -> void:
 		turn.size=Vector2(42,38)
 		primary.add_child(turn)
 	# Genuine 17 equipment slots, grouped into 3 ornate columns.
-	var slots:=GridContainer.new()
-	slots.columns=3
-	slots.position=Vector2(297,14)
-	slots.size=Vector2(370,equipment_height-30)
-	slots.add_theme_constant_override("h_separation",8)
-	slots.add_theme_constant_override("v_separation",7)
-	primary.add_child(slots)
-	for slot in SLOTS:
-		var index:int=SLOTS.find(slot)
-		var cell:=_button(SIGNS[index],func():_select_slot(slot),22)
-		cell.custom_minimum_size=Vector2(104,54)
-		cell.size_flags_horizontal=Control.SIZE_EXPAND_FILL
-		cell.tooltip_text=slot
-		slots.add_child(cell)
-		slot_cells[slot]=cell
+	var columns := [["Head","Cloak","Hands","Wrists","Left Ring","Main Hand"],["Neck","Body","Waist","Legs","Feet"],["Eyes","Ears","Accessory","Off Hand","Right Ring","Ranged"]]
+	var step:float=(equipment_height-28)/6.0
+	for col in range(3):
+		for row in range(columns[col].size()):
+			var slot:String=columns[col][row]
+			var cell:=_button(SIGNS[SLOTS.find(slot)],_select_slot.bind(slot),24)
+			var sw:float=100.0 if col==1 else 82.0
+			cell.position=Vector2(342+col*132-sw/2,14+row*step)
+			cell.size=Vector2(sw,step-7)
+			cell.tooltip_text=slot
+			cell.icon_alignment=HORIZONTAL_ALIGNMENT_CENTER
+			primary.add_child(cell)
+			slot_cells[slot]=cell
 	var stat_y:=equipment_y+equipment_height+10
 	var stat_height:=150.0+maxf(0.0,h-1280.0)*0.06
 	var left:=_fixed_panel(canvas,Rect2(20,stat_y,294,stat_height))
@@ -386,7 +391,7 @@ func _render_items() -> void:
 		var id:=str(stack.id)
 		var item:Dictionary=data.detail(id)
 		var cell:=_button("",func():_select_item(id),18)
-		cell.custom_minimum_size=Vector2(98,76)
+		cell.custom_minimum_size=Vector2(98,88)
 		cell.add_theme_stylebox_override("normal",_frame(selection==id))
 		item_grid.add_child(cell)
 		var icon: Texture2D=data.icon(id)
@@ -398,12 +403,15 @@ func _render_items() -> void:
 		else:cell.text=str(item.get("name",id)).substr(0,8)
 		cell.tooltip_text=str(item.get("name",id))
 		var quantity:=int(stack.count)
-		if quantity>1:
+		if quantity>0:
 			var label:=_label(str(quantity),16,HORIZONTAL_ALIGNMENT_RIGHT)
 			label.mouse_filter=Control.MOUSE_FILTER_IGNORE
-			label.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
-			label.position=Vector2(-24,-20)
 			cell.add_child(label)
+			label.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
+			label.offset_left=-34
+			label.offset_top=-25
+			label.offset_right=-7
+			label.offset_bottom=-4
 		count+=1
 	if active_tab=="Quest" and entries.is_empty():
 		var notice:=_label("No quest items collected.",22)
@@ -413,8 +421,8 @@ func _render_items() -> void:
 		item_grid.add_child(notice)
 	for i in range(maxi(0,24-count)):
 		var blank:=PanelContainer.new()
-		blank.add_theme_stylebox_override("panel",_style(Color("#103338"),1))
-		blank.custom_minimum_size=Vector2(98,76)
+		blank.add_theme_stylebox_override("panel",_frame())
+		blank.custom_minimum_size=Vector2(98,88)
 		item_grid.add_child(blank)
 
 func _render_details() -> void:
@@ -434,6 +442,9 @@ func _render_details() -> void:
 	image.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	row.add_child(image)
 	var title:=_column(row)
+	row.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+	title.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+	title.custom_minimum_size.x=230
 	title.add_child(_label(str(item.get("name",selection)),23))
 	title.add_child(_label(str(item.get("type","Item")).to_upper(),18))
 	title.add_child(_label("%.1f lb" % float(item.get("weight",0)),20))
