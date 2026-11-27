@@ -416,7 +416,9 @@ func _inventory_closed() -> void:
 	if is_instance_valid(inventory_panel):
 		inventory_panel.queue_free()
 		inventory_panel = null
-	if is_instance_valid(hud): hud.set_process_input(true)
+	if is_instance_valid(hud):
+		hud.visible = true
+		hud.set_process_input(true)
 	_sync_pc_mouse_mode()
 
 func _exit_tree() -> void:
@@ -432,6 +434,7 @@ func toggle_inventory(tab: String = "") -> void:
 	if is_instance_valid(menu_panel): menu_panel.hide()
 	stick = Vector2.ZERO
 	hud.set_process_input(false)
+	hud.visible = false
 	var overlay := preload("res://inventory_screen.tscn").instantiate() as Control
 	overlay.process_mode = Node.PROCESS_MODE_ALWAYS
 	inventory_panel = overlay

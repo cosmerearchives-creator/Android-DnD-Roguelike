@@ -3,8 +3,8 @@ extends Control
 ## Wildlands portrait equipment reference, using our current Godot character model.
 signal closed
 signal equipment_changed(slot: String, item_id: String)
-const GOLD := Color("#d4a15c")
-const PALE := Color("#f0dbaf")
+const GOLD := Color("#cba266")
+const PALE := Color("#e8d3ac")
 const BG := Color("#1b120d")
 const PANEL := Color("#2b1c13")
 const DATA = preload("res://inventory_data.gd")
@@ -51,6 +51,9 @@ var desktop_equipment: Control
 var desktop_item_grid: GridContainer
 var character_summary: Dictionary = {}
 var compare_visible := false
+var desktop_canvas: Control
+var tab_icons: Dictionary = {}
+var inventory_backdrop: ColorRect
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
@@ -94,48 +97,45 @@ func _label(txt:String, size:int=22, alignment:HorizontalAlignment=HORIZONTAL_AL
 	l.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	return l
 
-var _frames: Dictionary={}
-func _frame(active: bool = false) -> StyleBox:
-	var key: String="active" if active else "normal"
+var _frames: Dictionary = {}
+func _frame_type(kind: String = "panel", active: bool = false) -> StyleBoxTexture:
+	var key := kind + ("_active" if active else "")
 	if _frames.has(key): return _frames[key]
-	var path: String="res://ui_skin/panel_active.svg" if active else "res://ui_skin/panel.svg"
-	var tex: Texture2D=null
-	if ResourceLoader.exists(path):
-		tex=load(path) as Texture2D
-	else:
-		var img:=Image.load_from_file(path)
-		if img!=null:tex=ImageTexture.create_from_image(img)
-	if tex==null:return _style(Color("#315052") if active else PANEL,3 if active else 2)
-	var style:=StyleBoxTexture.new()
-	style.texture=tex
-	style.texture_margin_left=43
-	style.texture_margin_right=43
-	style.texture_margin_top=43
-	style.texture_margin_bottom=43
-	style.content_margin_left=7
-	style.content_margin_right=7
-	style.content_margin_top=6
-	style.content_margin_bottom=6
-	_frames[key]=style
+	var path := "res://ui_skin/%s.png" % key
+	var tex := load(path) as Texture2D
+	var style := StyleBoxTexture.new()
+	style.texture = tex
+	var border := 38 if kind=="panel" else 24 if kind=="header" else 18 if kind=="slot" else 20
+	style.texture_margin_left = border
+	style.texture_margin_right = border
+	style.texture_margin_top = border
+	style.texture_margin_bottom = border
+	style.content_margin_left = 5
+	style.content_margin_right = 5
+	style.content_margin_top = 4
+	style.content_margin_bottom = 4
+	_frames[key] = style
 	return style
 
-func _compact_frame(active: bool = false) -> StyleBoxTexture:
-	var box := _frame(active).duplicate() as StyleBoxTexture
-	box.texture_margin_left = 21
-	box.texture_margin_right = 21
-	box.texture_margin_top = 21
-	box.texture_margin_bottom = 21
-	return box
+func _frame(active: bool = false) -> StyleBoxTexture:
+	return _frame_type("panel", active)
 
-func _button(txt:String, callback:Callable, px:int=22) -> Button:
-	var b:=Button.new()
-	b.text=txt
+func _compact_frame(active: bool = false) -> StyleBoxTexture:
+	return _frame_type("slot", active)
+
+func _button(txt: String, callback: Callable, px: int = 22) -> Button:
+	var b := Button.new()
+	b.text = txt
 	b.add_theme_font_override("font",FONT)
 	b.add_theme_font_size_override("font_size",px)
 	b.add_theme_color_override("font_color",PALE)
-	b.add_theme_stylebox_override("normal",_frame())
-	b.add_theme_stylebox_override("hover",_frame(true))
-	b.add_theme_stylebox_override("pressed",_frame(true))
+	b.add_theme_color_override("font_hover_color",Color("#ffdc8d"))
+	b.add_theme_color_override("font_pressed_color",Color("#ffd17e"))
+	b.add_theme_color_override("font_disabled_color",Color("#9f8e73"))
+	b.add_theme_stylebox_override("normal",_frame_type("button"))
+	b.add_theme_stylebox_override("hover",_frame_type("button",true))
+	b.add_theme_stylebox_override("pressed",_frame_type("button",true))
+	b.add_theme_stylebox_override("disabled",_frame_type("button"))
 	b.pressed.connect(callback)
 	return b
 
@@ -406,7 +406,7 @@ func _refresh_sidebar() -> void:
 			section_filter=title
 			_refresh(),20)
 		btn.custom_minimum_size.y=52 if desktop_layout else 64
-		btn.add_theme_stylebox_override("normal",_frame(group==section_filter))
+		btn.add_theme_stylebox_override("normal",_frame_type("tab",group==section_filter))
 		sidebar_stack.add_child(btn)
 		filter_buttons[group]=btn
 
@@ -638,7 +638,7 @@ func _refresh() -> void:
 		return
 	for tab in TABS:
 		var b:Button=tab_controls[tab]
-		b.add_theme_stylebox_override("normal",_frame(tab==active_tab))
+		b.add_theme_stylebox_override("normal",_frame_type("tab",tab==active_tab))
 	# Switch the content region, preserving equipment's original layout.
 	if active_tab=="Equipment":
 		if is_instance_valid(_list_panel): _list_panel.visible=false
@@ -678,7 +678,7 @@ func _render_items() -> void:
 		var id:=str(stack.id)
 		var item:Dictionary=data.detail(id)
 		var cell:=_button("",func():_select_item(id),18)
-		cell.custom_minimum_size=Vector2(81,74) if desktop_layout else Vector2(98,88)
+		cell.custom_minimum_size=Vector2(73,73) if desktop_layout else Vector2(98,88)
 		cell.add_theme_stylebox_override("normal",_compact_frame(selection==id))
 		item_grid.add_child(cell)
 		var icon: Texture2D=data.icon(id)
@@ -691,7 +691,7 @@ func _render_items() -> void:
 		cell.tooltip_text=str(item.get("name",id))
 		var quantity:=int(stack.count)
 		if quantity>0:
-			var label:=_label(str(quantity),16,HORIZONTAL_ALIGNMENT_RIGHT)
+			var label:=_label(str(quantity),14,HORIZONTAL_ALIGNMENT_RIGHT)
 			label.mouse_filter=Control.MOUSE_FILTER_IGNORE
 			cell.add_child(label)
 			label.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
@@ -709,7 +709,7 @@ func _render_items() -> void:
 	for i in range(maxi(0,24-count)):
 		var blank:=PanelContainer.new()
 		blank.add_theme_stylebox_override("panel",_compact_frame())
-		blank.custom_minimum_size=Vector2(81,74) if desktop_layout else Vector2(98,88)
+		blank.custom_minimum_size=Vector2(73,73) if desktop_layout else Vector2(98,88)
 		item_grid.add_child(blank)
 
 func _render_details() -> void:
@@ -763,48 +763,83 @@ func _construct_desktop() -> void:
 	var h := size.y if size.y > 100 else 900.0
 	viewport_width = 1600.0
 	viewport_height = 900.0
-	var veil := ColorRect.new()
-	veil.color = Color(.10,.055,.02,.82)
-	veil.position = Vector2(0,80)
-	veil.size = Vector2(w,h-80)
-	veil.mouse_filter = Control.MOUSE_FILTER_STOP
-	add_child(veil)
+	# The reference UI is mounted over the world, with deliberately opaque
+	# leather panel backgrounds; never allow scenery through the text panels.
+	inventory_backdrop = ColorRect.new()
+	inventory_backdrop.name = "InventoryBackdrop"
+	inventory_backdrop.color = Color(0.055,0.036,0.025,0.86)
+	inventory_backdrop.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	inventory_backdrop.mouse_filter = Control.MOUSE_FILTER_STOP
+	add_child(inventory_backdrop)
 	var canvas := Control.new()
 	canvas.name = "InventoryCanvas"
 	canvas.size = Vector2(1600,900)
 	canvas.scale = Vector2(w/1600.0,h/900.0)
 	add_child(canvas)
-	var heading := _fixed_panel(canvas,Rect2(16,84,618,60))
-	var title := _label("INVENTORY",39,HORIZONTAL_ALIGNMENT_CENTER)
-	title.position = Vector2(110,6)
-	title.size = Vector2(398,48)
-	heading.add_child(title)
-	var close := _button("X",func():closed.emit(),24)
-	close.position = Vector2(1530,90)
-	close.size = Vector2(54,48)
+	desktop_canvas = canvas
+	var masthead := _fixed_panel(canvas,Rect2(15,86,618,61))
+	masthead.name = "InventoryTitlePanel"
+	var heading := _label("INVENTORY",39,HORIZONTAL_ALIGNMENT_CENTER)
+	heading.position = Vector2(130,8)
+	heading.size = Vector2(352,43)
+	masthead.add_child(heading)
+	var top_band := _fixed_panel(canvas,Rect2(638,132,947,84))
+	top_band.name = "InventoryHeaderBand"
+	top_band.add_theme_stylebox_override("panel",_frame_type("panel"))
+	var close := _button("CLOSE",func():closed.emit(),19)
+	close.position = Vector2(1465,151)
+	close.size = Vector2(104,45)
 	canvas.add_child(close)
 	for i in range(TABS.size()):
 		var tab: String = TABS[i]
-		var label: String = "Quests" if tab=="Quest" else tab
-		var button := _button(label,func():_select_tab(tab),22)
-		button.position = Vector2(18+i*155,149)
-		button.size = Vector2(153,57)
-		button.tooltip_text = "Manage "+label.to_lower()
+		var caption: String = "Quests" if tab=="Quest" else tab
+		var button := _button("    "+caption,func():_select_tab(tab),21)
+		button.name = "Tab"+tab
+		button.position = Vector2(18+i*155,151)
+		button.size = Vector2(152,56)
+		button.tooltip_text = "Manage "+caption.to_lower()
+		button.add_theme_stylebox_override("normal",_frame_type("tab"))
+		button.add_theme_stylebox_override("hover",_frame_type("tab",true))
+		button.add_theme_stylebox_override("pressed",_frame_type("tab",true))
 		canvas.add_child(button)
 		tab_controls[tab] = button
+		var symbol: String = ["◆","▣","✦","▤"][i]
+		var symbol_label := _label(symbol,23,HORIZONTAL_ALIGNMENT_CENTER)
+		symbol_label.position = Vector2(10,11)
+		symbol_label.size = Vector2(36,35)
+		symbol_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		button.add_child(symbol_label)
 	desktop_equipment = Control.new()
 	desktop_equipment.name = "EquipmentDesktop"
 	desktop_equipment.size = Vector2(1600,900)
 	canvas.add_child(desktop_equipment)
-	var character_panel := _fixed_panel(desktop_equipment,Rect2(18,214,618,668))
+	var character_panel := _fixed_panel(desktop_equipment,Rect2(18,216,618,664))
+	character_panel.name = "CharacterEquipmentPanel"
+	# Dedicated visual portrait stage, distinct from the outer metallic frame.
+	var portrait_stage := Panel.new()
+	portrait_stage.name = "PortraitStage"
+	portrait_stage.position = Vector2(129,15)
+	portrait_stage.size = Vector2(356,613)
+	portrait_stage.add_theme_stylebox_override("panel",_portrait_style())
+	portrait_stage.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	character_panel.add_child(portrait_stage)
+	var portrait_art := TextureRect.new()
+	portrait_art.name = "PortraitBackgroundArt"
+	portrait_art.texture = preload("res://ui_skin/portrait_backdrop.png")
+	portrait_art.position = Vector2(3,3)
+	portrait_art.size = portrait_stage.size - Vector2(6,6)
+	portrait_art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	portrait_art.stretch_mode = TextureRect.STRETCH_SCALE
+	portrait_art.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	portrait_stage.add_child(portrait_art)
 	left_view = SubViewportContainer.new()
 	left_view.stretch = true
-	left_view.position = Vector2(137,15)
-	left_view.size = Vector2(345,558)
+	left_view.position = Vector2(132,22)
+	left_view.size = Vector2(350,566)
 	left_view.mouse_filter = Control.MOUSE_FILTER_STOP
 	character_panel.add_child(left_view)
 	preview = SubViewport.new()
-	preview.size = Vector2i(430,660)
+	preview.size = Vector2i(440,680)
 	preview.own_world_3d = true
 	preview.transparent_bg = true
 	preview.render_target_update_mode = SubViewport.UPDATE_ALWAYS
@@ -829,86 +864,127 @@ func _construct_desktop() -> void:
 	portrait_world.add_child(preview_camera)
 	preview_camera.current = true
 	preview_camera.projection = Camera3D.PROJECTION_ORTHOGONAL
-	preview_camera.size = 2.4
+	preview_camera.size = 2.14
 	preview_camera.position = Vector3(0,1.0,4)
 	preview_camera.look_at(Vector3(0,1.0,0))
 	left_view.gui_input.connect(_rotate_preview)
-	var pedestal := Line2D.new()
-	pedestal.width = 2.1
-	pedestal.default_color = GOLD
-	for i in range(65):
-		var a := float(i)*TAU/64.0
-		pedestal.add_point(Vector2(309+111*cos(a),597+19*sin(a)))
-	character_panel.add_child(pedestal)
+	# Stone platform is embedded in the character stage artwork, no duplicate ellipse.
 	var left_slots := ["Head","Eyes","Main Hand","Off Hand","Secondary","Hands","Wrists"]
 	var right_slots := ["Body","Neck","Cloak","Left Ring","Right Ring","Accessory","Waist","Feet"]
 	for row in range(left_slots.size()):
-		_desktop_slot(character_panel,left_slots[row],Vector2(18,15+row*86),Vector2(114,77))
+		_desktop_slot(character_panel,left_slots[row],Vector2(18,17+row*87),Vector2(113,78))
 	for row in range(right_slots.size()):
-		_desktop_slot(character_panel,right_slots[row],Vector2(485,15+row*78),Vector2(114,70))
-	var turn_left := _button("<",_turn_preview.bind(-1),18)
-	turn_left.position = Vector2(179,610)
-	turn_left.size = Vector2(54,39)
+		_desktop_slot(character_panel,right_slots[row],Vector2(487,17+row*77),Vector2(113,69))
+	var turn_left := _button("◀",_turn_preview.bind(-1),16)
+	turn_left.position = Vector2(188,619)
+	turn_left.size = Vector2(46,31)
 	character_panel.add_child(turn_left)
-	var turn_right := _button(">",_turn_preview.bind(1),18)
-	turn_right.position = Vector2(386,610)
-	turn_right.size = Vector2(54,39)
+	var turn_right := _button("▶",_turn_preview.bind(1),16)
+	turn_right.position = Vector2(388,619)
+	turn_right.size = Vector2(46,31)
 	character_panel.add_child(turn_right)
-	# Character, 5e ability names, combat values and proficiencies.
-	var stats_panel := _fixed_panel(desktop_equipment,Rect2(646,112,940,215))
-	var stat_names := ["CHARACTER","ABILITY SCORES","COMBAT & DEFENSES","PROFICIENCIES"]
+	# Reference layout: a compact four-section stats strip across the top right.
+	var stats_panel := _fixed_panel(desktop_equipment,Rect2(648,113,937,214))
+	stats_panel.name = "CharacterStatsPanel"
+	var stat_names := ["Character","Ability Scores","Combat & Defenses","Proficiencies"]
 	for col in range(4):
-		var box := _fixed_panel(stats_panel,Rect2(7+col*232,9,228,197))
-		var head := _label(stat_names[col],20,HORIZONTAL_ALIGNMENT_CENTER)
-		head.position = Vector2(7,4)
-		head.size = Vector2(212,35)
-		box.add_child(head)
+		var x := 7+col*233
+		if col>0:
+			var divider := ColorRect.new()
+			divider.position = Vector2(x-4,15)
+			divider.size = Vector2(1,184)
+			divider.color = Color("#8b6037")
+			stats_panel.add_child(divider)
+		var header := _label(stat_names[col],19,HORIZONTAL_ALIGNMENT_CENTER)
+		header.position = Vector2(x+5,11)
+		header.size = Vector2(216,32)
+		stats_panel.add_child(header)
+		var line := ColorRect.new()
+		line.color = Color("#946438")
+		line.position = Vector2(x+15,46)
+		line.size = Vector2(194,1)
+		stats_panel.add_child(line)
 		var info := _label("",16)
 		info.name = "CharacterStatBlock%d" % col
-		info.position = Vector2(20,52)
-		info.size = Vector2(190,132)
-		box.add_child(info)
-	var equipment_inventory := _fixed_panel(desktop_equipment,Rect2(646,338,940,311))
+		info.position = Vector2(x+16,55)
+		info.size = Vector2(199,140)
+		info.add_theme_color_override("font_color",Color("#e5cea3"))
+		stats_panel.add_child(info)
+	var equipment_inventory := _fixed_panel(desktop_equipment,Rect2(648,339,937,310))
+	equipment_inventory.name = "EquipmentInventoryGrid"
 	var carry_heading := _label("Inventory",25)
 	carry_heading.name = "CarryHeading"
-	carry_heading.position = Vector2(22,7)
-	carry_heading.size = Vector2(495,43)
+	carry_heading.position = Vector2(26,9)
+	carry_heading.size = Vector2(535,41)
 	equipment_inventory.add_child(carry_heading)
-	var sorting := _button("Sort: Name",_sort_items,19)
-	sorting.position = Vector2(775,8)
-	sorting.size = Vector2(144,40)
+	var sorting := _button("Sort: Name  ▼",_sort_items,18)
+	sorting.position = Vector2(765,10)
+	sorting.size = Vector2(150,41)
 	equipment_inventory.add_child(sorting)
 	var scroll := ScrollContainer.new()
-	scroll.position = Vector2(15,54)
-	scroll.size = Vector2(912,244)
+	scroll.name = "EquipmentItemScroll"
+	scroll.position = Vector2(20,55)
+	scroll.size = Vector2(895,244)
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	equipment_inventory.add_child(scroll)
 	item_grid = GridContainer.new()
-	item_grid.columns = 10
+	item_grid.columns = 11
 	item_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	item_grid.add_theme_constant_override("h_separation",3)
 	item_grid.add_theme_constant_override("v_separation",4)
 	scroll.add_child(item_grid)
-	var item_details := _fixed_panel(desktop_equipment,Rect2(646,659,940,223))
+	var item_details := _fixed_panel(desktop_equipment,Rect2(648,661,937,219))
+	item_details.name = "EquippedItemDetails"
 	details = _column(item_details)
-	details.position = Vector2(19,12)
-	details.size = Vector2(904,202)
+	details.position = Vector2(20,14)
+	details.size = Vector2(895,191)
 	_load_model()
 
+func _portrait_style() -> StyleBoxFlat:
+	var s := StyleBoxFlat.new()
+	s.bg_color = Color("#3a3228")
+	s.border_color = Color("#68492e")
+	s.set_border_width_all(1)
+	s.set_corner_radius_all(12)
+	s.content_margin_left = 7
+	return s
+
+func _pedestal_style() -> StyleBoxFlat:
+	var s := StyleBoxFlat.new()
+	s.bg_color = Color("#413426")
+	s.border_color = Color("#b48a51")
+	s.border_width_top = 3
+	s.border_width_bottom = 5
+	s.border_width_left = 1
+	s.border_width_right = 1
+	s.set_corner_radius_all(21)
+	return s
+
 func _desktop_slot(parent: Control, slot: String, location: Vector2, extent: Vector2) -> void:
-	var button := _button(SIGNS[SLOTS.find(slot)],_select_slot.bind(slot),27)
+	var button := _button("",_select_slot.bind(slot),17)
+	button.name = "EquipmentSlot"+slot.replace(" ","")
 	button.position = location
 	button.size = extent
 	button.tooltip_text = slot
 	button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	parent.add_child(button)
-	var caption := _label("GOGGLES" if slot=="Eyes" else slot.to_upper(),12,HORIZONTAL_ALIGNMENT_CENTER)
-	caption.position = Vector2(3,4)
-	caption.size = Vector2(extent.x-6,22)
-	caption.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	button.add_child(caption)
+	button.vertical_icon_alignment = VERTICAL_ALIGNMENT_CENTER
 	button.add_theme_stylebox_override("normal",_compact_frame())
 	button.add_theme_stylebox_override("hover",_compact_frame(true))
+	button.add_theme_stylebox_override("pressed",_compact_frame(true))
+	parent.add_child(button)
+	var caption := _label("EYES (GOGGLES)" if slot=="Eyes" else slot.to_upper(),12,HORIZONTAL_ALIGNMENT_CENTER)
+	caption.position = Vector2(5,4)
+	caption.size = Vector2(extent.x-10,16)
+	caption.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	button.add_child(caption)
+	var icon := TextureRect.new()
+	icon.name="SlotIcon"
+	icon.position=Vector2((extent.x-54.0)*.5,22)
+	icon.size=Vector2(54,extent.y-26)
+	icon.expand_mode=TextureRect.EXPAND_IGNORE_SIZE
+	icon.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	icon.mouse_filter=Control.MOUSE_FILTER_IGNORE
+	button.add_child(icon)
 	slot_cells[slot] = button
 
 func set_character_summary(summary: Dictionary) -> void:
@@ -917,74 +993,95 @@ func set_character_summary(summary: Dictionary) -> void:
 
 func _update_character_stats() -> void:
 	if not desktop_layout: return
-	var values := character_summary
-	var strength := int(data.strength)
-	var ability := "STR  %d (%+d)\n" % [strength,floori((float(strength)-10)/2)]
+	var stats: Dictionary = character_summary
+	var str_score := int(data.strength)
+	var ability := "STR    %d (%+d)
+" % [str_score,floori((str_score-10)/2.0)]
 	for stat in ["DEX","CON","INT","WIS","CHA"]:
-		ability += "%s  %s\n" % [stat,str(values[stat]) if values.has(stat) else "—"]
+		if stats.has(stat):
+			var score := int(stats[stat])
+			ability += "%s    %d (%+d)
+" % [stat,score,floori((score-10)/2.0)]
+		else:
+			ability += "%s    —
+" % stat
 	var blocks := [
-		"Level —\nRace: Not set\nClass: Fighter (test)\nBackground: Not set",
+		"Level: —
+Race: Not set
+Class: Fighter (test)
+Background: Not set",
 		ability,
-		"AC     %s\nHP     %s / %s\nSpeed  30 ft\nInitiative  —" % [str(values.get("AC","—")),str(values.get("HP","—")),str(values.get("MaxHP","—"))],
-		"Weapons: Not recorded\nArmor: Not recorded\nSkills: Not recorded\nSaves: Not recorded"]
-	for i in range(4):
-		var info := find_child("CharacterStatBlock%d"%i,true,false) as Label
-		if info != null: info.text = blocks[i]
+		"AC:  %s
+HP:  %s / %s
+Speed:  30 ft
+Initiative:  —" % [str(stats.get("AC","—")),str(stats.get("HP","—")),str(stats.get("MaxHP","—"))],
+		"Weapons: Not recorded
+Armor: Not recorded
+Skills: Not recorded
+Saves: Not recorded"
+	]
+	for i in 4:
+		var block := find_child("CharacterStatBlock%d"%i,true,false) as Label
+		if block != null: block.text=blocks[i]
 
 func _make_list_layout_desktop() -> void:
 	var canvas := get_node("InventoryCanvas") as Control
-	_list_panel = _fixed_panel(canvas,Rect2(18,214,1568,668))
+	_list_panel = _fixed_panel(canvas,Rect2(18,216,1567,664))
 	_list_panel.name = "TabbedListLayout"
-	var sidebar := _fixed_panel(_list_panel,Rect2(9,9,278,649))
+	var sidebar := _fixed_panel(_list_panel,Rect2(9,9,263,645))
+	sidebar.name = "CategorySidebar"
 	var sidebar_stack := VBoxContainer.new()
 	sidebar_stack.name = "FilterSidebar"
-	sidebar_stack.position = Vector2(9,10)
-	sidebar_stack.size = Vector2(258,630)
+	sidebar_stack.position = Vector2(14,15)
+	sidebar_stack.size = Vector2(237,620)
 	sidebar_stack.add_theme_constant_override("separation",5)
 	sidebar.add_child(sidebar_stack)
-	var main := _fixed_panel(_list_panel,Rect2(296,9,799,649))
+	var main := _fixed_panel(_list_panel,Rect2(282,9,829,645))
+	main.name = "CollectionPanel"
 	content_header = _label("",26)
-	content_header.position = Vector2(20,11)
-	content_header.size = Vector2(482,40)
+	content_header.position = Vector2(23,12)
+	content_header.size = Vector2(562,43)
 	main.add_child(content_header)
-	var sort := _button("Sort: Name",_sort_items,19)
-	sort.position = Vector2(620,9)
-	sort.size = Vector2(166,43)
+	var sort := _button("Sort: Name  ▼",_sort_items,18)
+	sort.position = Vector2(651,10)
+	sort.size = Vector2(153,42)
 	main.add_child(sort)
 	list_scroll = ScrollContainer.new()
-	list_scroll.position = Vector2(14,64)
-	list_scroll.size = Vector2(770,571)
+	list_scroll.position = Vector2(17,66)
+	list_scroll.size = Vector2(795,560)
 	list_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	main.add_child(list_scroll)
 	list_container = VBoxContainer.new()
+	list_container.name = "QuestListRows"
 	list_container.add_theme_constant_override("separation",8)
 	list_container.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	list_scroll.add_child(list_container)
 	desktop_item_grid = GridContainer.new()
-	desktop_item_grid.columns = 8
+	desktop_item_grid.name = "CollectionItemGrid"
+	desktop_item_grid.columns = 9
 	desktop_item_grid.add_theme_constant_override("h_separation",5)
 	desktop_item_grid.add_theme_constant_override("v_separation",5)
 	desktop_item_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	list_scroll.add_child(desktop_item_grid)
-	detail_panel = _fixed_panel(_list_panel,Rect2(1103,9,455,566))
+	detail_panel = _fixed_panel(_list_panel,Rect2(1121,9,437,565))
 	detail_panel.name = "DetailPane"
-	footer = _fixed_panel(_list_panel,Rect2(1103,582,455,76))
-	owned_label = _label("",17)
-	owned_label.position = Vector2(13,8)
-	owned_label.size = Vector2(235,57)
+	footer = _fixed_panel(_list_panel,Rect2(1121,582,437,72))
+	owned_label = _label("",15)
+	owned_label.position = Vector2(17,13)
+	owned_label.size = Vector2(218,44)
 	footer.add_child(owned_label)
-	footer_action = _button("Use",_footer_pressed,21)
-	footer_action.position = Vector2(267,12)
-	footer_action.size = Vector2(175,50)
+	footer_action = _button("Use",_footer_pressed,19)
+	footer_action.position = Vector2(265,13)
+	footer_action.size = Vector2(157,44)
 	footer.add_child(footer_action)
 	footer_action.disabled = true
 
 func _refresh_desktop() -> void:
 	for tab in TABS:
-		var b: Button = tab_controls[tab]
-		b.add_theme_stylebox_override("normal",_frame(tab==active_tab))
-	desktop_equipment.visible = active_tab == "Equipment"
-	if active_tab == "Equipment":
+		var button: Button = tab_controls[tab]
+		button.add_theme_stylebox_override("normal",_frame_type("tab",tab==active_tab))
+	desktop_equipment.visible = active_tab=="Equipment"
+	if active_tab=="Equipment":
 		if is_instance_valid(_list_panel): _list_panel.hide()
 	else:
 		if not is_instance_valid(_list_panel): _make_list_layout_desktop()
@@ -993,14 +1090,16 @@ func _refresh_desktop() -> void:
 		_refresh_desktop_list()
 		_render_desktop_list_details()
 	var carry: Label = find_child("CarryHeading",true,false)
-	if carry != null: carry.text = "Inventory  %.1f / %.0f lb" % [data.weight(),data.capacity()]
+	if carry!=null:carry.text="Inventory    %.1f / %.0f lb" % [data.weight(),data.capacity()]
 	for slot in SLOTS:
 		var button: Button = slot_cells[slot]
 		var id: String = data.equipped_id(slot)
-		button.icon = data.icon(id) if id!="" else null
-		button.expand_icon = true
-		button.text = "" if id!="" else SIGNS[SLOTS.find(slot)]
+		var icon := button.get_node_or_null("SlotIcon") as TextureRect
+		if icon!=null: icon.texture=data.icon(id) if id!="" else null
+		button.text=""
 		button.add_theme_stylebox_override("normal",_compact_frame(slot==current_slot))
+		if icon!=null and icon.texture==null:
+			button.text=SIGNS[SLOTS.find(slot)]
 	_update_character_stats()
 	if active_tab=="Equipment":
 		_render_items()
@@ -1040,7 +1139,7 @@ func _refresh_desktop_list() -> void:
 				_refresh_desktop_list()
 				_render_desktop_list_details(),20)
 			quest.custom_minimum_size = Vector2(752,84)
-			quest.add_theme_stylebox_override("normal",_frame(selected==quest_selected))
+			quest.add_theme_stylebox_override("normal",_frame_type("tab",selected==quest_selected))
 			list_container.add_child(quest)
 			var name := _label("⚔  "+str(entry.name),27)
 			name.position = Vector2(20,9)
@@ -1061,7 +1160,7 @@ func _refresh_desktop_list() -> void:
 			var empty := _label("No quests in this category.",24)
 			list_container.add_child(empty)
 	else:
-		desktop_item_grid.columns = 7 if active_tab=="Materials" else 8
+		desktop_item_grid.columns = 7 if active_tab=="Materials" else 9
 		for entry in rows:
 			var id: String = str(entry.id)
 			var cell := _button("",func():
@@ -1069,28 +1168,33 @@ func _refresh_desktop_list() -> void:
 				data.select(id)
 				_refresh_desktop_list()
 				_render_desktop_list_details(),17)
-			cell.custom_minimum_size = Vector2(102,112) if active_tab=="Materials" else Vector2(88,92)
+			cell.custom_minimum_size = Vector2(102,112) if active_tab=="Materials" else Vector2(79,84)
 			cell.clip_contents = true
 			cell.tooltip_text = str(entry.name)
 			cell.add_theme_stylebox_override("normal",_compact_frame(selection==id))
 			desktop_item_grid.add_child(cell)
-			var sprite := TextureRect.new()
-			sprite.texture = data.icon(id)
-			sprite.position = Vector2(22,11)
-			sprite.size = Vector2(60,55) if active_tab=="Materials" else Vector2(45,49)
-			sprite.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-			sprite.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-			sprite.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			cell.add_child(sprite)
-			var label_text := str(entry.name).substr(0,15) if active_tab=="Materials" else str(entry.name).substr(0,11)
-			var label := _label(label_text,14,HORIZONTAL_ALIGNMENT_CENTER)
-			label.position = Vector2(3,76 if active_tab=="Materials" else 66)
-			label.size = Vector2(97 if active_tab=="Materials" else 82,19)
-			label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			cell.add_child(label)
+			if active_tab=="Items":
+				cell.icon = data.icon(id)
+				cell.expand_icon = true
+				cell.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+				cell.vertical_icon_alignment = VERTICAL_ALIGNMENT_CENTER
+			else:
+				var sprite := TextureRect.new()
+				sprite.texture = data.icon(id)
+				sprite.position = Vector2(19,8)
+				sprite.size = Vector2(62,57)
+				sprite.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+				sprite.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+				sprite.mouse_filter = Control.MOUSE_FILTER_IGNORE
+				cell.add_child(sprite)
+				var label := _label(str(entry.name).substr(0,14),13,HORIZONTAL_ALIGNMENT_CENTER)
+				label.position = Vector2(3,77)
+				label.size = Vector2(97,17)
+				label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+				cell.add_child(label)
 			var qty := _label("×%d" % int(entry.count),14,HORIZONTAL_ALIGNMENT_RIGHT)
-			qty.position = Vector2(50,5)
-			qty.size = Vector2(43,23)
+			qty.position = Vector2(38,4)
+			qty.size = Vector2(39,18)
 			qty.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			cell.add_child(qty)
 		if rows.is_empty():
@@ -1101,7 +1205,7 @@ func _refresh_desktop_list() -> void:
 			var columns: int = desktop_item_grid.columns
 			for i in range(maxi(0,columns*4-rows.size())):
 				var slot := PanelContainer.new()
-				slot.custom_minimum_size = Vector2(102,112) if active_tab=="Materials" else Vector2(88,92)
+				slot.custom_minimum_size = Vector2(102,112) if active_tab=="Materials" else Vector2(79,84)
 				slot.add_theme_stylebox_override("panel",_compact_frame())
 				desktop_item_grid.add_child(slot)
 
@@ -1143,7 +1247,7 @@ func _render_desktop_equipment_details() -> void:
 	info.add_child(_label(str(item.get("name",selection)),26))
 	info.add_child(_label(str(item.get("type","Item")),19))
 	info.add_child(_label("Weight: %.1f lb" % float(item.get("weight",0)),19))
-	info.add_child(_label("Slot: "+current_slot if current_slot!="" else "Select a slot to equip.",17))
+	info.add_child(_label("Slot: "+current_slot if current_slot!="" else _item_description(selection),16))
 	var compare := VBoxContainer.new()
 	compare.custom_minimum_size.x = 258
 	top.add_child(compare)
@@ -1155,8 +1259,8 @@ func _render_desktop_equipment_details() -> void:
 		if not former.is_empty():
 			compare.add_child(_label("Weight: %.1f lb" % float(former.get("weight",0)),17))
 	else:
-		compare.add_child(_label("Properties",19))
-		compare.add_child(_label("2014 D&D 5e item",16))
+		compare.add_child(_label("Properties",20))
+		compare.add_child(_label(_item_property_text(selection),16))
 	var actions := HBoxContainer.new()
 	actions.add_theme_constant_override("separation",12)
 	details.add_child(actions)
@@ -1225,9 +1329,9 @@ func _render_desktop_list_details() -> void:
 	_desktop_detail_label(str(item.get("type","Item")),Vector2(187,99),Vector2(243,50),19)
 	_desktop_detail_label("WEIGHT",Vector2(28,203),Vector2(395,41),22)
 	_desktop_detail_label("%.1f lb per item" % float(item.get("weight",0)),Vector2(28,250),Vector2(389,41),20)
-	_desktop_detail_label("OWNED",Vector2(28,319),Vector2(390,41),22)
-	_desktop_detail_label("Quantity: %d" % data.count_of(selection),Vector2(28,359),Vector2(386,40),20)
-	_desktop_detail_label("Additional item properties appear as catalog data becomes available.",Vector2(28,445),Vector2(393,88),18)
+	_desktop_detail_label("PROPERTIES",Vector2(28,310),Vector2(390,39),22)
+	_desktop_detail_label("%s  |  Owned: %d" % [_item_property_text(selection),data.count_of(selection)],Vector2(28,352),Vector2(386,70),18)
+	_desktop_detail_label(_item_description(selection),Vector2(28,433),Vector2(393,92),18)
 	var type := str(item.get("type",""))
 	footer_action.text = "Equip" if type in ["Weapon","Armor","Shield"] else "Use"
 	footer_action.disabled = type not in ["Weapon","Armor","Shield"]
@@ -1247,3 +1351,30 @@ func _unhandled_input(event: InputEvent) -> void:
 		elif event.keycode == KEY_Q:
 			_select_tab("Quest")
 			get_viewport().set_input_as_handled()
+
+func _item_description(id: String) -> String:
+	match id:
+		"longsword": return "A versatile, well-balanced sword favored by adventurers."
+		"chain_mail": return "Interlocking steel rings offer reliable protection."
+		"shield": return "A hand-held shield used to defend against attacks."
+		"handaxe": return "A compact, light axe that can also be thrown."
+		"ration": return "Preserved travel provisions for one day."
+		"rope_hemp": return "Sturdy hempen rope suitable for climbing and tying."
+		"backpack": return "An adventurer's carrying pack."
+		"bedroll": return "A traveler's portable sleeping roll."
+		"tinderbox": return "Flint and steel for lighting a fire."
+		"torch": return "An oil-soaked wooden torch."
+		"waterskin": return "A leather container for drinking water."
+		"mess_kit": return "Basic utensils for preparing and eating meals."
+	return "An item from your inventory."
+
+func _item_property_text(id: String) -> String:
+	match id:
+		"longsword": return "1d8 Slashing\nVersatile (1d10)"
+		"chain_mail": return "AC 16\nHeavy Armor"
+		"shield": return "+2 AC when wielded"
+		"handaxe": return "1d6 Slashing\nLight, Thrown"
+		"ration": return "Food (1 day)"
+		"torch": return "Light source"
+		"rope_hemp": return "50 feet long"
+	return "Quantity: %d" % data.count_of(id)

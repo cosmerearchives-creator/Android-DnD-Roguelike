@@ -36,3 +36,7 @@ The supplied tavern is an open-roof room, not a complete roofed exterior. Keep t
 - Asset sheet geometry may be a single mesh; extract full independent clusters by spatial grouping of connected components, preserve original images and source files rather than split every leaf separately.
 - Use 40 active decorative ground-cover meshes in instanced draw batches and retain 8 other usable broadleaf variants in the collection. Do not pretend broadleaf foliage is one of 4 still-missing short-grass models.
 - Seeded placement with biome palette, natural rotation/scale, modest boundary clustering, no clutter collision. Terrain grid stays 5ft for game rules; refine geometry/material edge without editing source mesh or compromising textures.
+
+## v0.3.194 — reusable visual UI kit
+- Purpose-made RGBA nine-slice texture for each scale family (panel, slot, button, tab, header). Opaque rich leather, narrower bronze tooling, distinct active state; don't use panel-corner ornaments for individual 80px slots. Original user fantasy reference images are visual targets, not noninteractive screenshot backgrounds. Source art generator blender/ui_skin/polish_v194_art.py; Godot godot/ui_skin/*.png. Existing SVG retained historically, no longer driving refreshed desktop rendering.
+- Hide gameplay HUD while inventory modal is open, restore on close; world remains fully paused. Real GLB character portrait retained; new charcoal/stone stage uses only a 2D backdrop. Missing abilities/proficiencies remain shown as absent until integrated rather than faked.

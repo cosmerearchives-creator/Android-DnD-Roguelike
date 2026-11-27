@@ -45,3 +45,7 @@ See `docs/inventory-tabs-and-spawn.md`, `docs/forest-bestiary-roaming.md`, `docs
 - Imported 4 original high-resolution forest-clutter sheets as 48 separated named variants, preserving full-res PBR image bytes and moving originals to Beastiary Review.
 - Added 40 active biome-aware instanced clutter types (1,666 decorative placements): grasses, ferns, plants, rocks, leaves, twigs, branches, mushrooms, moss-like growth, roots, pinecones; 8 extra broadleaf variants retained and 4 requested short-grass models remain missing.
 - Matched irregular terrain mesh rim elevation and lightly normalized same-type tile edge albedos via world coordinates while retaining per-material blend slider and original tile interiors. Added source/checksum/regression gates and PC visual review.
+
+## v0.3.194 — 2026-11-27 — Inventory visual foundation
+- Refreshed functional 4-tab desktop inventory with 10 distinct high-quality custom 9-slice/portrait assets, dark leather panels, crafted bronze trims, responsive selection, clear 15-slot character equipment panel, compact 5e stats, corrected icon grid and selected item descriptions.
+- Hide in-game HUD when paused inventory opens; restore on close. Retain player models, save migration and all item/quest gameplay. Added landscape geometry and portrait/HUD regression testing; all local tests passing. Android/Windows release verification separate.

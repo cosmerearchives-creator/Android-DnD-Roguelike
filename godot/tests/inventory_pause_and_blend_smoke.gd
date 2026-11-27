@@ -41,6 +41,9 @@ func _run() -> void:
 	if not paused or not is_instance_valid(world.inventory_panel):
 		_fail("Inventory did not pause tree")
 		return
+	if world.hud.visible:
+		_fail("Gameplay HUD still visible behind inventory")
+		return
 	if world.inventory_panel.process_mode != Node.PROCESS_MODE_ALWAYS:
 		_fail("Inventory UI doesn't process while paused")
 		return
@@ -55,7 +58,7 @@ func _run() -> void:
 		_fail("Menu selection does not work while paused")
 		return
 	world._inventory_closed()
-	if paused or is_instance_valid(world.inventory_panel):
+	if paused or is_instance_valid(world.inventory_panel) or not world.hud.visible:
 		_fail("Inventory didn't fully restore world")
 		return
 	ground.set_blend_inches(6.0)
