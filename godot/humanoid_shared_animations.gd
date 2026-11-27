@@ -2,6 +2,8 @@ extends RefCounted
 ## Retargets the 20 original Mixamo clips to a compatible humanoid Skeleton3D.
 ## Source GLB contains animation data and a tiny marker mesh, not character art.
 const SOURCE := preload("res://assets/humanoid_mixamo_animation_library.glb")
+const CLAW_SOURCE := preload("res://assets/twig_blight.glb")
+const CLAW_NAME := "Attack_Claw_01_BackSwipe"
 # Cached once per rig/rest pose so crowds can share immutable clip resources.
 static var _library_cache: Dictionary = {}
 const LOOPING := ["Running", "Walking", "Walking_Woman", "Sneaky_Walk", "Concentrate_Idle"]
@@ -105,6 +107,12 @@ static func attach(model: Node3D, in_place: bool = true) -> AnimationPlayer:
         base.add_animation("Idle", idle)
         direct.remove_animation_library("")
         direct.add_animation_library("", base)
+        var direct_claw := _create_claw_attack(destination, model.get_path_to(destination), in_place)
+        if direct_claw != null:
+            var direct_library := direct.get_animation_library("").duplicate() as AnimationLibrary
+            direct_library.add_animation(CLAW_NAME, direct_claw)
+            direct.remove_animation_library("")
+            direct.add_animation_library("", direct_library)
         direct.set_meta("mapped_bones", destination.get_bone_count())
         direct.set_meta("native_reference", true)
         native.stop()
@@ -203,6 +211,9 @@ static func attach(model: Node3D, in_place: bool = true) -> AnimationPlayer:
                 clip.track_insert_key(converted_idx, time, value,
                     original.track_get_key_transition(track_idx, key_idx))
         library.add_animation(clip_name, clip)
+    var claw_clip := _create_claw_attack(destination, NodePath(dest_skeleton_path), in_place)
+    if claw_clip != null:
+        library.add_animation(CLAW_NAME, claw_clip)
     # Model-specific native reference clips override unvalidated retargets.
     # Preserve all native tracks and remap only the skeleton node path.
     var reference := find_animator(model)
@@ -243,3 +254,61 @@ static func attach(model: Node3D, in_place: bool = true) -> AnimationPlayer:
     player.set_meta("mapped_bones", mappings.size())
     source_instance.free()
     return player
+
+static func _create_claw_attack(destination: Skeleton3D, dest_path: NodePath, in_place: bool) -> Animation:
+    var dest_skeleton_path := String(dest_path)
+    var library := AnimationLibrary.new()
+    # Additional canonical humanoid attack, sourced from the Twig Blight's
+    # original Shield_Push_Left. It is reusable on any compatible humanoid rig.
+    var claw_instance := CLAW_SOURCE.instantiate()
+    var claw_skeleton := find_skeleton(claw_instance)
+    var claw_player := find_animator(claw_instance)
+    if claw_skeleton != null and claw_player != null and claw_player.has_animation("Shield_Push_Left"):
+        var claw_native := claw_player.get_animation("Shield_Push_Left")
+        var claw_clip := Animation.new()
+        claw_clip.length = claw_native.length
+        claw_clip.loop_mode = Animation.LOOP_NONE
+        claw_clip.step = claw_native.step
+        for track_idx in claw_native.get_track_count():
+            var kind := claw_native.track_get_type(track_idx)
+            if kind != Animation.TYPE_ROTATION_3D and kind != Animation.TYPE_POSITION_3D:
+                continue
+            var track_path := claw_native.track_get_path(track_idx)
+            if track_path.get_subname_count() == 0:
+                continue
+            var source_name := String(track_path.get_subname(0))
+            var canonical := _source_bone_name(source_name)
+            var src_bone := claw_skeleton.find_bone(source_name)
+            var dst_bone := _target_bone(canonical, destination)
+            if src_bone < 0 or dst_bone < 0 or (kind == Animation.TYPE_POSITION_3D and canonical != "Hips"):
+                continue
+            var converted_idx := claw_clip.add_track(kind)
+            claw_clip.track_set_path(converted_idx, NodePath(dest_skeleton_path + ":" + destination.get_bone_name(dst_bone)))
+            claw_clip.track_set_interpolation_type(converted_idx, claw_native.track_get_interpolation_type(track_idx))
+            var src_local := claw_skeleton.get_bone_rest(src_bone)
+            var dst_local := destination.get_bone_rest(dst_bone)
+            var src_global_q := claw_skeleton.get_bone_global_rest(src_bone).basis.get_rotation_quaternion().normalized()
+            var dst_global_q := destination.get_bone_global_rest(dst_bone).basis.get_rotation_quaternion().normalized()
+            var src_rest_q := src_local.basis.get_rotation_quaternion().normalized()
+            var dst_rest_q := dst_local.basis.get_rotation_quaternion().normalized()
+            var claw_scale_ratio := clampf(_rest_height(destination) / _rest_height(claw_skeleton), 0.3, 3.0)
+            for key_idx in claw_native.track_get_key_count(track_idx):
+                var value: Variant = claw_native.track_get_key_value(track_idx, key_idx)
+                if kind == Animation.TYPE_ROTATION_3D:
+                    var relative: Quaternion = src_rest_q.inverse() * (value as Quaternion)
+                    var world_delta: Quaternion = src_global_q * relative * src_global_q.inverse()
+                    var local_delta: Quaternion = dst_global_q.inverse() * world_delta * dst_global_q
+                    value = (dst_rest_q * local_delta).normalized()
+                else:
+                    var offset: Vector3 = ((value as Vector3) - src_local.origin) * claw_scale_ratio
+                    if in_place:
+                        offset.x = 0.0
+                        offset.z = 0.0
+                    value = dst_local.origin + offset
+                claw_clip.track_insert_key(converted_idx, claw_native.track_get_key_time(track_idx, key_idx),
+                    value, claw_native.track_get_key_transition(track_idx, key_idx))
+        library.add_animation(CLAW_NAME, claw_clip)
+    claw_instance.free()
+    if library.has_animation(CLAW_NAME):
+        return library.get_animation(CLAW_NAME)
+    return null

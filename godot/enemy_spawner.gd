@@ -5,6 +5,7 @@ const FOOT := 0.3048
 const GOBLINS = preload("res://goblin_variants.gd")
 const SHARED = preload("res://humanoid_shared_animations.gd")
 const BEETLE = "res://assets/fire_beetle.glb"
+const TWIG_BLIGHT = "res://assets/twig_blight.glb"
 const MAX_ENEMIES := 8
 const SPAWN_INTERVAL := 11.0
 const MAX_RANGE := 37.0
@@ -37,8 +38,11 @@ func _initial_spawn() -> void:
 
 func _spawn_random() -> void:
 	var kinds: Array = GOBLINS.ENTRIES
-	if rng.randf() < 0.23:
+	var roll := rng.randf()
+	if roll < 0.23:
 		_spawn(BEETLE, "Fire Beetle")
+	elif roll < 0.43:
+		_spawn(TWIG_BLIGHT, "Twig Blight")
 	else:
 		var entry: Dictionary = kinds[rng.randi_range(0, kinds.size()-1)]
 		_spawn(str(entry.asset), str(entry.name))
@@ -102,7 +106,7 @@ func _spawn(path: String, kind: String) -> void:
 	mesh.name = "CharacterVisual"
 	body.add_child(mesh)
 	var bounds := _bounds(mesh,Transform3D.IDENTITY)
-	var desired_height := 0.52 if kind == "Fire Beetle" else 1.22
+	var desired_height := 0.52 if kind == "Fire Beetle" else 1.15 if kind == "Twig Blight" else 1.22
 	if is_finite(bounds.x) and is_finite(bounds.y) and bounds.y > bounds.x + 0.01:
 		mesh.scale *= desired_height/(bounds.y-bounds.x)
 		mesh.position.y = -bounds.x*mesh.scale.y
@@ -210,7 +214,7 @@ func defeat_nearest(range_meters: float) -> bool:
 		if mob.body == nearest:
 			defeated_name = str(mob.kind)
 			break
-	if defeated_name != "Fire Beetle":
+	if defeated_name == "Goblin Warrior":
 		cleared_goblins += 1
 		if on_kill.is_valid(): on_kill.call(cleared_goblins)
 	for i in range(mobs.size()-1,-1,-1):

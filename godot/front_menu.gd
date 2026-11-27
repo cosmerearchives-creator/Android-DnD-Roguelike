@@ -2,8 +2,8 @@ extends Control
 var content: VBoxContainer
 var font: Font = preload("res://hud_serif.ttf")
 var chosen := 0
-const MODELS = ["human_adventurer"]
-const NAMES = ["Human Adventurer"]
+const MODELS = ["human_adventurer", "male_human"]
+const NAMES = ["Human Adventurer", "Male Human"]
 var profile := ConfigFile.new()
 func _ready():
 	var bg := TextureRect.new()

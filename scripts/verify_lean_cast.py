@@ -7,6 +7,7 @@ root = Path(__file__).resolve().parents[1]
 assets = root/"godot"/"assets"
 allowed = {
     "human_adventurer.glb", "goblin_warrior.glb", "fire_beetle.glb",
+    "male_human.glb", "twig_blight.glb",
     "humanoid_mixamo_animation_library.glb", "pine.glb", "broadleaf.glb",
     "boulder.glb",
 }
@@ -36,6 +37,9 @@ assert len(human.get("skins", [])) == 1 and len(human.get("animations", [])) == 
 assert len(goblin.get("skins", [])) == 1
 assert "Axe_Spin_Attack" in [a["name"] for a in goblin.get("animations", [])]
 assert len(shared.get("animations", [])) == 20
+assert len(gltf_info("male_human.glb").get("skins", [])) == 1
+assert len(gltf_info("twig_blight.glb").get("skins", [])) == 1
+assert "Shield_Push_Left" in [a["name"] for a in gltf_info("twig_blight.glb")["animations"]]
 assert len(beetle.get("skins", [])) == 1
 asset_total = sum(p.stat().st_size for p in assets.iterdir() if p.is_file())
 import hashlib

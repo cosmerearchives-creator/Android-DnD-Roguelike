@@ -12,7 +12,7 @@ const FONT: Font = preload("res://hud_serif.ttf")
 const SLOTS := DATA.SLOT_NAMES
 const SIGNS := DATA.SLOT_SIGNS
 const TABS := ["Equipment","Items","Materials","Quest"]
-const PROFILE := ["human_adventurer"]
+const PROFILE := ["human_adventurer", "male_human"]
 var data
 var active_tab := "Equipment"
 var hero_model := "human_adventurer"

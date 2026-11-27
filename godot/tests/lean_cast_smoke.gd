@@ -16,7 +16,9 @@ func _run() -> void:
         return
     for item in [
         {"label":"Human","path":"res://assets/human_adventurer.glb","min_bones":55},
-        {"label":"Goblin","path":"res://assets/goblin_warrior.glb","min_bones":18}
+        {"label":"Goblin","path":"res://assets/goblin_warrior.glb","min_bones":18},
+        {"label":"Male Human","path":"res://assets/male_human.glb","min_bones":20},
+        {"label":"Twig Blight","path":"res://assets/twig_blight.glb","min_bones":20}
     ]:
         var source: PackedScene = load(item.path)
         if source == null:
@@ -29,7 +31,7 @@ func _run() -> void:
         if skeleton == null or player == null or int(player.get_meta("mapped_bones")) < int(item.min_bones):
             _fail("No compatible humanoid retargeting for " + str(item.label))
             return
-        for clip in ["Idle","Walking","Running","Attack","Push","Crossbow"]:
+        for clip in ["Idle","Walking","Running","Attack","Push","Crossbow","Attack_Claw_01_BackSwipe"]:
             if not player.has_animation(clip):
                 _fail(str(item.label) + " lacks " + clip)
                 return
@@ -98,9 +100,24 @@ func _run() -> void:
     if not found:
         _fail("Enemy goblin not using shared walk")
         return
+    world.enemies._spawn("res://assets/twig_blight.glb", "Twig Blight")
+    var twig_found := false
+    for mob in world.enemies.mobs:
+        if mob.kind == "Twig Blight" and is_instance_valid(mob.animator):
+            twig_found = mob.animator.has_animation("Attack_Claw_01_BackSwipe")
+    if not twig_found:
+        _fail("Twig Blight not using shared claw attack")
+        return
+    # Character selection must support both full-resolution humanoids.
+    var front: Control = load("res://front_menu.tscn").instantiate()
+    get_root().add_child(front)
+    if front.MODELS.size() != 2 or front.MODELS[1] != "male_human":
+        _fail("Male character missing from creator selection")
+        return
+    front.queue_free()
     world.toggle_inventory()
-    if world.inventory_panel == null or world.inventory_panel.hero_model != "human_adventurer":
-        _fail("Inventory portrait is not using the sole human")
+    if world.inventory_panel == null or world.inventory_panel.hero_model not in ["human_adventurer", "male_human"]:
+        _fail("Inventory portrait is not using a registered playable human")
         return
     print("LEAN_WORLD_AND_INVENTORY_OK")
     world.queue_free()

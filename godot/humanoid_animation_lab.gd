@@ -6,7 +6,9 @@ const PALE := Color("#f3dfb8")
 const SERIF = preload("res://hud_serif.ttf")
 const TARGETS := [
     {"name": "Human Adventurer (Mixamo)", "asset": "res://assets/human_adventurer.glb"},
-    {"name": "Goblin Warrior (Mixamo)", "asset": "res://assets/goblin_warrior.glb"}
+    {"name": "Goblin Warrior (Mixamo)", "asset": "res://assets/goblin_warrior.glb"},
+    {"name": "Male Human", "asset": "res://assets/male_human.glb"},
+    {"name": "Twig Blight", "asset": "res://assets/twig_blight.glb"}
 ]
 var viewport: SubViewport
 var model_root: Node3D

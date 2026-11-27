@@ -41,6 +41,21 @@ const FIRE_BEETLE = {
         ["Bite", "Melee Weapon Attack: +1 to hit, reach 5 ft., one target. Hit: 2 (1d6 - 1) slashing damage."]
     ]
 }
+const TWIG_BLIGHT = {
+    "name": "Twig Blight", "asset": "res://assets/twig_blight.glb",
+    "subtitle": "Small plant, neutral evil • Bipedal",
+    "details": [
+        ["Size", "Small"], ["Creature type", "Plant"], ["Alignment", "Neutral evil"],
+        ["Armor class", "13 (natural armor)"], ["Hit points", "4 (1d6 + 1)"],
+        ["Speed", "20 ft."], ["STR / DEX / CON", "6 (-2) / 13 (+1) / 12 (+1)"],
+        ["INT / WIS / CHA", "4 (-3) / 8 (-1) / 3 (-4)"],
+        ["Senses", "Blindsight 60 ft. (blind beyond this radius), passive Perception 9"],
+        ["Languages", "Understands Common but can't speak"], ["Challenge rating", "1/8 (25 XP)"],
+        ["Damage vulnerability", "Fire"], ["Condition immunity", "Blinded, deafened"]
+    ],
+    "abilities": [["False Appearance", "While motionless, indistinguishable from a dead shrub."]],
+    "attacks": [["Claws", "Melee Weapon Attack: +3 to hit, reach 5 ft., one target. Hit: 3 (1d4 + 1) piercing damage. Animation: Attack_Claw_01_BackSwipe."]]
+}
 const SHARED = preload("res://humanoid_shared_animations.gd")
 const GOLD := Color("#cfb576")
 const PALE := Color("#f3dfb8")
@@ -136,7 +151,7 @@ func _ready() -> void:
 	var creature_tabs := HBoxContainer.new()
 	creature_tabs.add_theme_constant_override("separation",12)
 	layout.add_child(creature_tabs)
-	for item in [["Goblins",0],["Fire Beetle",1]]:
+	for item in [["Goblins",0],["Fire Beetle",1],["Twig Blight",2]]:
 		var selector := _button(item[0],_select_creature.bind(item[1]))
 		selector.custom_minimum_size.y=58
 		selector.size_flags_horizontal=Control.SIZE_EXPAND_FILL
@@ -184,7 +199,7 @@ func _ready() -> void:
 	preview_controls = HBoxContainer.new()
 	preview_controls.add_theme_constant_override("separation", 8)
 	preview_stack.add_child(preview_controls)
-	for clip in ["Walk", "Attack", "Axe Spin"]:
+	for clip in ["Walk", "Attack", "Axe Spin", "Claw"]:
 		var preview_button := _button(clip, _play_preview_animation.bind(clip))
 		preview_button.custom_minimum_size.y = 44
 		preview_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -195,6 +210,7 @@ func _ready() -> void:
 	creature_picker.add_theme_font_size_override("font_size", 23)
 	creature_picker.add_item("Goblin")
 	creature_picker.add_item("Fire Beetle")
+	creature_picker.add_item("Twig Blight")
 	creature_picker.item_selected.connect(_select_creature)
 	layout.add_child(creature_picker)
 	layout.move_child(creature_picker, 3)
@@ -216,7 +232,7 @@ func _render_stats(entry: Dictionary) -> void:
 	for child in stats_content.get_children():
 		stats_content.remove_child(child)
 		child.queue_free()
-	stats_content.add_child(_label("GOBLIN ATTRIBUTES" if active_creature == "Goblin" else "FIRE BEETLE ATTRIBUTES", 29, true))
+	stats_content.add_child(_label(active_creature.to_upper() + " ATTRIBUTES", 29, true))
 	for line in entry.details:
 		_add_stat(stats_content, line[0], line[1])
 	stats_content.add_child(_label("SPECIAL ABILITIES", 29, true))
@@ -237,6 +253,15 @@ func _select_creature(index: int) -> void:
 		preview_subtitle.text = FIRE_BEETLE.subtitle
 		preview_controls.visible = false
 		_render_stats(FIRE_BEETLE)
+	elif index == 2:
+		if not _load_creature(TWIG_BLIGHT.asset, "Attack_Claw_01_BackSwipe"):
+			creature_picker.select(0)
+			return
+		active_creature = "Twig Blight"
+		preview_title.text = TWIG_BLIGHT.name
+		preview_subtitle.text = TWIG_BLIGHT.subtitle
+		preview_controls.visible = preview_animator != null
+		_render_stats(TWIG_BLIGHT)
 	else:
 		var variant: Dictionary = GOBLINS.ENTRIES[variant_index]
 		if not _load_creature(variant.asset):
@@ -276,7 +301,7 @@ func _load_creature(path: String, state := "Idle") -> bool:
 		preview_model.queue_free()
 	preview_model = instance
 	creature_root.add_child(instance)
-	preview_animator = SHARED.attach(instance) if path == GOBLINS.ENTRIES[0].asset else _find_animator(instance)
+	preview_animator = _find_animator(instance) if path == FIRE_BEETLE.asset else SHARED.attach(instance)
 	_play_preview_animation(state)
 	# Some imported GLBs (notably the fire beetle) use sub-centimeter scale.
 	# Normalize the preview independently of world collision/physical height.
@@ -333,7 +358,7 @@ func _play_preview_animation(state: String) -> void:
 		preview_animator.stop()
 		local_anim.play("Axe_Spin_Attack")
 		return
-	var wanted := "Walking" if state == "Walk" and preview_animator.name == "SharedHumanoidAnimations" else "Running" if state == "Run" else state
+	var wanted := "Attack_Claw_01_BackSwipe" if state == "Claw" else "Walking" if state == "Walk" and preview_animator.name == "SharedHumanoidAnimations" else "Running" if state == "Run" else state
 	for clip in preview_animator.get_animation_list():
 		if clip.to_lower().contains(wanted.to_lower()):
 			var animation := preview_animator.get_animation(clip)

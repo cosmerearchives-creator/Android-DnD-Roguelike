@@ -14,8 +14,8 @@ var camera_angle := 60.0
 var angle_button: Button
 var model_index := 0
 var punch_left := 0.0
-const MODELS = ["human_adventurer"]
-const MODEL_NAMES = ["Human Adventurer"]
+const MODELS = ["human_adventurer", "male_human"]
+const MODEL_NAMES = ["Human Adventurer", "Male Human"]
 var status: Label
 var hud: Control
 var menu_panel: PanelContainer
