@@ -26,6 +26,7 @@ var status: Label
 var hud: Control
 var menu_panel: PanelContainer
 var inventory_panel: Control
+var quest_goblin_kills := 0
 var rng := RandomNumberGenerator.new()
 func mesh_at(parent: Node3D, mesh: Mesh, pos: Vector3, color: Color) -> MeshInstance3D:
 	var m := MeshInstance3D.new()
@@ -169,9 +170,20 @@ void fragment() {
 	model_index = clampi(int(profile.get_value("hero","model",1)),0,MODELS.size()-1)
 	if not ResourceLoader.exists("res://assets/%s.glb" % MODELS[model_index]): model_index = 1
 	player = body(Vector3.ZERO,"res://assets/%s.glb" % MODELS[model_index],Color.BEIGE)
+	var quest_save:=ConfigFile.new()
+	if quest_save.load("user://quest_progress.cfg")==OK:
+		quest_goblin_kills=clampi(int(quest_save.get_value("goblins","defeated",0)),0,10)
 	enemies = preload("res://enemy_spawner.gd").new()
 	add_child(enemies)
+	enemies.cleared_goblins=quest_goblin_kills
 	enemies.setup(player)
+	enemies.on_kill=func(count: int):
+		quest_goblin_kills=mini(count,10)
+		var quest_writer:=ConfigFile.new()
+		quest_writer.set_value("goblins","defeated",quest_goblin_kills)
+		quest_writer.save("user://quest_progress.cfg")
+		if is_instance_valid(inventory_panel):
+			inventory_panel.set_goblin_kills(count)
 	var sun := DirectionalLight3D.new()
 	add_child(sun)
 	sun.rotation_degrees = Vector3(-55,-35,0)
@@ -242,6 +254,7 @@ func toggle_inventory() -> void:
 	inventory_panel=overlay
 	hud.get_parent().add_child(overlay)
 	overlay.set_model(MODELS[model_index])
+	overlay.set_goblin_kills(quest_goblin_kills)
 	overlay.equipment_changed.connect(func(slot: String, id: String):
 		if slot=="Body" and MODELS[model_index]=="female_base":
 			leather_equipped=(id=="leather_armor")

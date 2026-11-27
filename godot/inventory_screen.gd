@@ -29,6 +29,20 @@ var equipped_body: Node3D
 var torso_armor: Node3D
 var current_slot := ""
 var portrait_turn := 0.0
+var section_filter := "All Items"
+var quest_selected := "goblins"
+var quest_kills := 0
+var quest_tracking := false
+var tracked_quest_id := ""
+var list_scroll: ScrollContainer
+var list_container: VBoxContainer
+var detail_panel: Panel
+var footer: Panel
+var footer_action: Button
+var filter_buttons: Dictionary = {}
+var owned_label: Label
+var content_header: Label
+var _list_panel: Panel
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
@@ -38,6 +52,9 @@ func _ready() -> void:
 	var profile := ConfigFile.new()
 	profile.load("user://hero.cfg")
 	hero_model = PROFILE[clampi(int(profile.get_value("hero","model",5)),0,PROFILE.size()-1)]
+	var settings:=ConfigFile.new()
+	if settings.load("user://tracked_quest.cfg")==OK:
+		quest_tracking=bool(settings.get_value("quest","tracking",false))
 	_construct()
 	_refresh()
 func set_model(model: String) -> void:
@@ -136,6 +153,7 @@ func _construct() -> void:
 	veil.size=Vector2(w,h-104)
 	veil.mouse_filter=Control.MOUSE_FILTER_STOP
 	var canvas:=Control.new()
+	canvas.name="InventoryCanvas"
 	add_child(canvas)
 	canvas.position=Vector2.ZERO
 	canvas.size=Vector2(w,h)
@@ -277,6 +295,234 @@ func _construct() -> void:
 	scroll.add_child(item_grid)
 	_load_model()
 
+func _footer_pressed() -> void:
+	if active_tab!="Quest" or quest_selected!="goblins":return
+	quest_tracking=not quest_tracking
+	var settings:=ConfigFile.new()
+	settings.set_value("quest","tracking",quest_tracking)
+	settings.save("user://tracked_quest.cfg")
+	_render_list_details()
+
+func _filters() -> Array:
+	if active_tab=="Materials":
+		return ["All Materials","Raw Materials","Plants & Herbs","Animal Parts","Ore & Gems","Crafting Parts","Other"]
+	if active_tab=="Quest":
+		return ["All Quests","Main Story","Side Quests","Tasks","Completed"]
+	return ["All Items","Consumables","Tools","Supplies","Utility","Other"]
+
+func _make_list_layout() -> void:
+	var canvas:=get_node("InventoryCanvas") as Control
+	_list_panel=_fixed_panel(canvas,Rect2(16,285,688,maxf(640,size.y-303)))
+	_list_panel.name="TabbedListLayout"
+	var list_height:float=_list_panel.size.y-350.0
+	var sidebar:=_fixed_panel(_list_panel,Rect2(12,10,204,list_height))
+	var sidebar_stack:=VBoxContainer.new()
+	sidebar_stack.position=Vector2(7,8)
+	sidebar_stack.size=Vector2(190,list_height-18)
+	sidebar_stack.add_theme_constant_override("separation",10)
+	sidebar.add_child(sidebar_stack)
+	sidebar_stack.name="FilterSidebar"
+	var main:=_fixed_panel(_list_panel,Rect2(222,10,453,list_height))
+	content_header=_label("",28)
+	content_header.position=Vector2(22,13)
+	content_header.size=Vector2(265,43)
+	main.add_child(content_header)
+	var sort:=_button("Sort ▾",_sort_items,20)
+	sort.position=Vector2(330,12)
+	sort.size=Vector2(110,41)
+	main.add_child(sort)
+	list_scroll=ScrollContainer.new()
+	list_scroll.position=Vector2(14,64)
+	list_scroll.size=Vector2(428,list_height-76)
+	list_scroll.horizontal_scroll_mode=ScrollContainer.SCROLL_MODE_DISABLED
+	main.add_child(list_scroll)
+	list_container=VBoxContainer.new()
+	list_container.add_theme_constant_override("separation",6)
+	list_container.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+	list_scroll.add_child(list_container)
+	detail_panel=_fixed_panel(_list_panel,Rect2(12,list_height+12,664,260))
+	detail_panel.name="DetailPane"
+	footer=_fixed_panel(_list_panel,Rect2(12,list_height+282,664,57))
+	owned_label=_label("",23)
+	owned_label.position=Vector2(18,6)
+	owned_label.size=Vector2(415,44)
+	footer.add_child(owned_label)
+	footer_action=_button("Use",_footer_pressed,23)
+	footer_action.position=Vector2(484,7)
+	footer_action.size=Vector2(166,44)
+	footer.add_child(footer_action)
+	footer_action.disabled=true
+
+func _replace_children(container:Node) -> void:
+	for child in container.get_children():
+		container.remove_child(child)
+		child.queue_free()
+
+func _refresh_sidebar() -> void:
+	var sidebar_stack:VBoxContainer=_list_panel.find_child("FilterSidebar",true,false)
+	_replace_children(sidebar_stack)
+	filter_buttons.clear()
+	for group in _filters():
+		var title:String=group
+		var glyphs:Dictionary={
+			"All Items":"▦","Consumables":"◇","Tools":"⚒","Supplies":"▣","Utility":"♙","Other":"•••",
+			"All Materials":"▦","Raw Materials":"◆","Plants & Herbs":"♧","Animal Parts":"♟",
+			"Ore & Gems":"◈","Crafting Parts":"⚙",
+			"All Quests":"▦","Main Story":"▤","Side Quests":"◇","Tasks":"▤","Completed":"✓"
+		}
+		var btn:=_button(str(glyphs.get(group,"•"))+"  "+group,func():
+			section_filter=title
+			_refresh(),20)
+		btn.custom_minimum_size.y=64
+		btn.add_theme_stylebox_override("normal",_frame(group==section_filter))
+		sidebar_stack.add_child(btn)
+		filter_buttons[group]=btn
+
+func _belongs_filter(item:Dictionary, id:String) -> bool:
+	var sub:String=str(item.get("type","Other"))
+	if section_filter.begins_with("All"):return true
+	if active_tab=="Items":
+		match section_filter:
+			"Consumables":return sub=="Supply" and (id in ["ration","waterskin","oil","candle","potion"])
+			"Tools":return sub=="Tool"
+			"Supplies":return sub=="Supply"
+			"Utility":return sub in ["Container","Gear","Other"]
+			"Other":return sub=="Other"
+	elif active_tab=="Materials":
+		match section_filter:
+			"Ore & Gems":return "ore" in id or "gem" in id
+			"Plants & Herbs":return "herb" in id or "plant" in id
+			"Animal Parts":return id in ["bone","antler","wolf_pelt","hide","leather_scraps"]
+			"Raw Materials":return id in ["iron_ore","copper_ore","leather_scraps","hide"]
+			"Crafting Parts":return id in ["gears","crafting_parts"]
+			"Other":return true
+	return false
+
+func _refresh_list() -> void:
+	_replace_children(list_container)
+	var rows:Array[Dictionary]=[]
+	if active_tab=="Quest":
+		var goblin:Dictionary={"id":"goblins","name":"Goblin Menace","group":"Side Quests","icon":"goblin_warrior"}
+		rows.append(goblin)
+		if section_filter not in ["All Quests","Side Quests","Completed"]:rows.clear()
+		if section_filter=="Completed" and quest_kills<10:rows.clear()
+		if section_filter=="Side Quests" and quest_kills>=10:rows.clear()
+		content_header.text="Quests (%d)" % rows.size()
+	else:
+		for stack in data.items:
+			var id:String=str(stack.id)
+			if data.category(id)!=active_tab:continue
+			var item:Dictionary=data.detail(id)
+			if not _belongs_filter(item,id):continue
+			rows.append({"id":id,"name":str(item.get("name",id)),"count":int(stack.count),"item":item})
+		content_header.text=("%s (%d)" % [active_tab,rows.size()])
+	if active_tab!="Quest":
+		var visible:=false
+		for entry in rows:
+			if str(entry.id)==selection:visible=true
+		if not visible:selection=str(rows[0].id) if not rows.is_empty() else ""
+	for entry in rows:
+		var id:String=str(entry.id)
+		var card:=_button("",func():
+			if active_tab=="Quest":quest_selected=id
+			else:selection=id
+			_refresh_list()
+			_render_list_details(),19)
+		card.custom_minimum_size.y=70
+		card.add_theme_stylebox_override("normal",_frame(id==selection if active_tab!="Quest" else id==quest_selected))
+		list_container.add_child(card)
+		var icon:=TextureRect.new()
+		icon.position=Vector2(11,7)
+		icon.size=Vector2(58,56)
+		icon.texture=data.icon(id) if active_tab!="Quest" else data.icon("enemy_trophy")
+		icon.expand_mode=TextureRect.EXPAND_IGNORE_SIZE
+		icon.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		icon.mouse_filter=Control.MOUSE_FILTER_IGNORE
+		card.add_child(icon)
+		var name:=_label(str(entry.name),23)
+		name.position=Vector2(83,8)
+		name.size=Vector2(244,35 if active_tab=="Quest" else 54)
+		name.mouse_filter=Control.MOUSE_FILTER_IGNORE
+		card.add_child(name)
+		if active_tab=="Quest":
+			var subtitle:=_label("Side Quest" if quest_kills<10 else "Completed",17)
+			subtitle.position=Vector2(84,38)
+			subtitle.size=Vector2(245,25)
+			subtitle.mouse_filter=Control.MOUSE_FILTER_IGNORE
+			card.add_child(subtitle)
+		if entry.has("count"):
+			var qty:=_label("×%d" % int(entry.count),21,HORIZONTAL_ALIGNMENT_RIGHT)
+			qty.position=Vector2(332,12)
+			qty.size=Vector2(73,46)
+			qty.mouse_filter=Control.MOUSE_FILTER_IGNORE
+			card.add_child(qty)
+
+func _render_list_details() -> void:
+	# Detail text is separate from the list, like the reference screenshots.
+	_replace_children(detail_panel)
+	footer_action.text=("Tracking" if quest_tracking else "Track") if active_tab=="Quest" else "Use"
+	footer_action.disabled=true
+	owned_label.text="Inventory  %.1f / %.0f" % [data.weight(),data.capacity()]
+	if active_tab=="Quest":
+		var available:=section_filter in ["All Quests","Side Quests"] and quest_kills<10 or section_filter in ["All Quests","Completed"] and quest_kills>=10
+		if not available:
+			var none:=_label("No quests in this category.",23)
+			none.position=Vector2(20,20)
+			none.size=Vector2(605,70)
+			detail_panel.add_child(none)
+			return
+		var name:=_label("Goblin Menace",32)
+		name.position=Vector2(145,14)
+		name.size=Vector2(480,47)
+		detail_panel.add_child(name)
+		var sub:=_label("Side Quest",22)
+		sub.position=Vector2(145,63)
+		sub.size=Vector2(440,28)
+		detail_panel.add_child(sub)
+		var text:=_label("Objectives: Defeat Goblins (%d / 10)" % mini(quest_kills,10),24)
+		text.position=Vector2(25,108)
+		text.size=Vector2(600,43)
+		detail_panel.add_child(text)
+		var description:=_label("The town has been plagued by goblin attacks. Defeat ten goblins to make the roads safer.",19)
+		description.position=Vector2(25,160)
+		description.size=Vector2(610,75)
+		detail_panel.add_child(description)
+		footer_action.disabled=false
+		return
+	var item:Dictionary=data.detail(selection)
+	if item.is_empty() or data.category(selection)!=active_tab:
+		var choose:=_label("Select an item to see its details.",25)
+		choose.position=Vector2(20,12)
+		choose.size=Vector2(605,60)
+		detail_panel.add_child(choose)
+		return
+	var big:=TextureRect.new()
+	big.texture=data.icon(selection)
+	big.position=Vector2(20,18)
+	big.size=Vector2(135,135)
+	big.expand_mode=TextureRect.EXPAND_IGNORE_SIZE
+	big.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	detail_panel.add_child(big)
+	var title:=_label(str(item.get("name",selection)),31)
+	title.position=Vector2(170,14)
+	title.size=Vector2(467,53)
+	detail_panel.add_child(title)
+	var kind:=_label(str(item.get("type","Item")).to_upper(),19)
+	kind.position=Vector2(170,66)
+	kind.size=Vector2(470,28)
+	detail_panel.add_child(kind)
+	var weight:=_label("Weight: %.1f lb" % float(item.get("weight",0)),22)
+	weight.position=Vector2(170,102)
+	weight.size=Vector2(470,35)
+	detail_panel.add_child(weight)
+	var description:=_label("Select this item to inspect or equip it.",20)
+	description.position=Vector2(170,153)
+	description.size=Vector2(470,65)
+	detail_panel.add_child(description)
+
+func set_goblin_kills(count:int) -> void:
+	quest_kills=maxi(0,count)
+	if active_tab=="Quest":_refresh()
 func _load_model() -> void:
 	if not is_instance_valid(equipped_body):return
 	for child in equipped_body.get_children():child.queue_free()
@@ -343,6 +589,7 @@ func _rotate_preview(event:InputEvent) -> void:
 
 func _select_tab(value:String) -> void:
 	active_tab=value
+	section_filter="All " + ("Materials" if value=="Materials" else "Quests" if value=="Quest" else "Items")
 	_refresh()
 func _select_slot(slot:String) -> void:
 	current_slot=slot
@@ -352,7 +599,10 @@ func _select_slot(slot:String) -> void:
 func _select_item(id:String) -> void:
 	selection=id
 	data.select(id)
-	_refresh()
+	if active_tab!="Equipment":
+		_refresh_list()
+		_render_list_details()
+	else:_refresh()
 func _sort_items() -> void:
 	data.items.sort_custom(func(a:Dictionary,b:Dictionary) -> bool:
 		return str(data.detail(str(a.id)).get("name",a.id))<str(data.detail(str(b.id)).get("name",b.id)))
@@ -363,10 +613,18 @@ func _refresh() -> void:
 	for tab in TABS:
 		var b:Button=tab_controls[tab]
 		b.add_theme_stylebox_override("normal",_frame(tab==active_tab))
+	# Switch the content region, preserving equipment's original layout.
+	if active_tab=="Equipment":
+		if is_instance_valid(_list_panel): _list_panel.visible=false
+	else:
+		if not is_instance_valid(_list_panel): _make_list_layout()
+		_list_panel.visible=true
+		_refresh_sidebar()
+		_refresh_list()
 	var carrying: float=data.weight()
 	var max_weight: float=data.capacity()
 	find_child("CarryHeading",true,false).text="Inventory  %.1f / %.0f lb" % [carrying,max_weight]
-	find_child("CarryValue",true,false).text="▣  Carry  %.1f / %.0f" % [carrying,max_weight]
+	find_child("CarryValue",true,false).text="Carry  %.1f / %.0f" % [carrying,max_weight]
 	for slot in SLOTS:
 		var b:Button=slot_cells[slot]
 		var id: String=data.equipped_id(slot)
@@ -374,8 +632,11 @@ func _refresh() -> void:
 		b.expand_icon=true
 		b.text="" if id!="" else SIGNS[SLOTS.find(slot)]
 		b.add_theme_stylebox_override("normal",_frame(slot==current_slot))
-	_render_items()
-	_render_details()
+	if active_tab=="Equipment":
+		_render_items()
+		_render_details()
+	else:
+		_render_list_details()
 
 func _render_items() -> void:
 	for child in item_grid.get_children():

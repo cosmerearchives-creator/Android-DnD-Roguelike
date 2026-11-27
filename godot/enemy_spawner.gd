@@ -5,10 +5,10 @@ const FOOT := 0.3048
 const GOBLINS = preload("res://goblin_variants.gd")
 const BEETLE = "res://assets/fire_beetle.glb"
 const MAX_ENEMIES := 8
-const SPAWN_INTERVAL := 6.0
+const SPAWN_INTERVAL := 11.0
 const MAX_RANGE := 37.0
-const SPAWN_MIN := 5.5
-const SPAWN_MAX := 19.0
+const SPAWN_MIN := 14.0
+const SPAWN_MAX := 30.0
 var player: CharacterBody3D
 var rng := RandomNumberGenerator.new()
 var mobs: Array[Dictionary] = []
@@ -16,6 +16,8 @@ var scenes: Dictionary = {}
 var spawn_clock := 0.0
 var ai_clock := 0.0
 var initial_population := false
+var cleared_goblins := 0
+var on_kill: Callable
 
 func _ready() -> void:
 	rng.randomize()
@@ -26,13 +28,11 @@ func setup(hero: CharacterBody3D) -> void:
 
 func _initial_spawn() -> void:
 	if not is_instance_valid(player): return
-	# Ensure every goblin variant and the beetle appear at least once.
-	for entry in GOBLINS.ENTRIES:
-		_spawn(str(entry.asset), str(entry.name))
-	_spawn(BEETLE, "Fire Beetle")
-	for i in range(2):
-		_spawn_random()
+	# Populate the forest progressively, rather than packing every enemy
+	# around the starting location at scene load.
+	_spawn_random()
 	initial_population = true
+	spawn_clock = -5.0
 
 func _spawn_random() -> void:
 	var kinds: Array = GOBLINS.ENTRIES
@@ -72,10 +72,30 @@ func _spawn(path: String, kind: String) -> void:
 	body.name = "Enemy_" + kind.replace(" ","_")
 	body.collision_layer = 2
 	body.collision_mask = 1
-	var angle := rng.randf_range(0.0,TAU)
-	var distance := rng.randf_range(SPAWN_MIN,SPAWN_MAX)
-	body.global_position = player.global_position + Vector3(cos(angle),0,sin(angle))*distance
-	body.global_position.y = 0
+	# Spawn out of sight from the start, inside the 110m forest floor,
+	# and separated from existing enemy bodies.
+	var spawn_point := Vector3.ZERO
+	var found := false
+	for attempt in range(28):
+		var angle := rng.randf_range(0.0,TAU)
+		var distance := rng.randf_range(SPAWN_MIN,SPAWN_MAX)
+		spawn_point = player.global_position + Vector3(cos(angle),0,sin(angle))*distance
+		spawn_point.y = 0.0
+		if absf(spawn_point.x) > 93.0 or absf(spawn_point.z) > 93.0:
+			continue
+		var open := true
+		for mob in mobs:
+			var other: CharacterBody3D = mob.body
+			if is_instance_valid(other) and other.global_position.distance_to(spawn_point) < 7.5:
+				open = false
+				break
+		if open:
+			found = true
+			break
+	if not found:
+		body.free()
+		return
+	body.position = spawn_point
 	add_child(body)
 	var mesh := scene.instantiate() as Node3D
 	mesh.name = "CharacterVisual"
@@ -184,6 +204,14 @@ func defeat_nearest(range_meters: float) -> bool:
 			nearest=body
 			nearest_dist=dist
 	if nearest==null: return false
+	var defeated_name := ""
+	for mob in mobs:
+		if mob.body == nearest:
+			defeated_name = str(mob.kind)
+			break
+	if defeated_name != "Fire Beetle":
+		cleared_goblins += 1
+		if on_kill.is_valid(): on_kill.call(cleared_goblins)
 	for i in range(mobs.size()-1,-1,-1):
 		if mobs[i].body == nearest:
 			mobs.remove_at(i)
