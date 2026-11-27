@@ -40,3 +40,6 @@ NEXT: refine biome transitions and reduce visible square patch boundaries; then 
 
 ## v0.3.195 approved UI fidelity update
 - Improved large carved bronze panel art, derived material leather background, separate compact rectangular slot/buttons, raised stone-like portrait background, 11×3 contiguous grid and item detail/slot compatibility. Current UI is still not a pixel-perfect recreation of user's target; improve iconography and fully connected frame art through dedicated individual high-quality production assets rather than more procedural raster approximations. Keep game HUD inactive when inventory pauses.
+
+## v0.3.196 Equipment source artwork integration
+- Implemented locally: replaced generated approximate Equipment art with real uploaded source, validated original PNG hash and exact section crops, 15-slot adapted right column, interactive native controls and live character. Source atlas fully preserved as reusable foundation. Equipment only; defer Items/Materials/Quests source-art adoption until Equipment review. Future: finish more legible fonts/stat hierarchy, supply individually isolated empty slots/hover variants, additional accessory/waist icons, verify Android device UI and performance. Full details docs/approved-equipment-ui-v0.3.196.md.

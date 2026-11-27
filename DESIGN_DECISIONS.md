@@ -43,3 +43,6 @@ The supplied tavern is an open-roof room, not a complete roofed exterior. Keep t
 
 ## v0.3.195 UI visual architecture
 - Keep the user-approved Equipment/Items/Materials/Quests interaction architecture, 15 slots, dark leather and sculpted gold/bronze. Use independent purpose-built textures for large scrollwork panels vs compact nine-slice button/slot elements. Use an original static stone stage backdrop behind real 3D player GLB, not a substitute rig. Display only data actually present. Equip comparison derives from compatibility, not stale slot selection. Top bronze status banner is decorative and noninteractive while gameplay paused.
+
+## v0.3.196 user-provided UI source
+- Actual approved 1280×1229 user-supplied image becomes authoritative for the Equipment page's bronze/leather material, frame geometry, color and pedestal. Keep source PNG byte-identical and crop without re-rendering/AI approximation. Overlay fully functional Godot Buttons, Labels, item icon controls, stat data and existing player SubViewport rather than flattening working controls into static screenshot. Adapt source right seven frames into eight with source-derived texture while preserving 15 real Equipment slots. Do not propagate new visual treatment to other 3 tabs until individually reviewed. Keep paused gameplay HUD hidden; scenery visible around fully opaque source panels.

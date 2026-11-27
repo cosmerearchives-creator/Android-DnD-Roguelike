@@ -57,6 +57,7 @@ jobs:
           python3 scripts/verify_lean_cast.py
           python3 scripts/verify_terrain_import.py
           python3 scripts/verify_ground_cover_import.py
+          python3 -c "import hashlib,pathlib; p=pathlib.Path('godot/ui_skin/approved_equipment_source.png'); assert hashlib.sha256(p.read_bytes()).hexdigest() == 'cae4145663bf6d7e2d1f696091aebb5efde58ded01ca4ff91eb14b318c7957e4'"
           python3 scripts/validate_humanoid_import.py
           python3 scripts/validate_quadruped_import.py
       - name: Configure Android export

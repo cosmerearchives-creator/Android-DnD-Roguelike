@@ -53,3 +53,6 @@ See `docs/inventory-tabs-and-spawn.md`, `docs/forest-bestiary-roaming.md`, `docs
 ## v0.3.195 — 2026-11-27
 - New 512px generated carved bronze panel/slot/button/tab skins, embossed leather and high-resolution stone platform portrait backdrop; keep live game character model and skeleton.
 - Connected 11x3 inventory grid, enlarged framed selected-item metadata, decorative upper status strip, clearer layout for four tabs. Correct stale equipment-slot descriptions: Chain Mail -> Body and Longsword -> Main Hand even if a previously selected slot differed. Added screenshot review and regression tests. No gameplay mechanics altered.
+
+## v0.3.196 — 2026-11-27
+- Replaced generated Equipment UI imitation with original user's approved bronze/leather artwork, exact pixel crops for menu, stats, inventory grid and details, eight right-sided slots adapted from existing source, retained 15 functional click targets and original 3D character preview. Dynamic inventory selection/equipped item icons, stats and gameplay state unaffected; other three tabs remain on their existing designs. Added source-sha integrity and desktop layout regression gates, real hardware-rendered screenshots and review records.

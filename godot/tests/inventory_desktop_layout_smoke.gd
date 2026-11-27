@@ -28,9 +28,20 @@ func _run() -> void:
 	if canvas==null or title==null or stats==null or grid==null or details==null or equipment==null or backdrop==null:
 		_fail("Required visual regions are missing")
 		return
-	if backdrop.color.a<.80:
-		_fail("Underlying world will make inventory text hard to read")
+	if backdrop.color.a<.45:
+		_fail("Equipment overlay no longer dims the paused world")
 		return
+	if screen.approved_art_panels.size() != 6:
+		_fail("Missing original source-backed panel artwork")
+		return
+	for key in ["tab_header","character_panel","stat_panel","inventory_panel","detail_panel","top_banner"]:
+		var art := screen.approved_art_panels.get(key) as TextureRect
+		if art==null or art.texture==null:
+			_fail("Missing reference sprite: "+key)
+			return
+		if art.size != art.get_parent().size and key not in ["tab_header"]:
+			_fail("A reference sprite was not scaled to its logical panel: "+key)
+			return
 	if stats.position.x<=equipment.position.x+equipment.size.x or stats.position.y+stats.size.y>grid.position.y or grid.position.y+grid.size.y>details.position.y:
 		_fail("Landscape equipment columns overlap")
 		return
