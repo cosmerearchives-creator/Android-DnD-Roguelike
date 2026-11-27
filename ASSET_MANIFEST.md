@@ -1,0 +1,18 @@
+# Asset manifest — verified repository paths, unresolved provenance
+Baseline 2026-11-27, `main` `ca48539`. This is an **initial catalog of tracked GLBs**, not an assertion that every supplied source, skeleton, map, animation or texture is validated. Originals and untracked files have not been altered. User-provided compatible skeleton and **every** bone map are mandatory; stop all development until missing/incompatible skeletons are resolved.
+
+| Tracked game-ready file | Family / evidence | Skeleton and bone maps | Texture/material verification | Gate |
+|---|---|---|---|---|
+| `godot/assets/fire_beetle.glb` | Fire Beetle, legacy notes describe imported skinned Walk | Historical 27 bones (combat doc); verify user-provided source and **all** bone maps | Embedded/external channels, original resolution and import settings unverified | HOLD pending audit |
+| `godot/assets/goblin_warrior.glb` | Goblin Warrior, legacy docs describe Idle/Walk/Attack | Historical 15 joints; user-approved rig and complete bone-map provenance not validated now | Untracked texture companion files exist locally; do not stage them automatically | HOLD pending audit |
+| `godot/assets/human_adventurer.glb` | Humanoid model | Skeleton identity/map completeness unknown | Local untracked Image_0/1/2 JPG companions; manifest only | HOLD pending audit |
+| `godot/assets/humanoid_mixamo_animation_library.glb` | Animation donor | Target skeleton compatibility and all source bone maps unverified | Material fidelity not yet audited | HOLD pending audit |
+| `godot/assets/male_human.glb` | Humanoid model | Skeleton identity/map completeness unknown | Local untracked male_human_Image files; verify source originals | HOLD pending audit |
+| `godot/assets/twig_blight.glb` | Twig Blight enemy | Skeleton/map provenance unknown | Local untracked twig blight texture companion | HOLD pending audit |
+| `godot/assets/wolf_quadruped.glb` | Wolf, quadruped animation references | Skeleton/map provenance unknown | Local untracked wolf image companion | HOLD pending audit |
+
+## Other local assets and scope
+The checkout also has **pre-existing untracked** `godot/assets/boulder.glb`, `broadleaf.glb`, `pine.glb`, creature texture image files and several `scripts/` tools (see `HANDOFF.md`). They are **not** in this commit and must not be deleted, modified or assumed published. See `docs/roadmap-asset-pipeline.md` for historical source hashes, rig track counts, imports/review folders and licensing leads. The nearby `G:\ChatGPT Projects\Forests of Hell\Beastiary Imports`, `Beastiary Review`, `Beastiary Complete` and `Master Asset Library` require a separate inventory of source authorship and current file digests.
+
+## Required row-by-row acceptance record for next asset audit
+For every future asset, record: stable ID; model/animation source path and SHA256; provenance/license; user-provided skeleton source ID and SHA256; rest pose/hierarchy/bone count; **complete list of bone-map files and bone coverage**; all clips/loops and compatibility evidence; each source texture/material map with size/format/channel and output import settings; in-engine appearance and hardware/frame-time review; explicit user approval; status. Do not invent missing values. If no appropriate user-provided skeleton is available or compatible, **stop development rather than generate a rig**. Preserve original texture resolution and quality; no automatic compression/downscaling except explicit user-requested optimization.
