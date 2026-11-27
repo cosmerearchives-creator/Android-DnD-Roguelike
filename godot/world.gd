@@ -1,5 +1,6 @@
 extends Node3D
 const FOOT = 0.3048
+const GOBLINS = preload("res://goblin_variants.gd")
 var player: CharacterBody3D
 var goblin: CharacterBody3D
 var camera: Camera3D
@@ -62,13 +63,12 @@ func fit_katie_visual(model: Node3D):
 	if is_finite(bottom) and is_finite(top) and top > bottom + 0.01:
 		model.scale *= clampf(2.05 / (top-bottom),0.05,20.0)
 	ground_visual(model)
-func body(pos: Vector3, asset: String, color: Color) -> CharacterBody3D:
+func body(pos: Vector3, asset: String, color: Color, is_goblin := false) -> CharacterBody3D:
 	var b := CharacterBody3D.new()
 	add_child(b)
 	b.position = pos
 	var c := CollisionShape3D.new()
 	var capsule := CapsuleShape3D.new()
-	var is_goblin := asset.ends_with("/goblin_warrior.glb")
 	capsule.radius = 0.22 if is_goblin else 0.3
 	capsule.height = 1.05 if is_goblin else 1.7
 	c.shape = capsule
@@ -165,7 +165,8 @@ void fragment() {
 	model_index = clampi(int(profile.get_value("hero","model",1)),0,MODELS.size()-1)
 	if not ResourceLoader.exists("res://assets/%s.glb" % MODELS[model_index]): model_index = 1
 	player = body(Vector3.ZERO,"res://assets/%s.glb" % MODELS[model_index],Color.BEIGE)
-	goblin = body(Vector3(0,0,-12),"res://assets/goblin_warrior.glb",Color("#708238"))
+	var variant: Dictionary = GOBLINS.ENTRIES.pick_random()
+	goblin = body(Vector3(0,0,-12), variant.asset, Color("#708238"), true)
 	var goblin_visual := goblin.get_node_or_null("CharacterVisual")
 	if goblin_visual != null:
 		var goblin_animator := find_imported_animator(goblin_visual)

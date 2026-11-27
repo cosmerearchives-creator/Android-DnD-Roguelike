@@ -21,6 +21,7 @@ const ENTRIES = [{
 		["Shortbow", "Ranged Weapon Attack: +4 to hit, range 80/320 ft., one target. Hit: 5 (1d6 + 2) piercing damage."]
 	]
 }]
+const GOBLINS = preload("res://goblin_variants.gd")
 const WALK_COMPARISON := "res://assets/classic_study_shared_walk.glb"
 const GOLD := Color("#cfb576")
 const PALE := Color("#f3dfb8")
@@ -37,6 +38,8 @@ var preview_title: Label
 var preview_subtitle: Label
 var comparison_button: Button
 var showing_comparison := false
+var variant_index := 0
+var variant_picker: OptionButton
 
 func _panel() -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
@@ -103,7 +106,7 @@ func _ready() -> void:
 	header.add_child(blank)
 
 	var entry := ENTRIES[0]
-	preview_title = _label(entry.name, 36, true)
+	preview_title = _label(GOBLINS.ENTRIES[variant_index].name, 36, true)
 	preview_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	layout.add_child(preview_title)
 	preview_subtitle = _label(entry.subtitle, 19)
@@ -144,7 +147,7 @@ func _ready() -> void:
 	scene.add_child(camera)
 	camera.current = true
 	camera.fov = 45.0
-	_load_creature(entry.asset)
+	_load_creature(GOBLINS.ENTRIES[variant_index].asset)
 	holder.gui_input.connect(_preview_input)
 	var hint := _label("Drag to rotate  •  Pinch to zoom", 17, true)
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -161,6 +164,14 @@ func _ready() -> void:
 	comparison_button = _button("Compare Walk on Classic Study", _toggle_walk_comparison)
 	comparison_button.custom_minimum_size.y = 44
 	preview_stack.add_child(comparison_button)
+	variant_picker = OptionButton.new()
+	variant_picker.custom_minimum_size.y = 44
+	variant_picker.add_theme_font_override("font", SERIF)
+	variant_picker.add_theme_font_size_override("font_size", 22)
+	for variant in GOBLINS.ENTRIES:
+		variant_picker.add_item(variant.name)
+	variant_picker.item_selected.connect(_select_goblin_variant)
+	preview_stack.add_child(variant_picker)
 
 	var stats_panel := PanelContainer.new()
 	stats_panel.add_theme_stylebox_override("panel", _panel())
@@ -174,7 +185,7 @@ func _ready() -> void:
 	contents.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	contents.add_theme_constant_override("separation", 9)
 	scroll.add_child(contents)
-	contents.add_child(_label("GOBLIN WARRIOR ATTRIBUTES", 29, true))
+	contents.add_child(_label("GOBLIN ATTRIBUTES", 29, true))
 	for line in entry.details:
 		_add_stat(contents, line[0], line[1])
 	contents.add_child(_label("SPECIAL ABILITIES", 29, true))
@@ -199,14 +210,27 @@ func _add_description(parent: VBoxContainer, name: String, description: String) 
 	parent.add_child(_label(name, 23, true))
 	parent.add_child(_label(description, 20))
 
+func _select_goblin_variant(index: int) -> void:
+	var variant: Dictionary = GOBLINS.ENTRIES[index]
+	if not _load_creature(variant.asset):
+		variant_picker.select(variant_index)
+		return
+	variant_index = index
+	showing_comparison = false
+	preview_title.text = variant.name
+	preview_subtitle.text = variant.get("credit", ENTRIES[0].subtitle)
+	preview_controls.visible = preview_animator != null
+	comparison_button.visible = index == 0
+	comparison_button.text = "Compare Walk on Classic Study"
+
 func _toggle_walk_comparison() -> void:
 	var next_comparison := not showing_comparison
-	var path: String = WALK_COMPARISON if next_comparison else ENTRIES[0].asset
+	var path: String = WALK_COMPARISON if next_comparison else GOBLINS.ENTRIES[variant_index].asset
 	if not _load_creature(path, "Walk"):
 		comparison_button.text = "Walk preview unavailable"
 		return
 	showing_comparison = next_comparison
-	preview_title.text = "Classic Study · Shared Walk" if showing_comparison else ENTRIES[0].name
+	preview_title.text = "Classic Study · Shared Walk" if showing_comparison else GOBLINS.ENTRIES[variant_index].name
 	preview_subtitle.text = "Goblin Warrior Walk on a taller rig" if showing_comparison else ENTRIES[0].subtitle
 	preview_controls.visible = not showing_comparison
 	comparison_button.text = "Return to Goblin Warrior" if showing_comparison else "Compare Walk on Classic Study"

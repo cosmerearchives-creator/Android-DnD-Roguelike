@@ -16,3 +16,7 @@ The Avatar's one-handed swing and unarmed jab use the library's `Sword_Attack` a
 The Avatar's hit reaction uses the library's `Hit_Chest` clip.
 
 The Avatar's jog, sprint, interaction, casting, jump, seated poses, roll, and defeat animation also use clips from the free Quaternius library.
+
+Emerald Blade Warden was created with [Meshy](https://www.meshy.ai/). The game
+uses the isolated left figure from the supplied model, centered and scaled
+for the goblin encounter.
