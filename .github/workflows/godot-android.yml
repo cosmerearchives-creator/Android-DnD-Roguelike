@@ -1,4 +1,4 @@
-name: Godot Android
+name: Godot Android and Windows
 on:
   push:
     branches: [main]
@@ -73,13 +73,35 @@ jobs:
           path.write_text(re.sub(r"^version/name=.*$", f'version/name="{version}"', content, flags=re.M))
           (root / "godot/release-version.json").write_text(__import__("json").dumps({"versionCode": int(code), "versionName": version}))
           PYTHON
-      - name: Import and export
+      - name: Import and export both platforms
         run: |
           godot --headless --path godot --editor --import
           godot --headless --path godot --script res://tests/lean_cast_smoke.gd
+          godot --headless --path godot --script res://tests/inventory_smoke.gd
+          godot --headless --path godot --script res://tests/inventory_tabs_smoke.gd
+          FOH_TEST_PC=1 godot --headless --path godot --script res://tests/pc_platform_smoke.gd
           godot --headless --path godot --quit-after 10
           godot --headless --path godot --export-release Android ../dist/unsigned.apk
           test -s dist/unsigned.apk
+          godot --headless --path godot --export-release "Windows Desktop" ../dist/Forests-of-Hell-PC.exe
+          test -s dist/Forests-of-Hell-PC.exe
+      - name: Package Windows x64
+        run: |
+          python3 - <<'PYTHON'
+          from pathlib import Path
+          from zipfile import ZipFile, ZIP_DEFLATED
+          folder = Path("dist")
+          executable = folder / "Forests-of-Hell-PC.exe"
+          assert executable.is_file() and executable.stat().st_size > 100000
+          assets = [executable]
+          if (folder / "Forests-of-Hell-PC.pck").exists():
+              assets.append(folder / "Forests-of-Hell-PC.pck")
+          with ZipFile(folder / "Forests-of-Hell-Windows-x64.zip", "w", ZIP_DEFLATED, compresslevel=6) as archive:
+              for file in assets:
+                  archive.write(file, arcname=file.name)
+          assert (folder / "Forests-of-Hell-Windows-x64.zip").stat().st_size > 100000
+          print("Windows release packaged:", [(file.name, file.stat().st_size) for file in assets])
+          PYTHON
       - name: Sign and verify against the production identity
         env:
           KEYSTORE: ${{ secrets.SIGNING_KEYSTORE_BASE64 }}
@@ -104,9 +126,10 @@ jobs:
           python3 scripts/prepare-release.py dist/Android-DnD-Roguelike.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: godot-apk-candidate
+          name: godot-android-windows-candidate
           path: |
             dist/Android-DnD-Roguelike.apk
+            dist/Forests-of-Hell-Windows-x64.zip
             dist/update.json
       - name: Publish stable release
         if: github.event_name == 'push' || inputs.publish
@@ -119,4 +142,4 @@ jobs:
             echo "Release $tag already exists."
             exit 0
           fi
-          gh release create "$tag" dist/Android-DnD-Roguelike.apk dist/update.json --target "$GITHUB_SHA" --title "Forests of Hell $tag" --notes "Godot Android build. Install the APK below or check for updates from the game." --latest
+          gh release create "$tag" dist/Android-DnD-Roguelike.apk dist/Forests-of-Hell-Windows-x64.zip dist/update.json --target "$GITHUB_SHA" --title "Forests of Hell $tag" --notes "Android: install the signed APK. Windows x64: extract the ZIP and launch Forests-of-Hell-PC.exe. Both share gameplay and assets; Windows uses landscape keyboard/mouse controls and a switchable first-person view." --latest

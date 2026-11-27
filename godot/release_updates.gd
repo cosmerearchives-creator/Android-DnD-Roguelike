@@ -18,7 +18,9 @@ var poll := Timer.new()
 
 func _ready() -> void:
 	add_child(status)
-	check.text = "Check for update"
+	check.text = "Check for update" if OS.has_feature("android") else "View Windows PC releases"
+	if not OS.has_feature("android"):
+		status.text = "Windows builds are available as ZIP downloads in GitHub Releases."
 	check.pressed.connect(_check)
 	add_child(check)
 	download.hide()
@@ -49,6 +51,9 @@ func _ready() -> void:
 		poll.start()
 
 func _check() -> void:
+	if not OS.has_feature("android"):
+		OS.shell_open(REPO + "/releases/latest")
+		return
 	if request.get_http_client_status() != HTTPClient.STATUS_DISCONNECTED: return
 	check.disabled = true
 	if not verified: download.hide()
@@ -149,6 +154,9 @@ func _install() -> void:
 	_finish("Installer handoff failed. You can retry or download in your browser.")
 
 func _explain_rollback() -> void:
+	if not OS.has_feature("android"):
+		OS.shell_open(REPO + "/releases")
+		return
 	var dialog := ConfirmationDialog.new()
 	dialog.title = "Previous releases"
 	dialog.dialog_text = "Android blocks installation of a lower version over this build.\nUninstalling to install an older APK can erase your saves.\nOpen the official release history?"

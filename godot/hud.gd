@@ -12,6 +12,7 @@ var hud_text := "FORESTS OF HELL"
 var combat_status := "HP 20/20   AC 10"
 var combat_notice := ""
 var buttons := {}
+var pc_mode := false
 func _ready():
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	set_process_input(true)
@@ -60,6 +61,9 @@ func draw_symbol(key: String, p: Vector2):
 func _draw():
 	var h := size.y
 	var y := h-460
+	if pc_mode:
+		_draw_pc_hud()
+		return
 	draw_rect(Rect2(0,y,720,460),TEAL)
 	var edge := PackedVector2Array()
 	for x in range(0,721,4):
@@ -103,7 +107,34 @@ func _draw():
 		draw_string(font,Vector2(310,y-18),combat_notice,HORIZONTAL_ALIGNMENT_LEFT,-1,20,GOLD)
 	draw_line(Vector2(40,y+275),Vector2(680,y+275),GOLD,1,true)
 	diamond(Vector2(360,y+275),9)
+func _draw_pc_hud() -> void:
+	var w := size.x
+	buttons = {
+		"Lock":Rect2(w-330,20,76,60),
+		"A":Rect2(w-246,20,76,60),
+		"Menu":Rect2(w-162,20,145,60)}
+	var glyphs := {"Lock":"LOCK","A":"AUTO","Menu":"MENU"}
+	for key in buttons:
+		var rect: Rect2 = buttons[key]
+		plate(rect,13,bool(toggles.get(key,false)))
+		label_at(glyphs[key],rect,21)
+	plate(Rect2(16,16,390,84),12)
+	draw_string(font,Vector2(30,49),hud_text,HORIZONTAL_ALIGNMENT_LEFT,-1,24,INK)
+	draw_line(Vector2(30,58),Vector2(390,58),GOLD,1,true)
+	draw_string(font,Vector2(30,85),combat_status,HORIZONTAL_ALIGNMENT_LEFT,-1,21,INK)
+	if not combat_notice.is_empty():
+		var notice_width := font.get_string_size(combat_notice,HORIZONTAL_ALIGNMENT_LEFT,-1,22).x
+		draw_string(font,Vector2(maxf(20,(w-notice_width)*0.5),size.y-44),combat_notice,HORIZONTAL_ALIGNMENT_LEFT,-1,22,GOLD)
+
 func _input(event):
+	if pc_mode:
+		if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+			for key in buttons:
+				if buttons[key].has_point(event.position):
+					command.emit(key)
+					get_viewport().set_input_as_handled()
+					return
+		return
 	var center := Vector2(145,size.y-325)
 	if event is InputEventScreenTouch:
 		if event.pressed:

@@ -13,6 +13,7 @@ const SLOTS := DATA.SLOT_NAMES
 const SIGNS := DATA.SLOT_SIGNS
 const TABS := ["Equipment","Items","Materials","Quest"]
 const PROFILE := ["human_adventurer", "male_human"]
+const PLATFORM = preload("res://platform_layout.gd")
 var data
 var active_tab := "Equipment"
 var hero_model := "human_adventurer"
@@ -43,6 +44,9 @@ var filter_buttons: Dictionary = {}
 var owned_label: Label
 var content_header: Label
 var _list_panel: Panel
+var desktop_layout := false
+var viewport_width := 720.0
+var viewport_height := 1280.0
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
@@ -55,6 +59,7 @@ func _ready() -> void:
 	var settings:=ConfigFile.new()
 	if settings.load("user://tracked_quest.cfg")==OK:
 		quest_tracking=bool(settings.get_value("quest","tracking",false))
+	desktop_layout = PLATFORM.is_pc()
 	_construct()
 	_refresh()
 func set_model(model: String) -> void:
@@ -143,6 +148,8 @@ func _fixed_panel(parent:Control, area:Rect2) -> Panel:
 func _construct() -> void:
 	var h:float=size.y if size.y>100 else 1280.0
 	var w:float=size.x if size.x>100 else 720.0
+	viewport_width=w
+	viewport_height=h
 	var scale_x:float=w/720.0
 	var scale_y:float=h/1280.0
 	# Use the full available portrait height, while reserving the top HUD.
@@ -158,8 +165,8 @@ func _construct() -> void:
 	canvas.position=Vector2.ZERO
 	canvas.size=Vector2(w,h)
 	# Logical coordinates remain 720 wide, with a flexible vertical inventory area.
-	canvas.scale=Vector2(scale_x,1.0)
-	var head:=_fixed_panel(canvas,Rect2(16,110,688,92))
+	canvas.scale=Vector2.ONE if desktop_layout else Vector2(scale_x,1.0)
+	var head:=_fixed_panel(canvas,Rect2(16,110,w-32 if desktop_layout else 688,92))
 	var crest:=Polygon2D.new()
 	crest.color=Color("#092b30")
 	crest.polygon=PackedVector2Array([Vector2(235,4),Vector2(270,-9),Vector2(305,-24),Vector2(344,-30),Vector2(383,-24),Vector2(418,-9),Vector2(453,4)])
@@ -176,15 +183,15 @@ func _construct() -> void:
 	satchel.size=Vector2(62,58)
 	head.add_child(satchel)
 	var close:=_button("×",func():closed.emit(),36)
-	close.position=Vector2(624,16)
+	close.position=Vector2(w-84 if desktop_layout else 624,16)
 	close.size=Vector2(52,60)
 	head.add_child(close)
 	var tabs_y:=212.0
 	for i in range(TABS.size()):
 		var tab: String=TABS[i]
 		var button:=_button(tab,func():_select_tab(tab),24)
-		button.position=Vector2(20+i*173,tabs_y)
-		button.size=Vector2(163,62)
+		button.position=Vector2(20+i*(173 if not desktop_layout else 188),tabs_y)
+		button.size=Vector2(163 if not desktop_layout else 180,62)
 		canvas.add_child(button)
 		tab_controls[tab]=button
 	var equipment_y:=285.0
@@ -254,9 +261,9 @@ func _construct() -> void:
 			cell.icon_alignment=HORIZONTAL_ALIGNMENT_CENTER
 			primary.add_child(cell)
 			slot_cells[slot]=cell
-	var stat_y:=equipment_y+equipment_height+10
+	var stat_y:=equipment_y if desktop_layout else equipment_y+equipment_height+10
 	var stat_height:=150.0+maxf(0.0,h-1280.0)*0.06
-	var left:=_fixed_panel(canvas,Rect2(20,stat_y,294,stat_height))
+	var left:=_fixed_panel(canvas,Rect2(720 if desktop_layout else 20,stat_y,294,stat_height))
 	var stats:=_column(left)
 	stats.add_theme_constant_override("separation",0)
 	stats.position=Vector2(16,7)
@@ -266,29 +273,29 @@ func _construct() -> void:
 		var l:=_label(line,18)
 		if line=="Carry": l.name="CarryValue"
 		stats.add_child(l)
-	var right:=_fixed_panel(canvas,Rect2(325,stat_y,375,stat_height))
+	var right:=_fixed_panel(canvas,Rect2(1024 if desktop_layout else 325,stat_y,w-1044 if desktop_layout else 375,stat_height))
 	details=_column(right)
 	details.position=Vector2(12,8)
 	details.size=Vector2(350,stat_height-16)
 	var inventory_y:=stat_y+stat_height+10
 	var inventory_h:=maxf(180.0,h-inventory_y-17)
-	var inventory_panel:=_fixed_panel(canvas,Rect2(20,inventory_y,680,inventory_h))
+	var inventory_panel:=_fixed_panel(canvas,Rect2(720 if desktop_layout else 20,inventory_y,w-740 if desktop_layout else 680,inventory_h))
 	var inventory_label:=_label("Inventory",27)
 	inventory_label.name="CarryHeading"
 	inventory_label.position=Vector2(18,8)
 	inventory_label.size=Vector2(505,37)
 	inventory_panel.add_child(inventory_label)
 	var sort:=_button("Sort ▾",_sort_items,20)
-	sort.position=Vector2(547,7)
+	sort.position=Vector2(w-880 if desktop_layout else 547,7)
 	sort.size=Vector2(118,38)
 	inventory_panel.add_child(sort)
 	var scroll:=ScrollContainer.new()
 	scroll.position=Vector2(12,51)
-	scroll.size=Vector2(656,inventory_h-62)
+	scroll.size=Vector2(w-764 if desktop_layout else 656,inventory_h-62)
 	scroll.horizontal_scroll_mode=ScrollContainer.SCROLL_MODE_DISABLED
 	inventory_panel.add_child(scroll)
 	item_grid=GridContainer.new()
-	item_grid.columns=6
+	item_grid.columns=6 if not desktop_layout else maxi(4,int((w-780)/105))
 	item_grid.size_flags_horizontal=Control.SIZE_EXPAND_FILL
 	item_grid.add_theme_constant_override("h_separation",7)
 	item_grid.add_theme_constant_override("v_separation",7)
@@ -312,9 +319,11 @@ func _filters() -> Array:
 
 func _make_list_layout() -> void:
 	var canvas:=get_node("InventoryCanvas") as Control
-	_list_panel=_fixed_panel(canvas,Rect2(16,285,688,maxf(640,size.y-303)))
+	_list_panel=_fixed_panel(canvas,Rect2(16,285,viewport_width-32 if desktop_layout else 688,
+		viewport_height-303 if desktop_layout else maxf(640,size.y-303)))
 	_list_panel.name="TabbedListLayout"
 	var list_height:float=_list_panel.size.y-350.0
+	if desktop_layout: list_height=_list_panel.size.y-20.0
 	var sidebar:=_fixed_panel(_list_panel,Rect2(12,10,204,list_height))
 	var sidebar_stack:=VBoxContainer.new()
 	sidebar_stack.position=Vector2(7,8)
@@ -322,7 +331,7 @@ func _make_list_layout() -> void:
 	sidebar_stack.add_theme_constant_override("separation",10)
 	sidebar.add_child(sidebar_stack)
 	sidebar_stack.name="FilterSidebar"
-	var main:=_fixed_panel(_list_panel,Rect2(222,10,453,list_height))
+	var main:=_fixed_panel(_list_panel,Rect2(222,10,(viewport_width-265)*0.43 if desktop_layout else 453,list_height))
 	content_header=_label("",28)
 	content_header.position=Vector2(22,13)
 	content_header.size=Vector2(265,43)
@@ -333,22 +342,24 @@ func _make_list_layout() -> void:
 	main.add_child(sort)
 	list_scroll=ScrollContainer.new()
 	list_scroll.position=Vector2(14,64)
-	list_scroll.size=Vector2(428,list_height-76)
+	list_scroll.size=Vector2(main.size.x-28 if desktop_layout else 428,list_height-76)
 	list_scroll.horizontal_scroll_mode=ScrollContainer.SCROLL_MODE_DISABLED
 	main.add_child(list_scroll)
 	list_container=VBoxContainer.new()
 	list_container.add_theme_constant_override("separation",6)
 	list_container.size_flags_horizontal=Control.SIZE_EXPAND_FILL
 	list_scroll.add_child(list_container)
-	detail_panel=_fixed_panel(_list_panel,Rect2(12,list_height+12,664,260))
+	detail_panel=_fixed_panel(_list_panel,Rect2(main.position.x+main.size.x+12 if desktop_layout else 12,10 if desktop_layout else list_height+12,
+		viewport_width-main.position.x-main.size.x-54 if desktop_layout else 664,list_height-74 if desktop_layout else 260))
 	detail_panel.name="DetailPane"
-	footer=_fixed_panel(_list_panel,Rect2(12,list_height+282,664,57))
+	footer=_fixed_panel(_list_panel,Rect2(main.position.x+main.size.x+12 if desktop_layout else 12,list_height-56 if desktop_layout else list_height+282,
+		viewport_width-main.position.x-main.size.x-54 if desktop_layout else 664,57))
 	owned_label=_label("",23)
 	owned_label.position=Vector2(18,6)
 	owned_label.size=Vector2(415,44)
 	footer.add_child(owned_label)
 	footer_action=_button("Use",_footer_pressed,23)
-	footer_action.position=Vector2(484,7)
+	footer_action.position=Vector2(footer.size.x-178 if desktop_layout else 484,7)
 	footer_action.size=Vector2(166,44)
 	footer.add_child(footer_action)
 	footer_action.disabled=true

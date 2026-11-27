@@ -3,11 +3,20 @@ const FOOT = 0.3048
 const GOBLINS = preload("res://goblin_variants.gd")
 const SHARED = preload("res://humanoid_shared_animations.gd")
 const COMBAT = preload("res://creature_combat_stats.gd")
+const PLATFORM = preload("res://platform_layout.gd")
 var player: CharacterBody3D
 var enemies
 var camera: Camera3D
 var stick := Vector2.ZERO
 var touch_id := -1
+var pc_mode := false
+var first_person := false
+var mouse_looking := false
+var camera_yaw := 0.0
+var camera_pitch := deg_to_rad(25.0)
+const MOUSE_SENSITIVITY := 0.0035
+const PC_CAMERA_DISTANCE := 5.0
+var first_person_meshes: Array[Dictionary] = []
 const TEST_ATTACK_COOLDOWN_SECONDS := 1.0
 const TEST_JUMP_COOLDOWN_SECONDS := 1.0
 const JUMP_VELOCITY := 4.8
@@ -87,6 +96,8 @@ func body(pos: Vector3, asset: String, color: Color, is_goblin := false) -> Char
 		mesh_at(b,mesh,Vector3(0,0.85,0),color)
 	return b
 func _ready():
+	PLATFORM.configure_window()
+	pc_mode = PLATFORM.is_pc()
 	rng.seed = 812
 	var ground := StaticBody3D.new()
 	add_child(ground)
@@ -195,13 +206,15 @@ void fragment() {
 	camera = Camera3D.new()
 	add_child(camera)
 	camera.current = true
-	camera.projection = Camera3D.PROJECTION_ORTHOGONAL
+	camera.projection = Camera3D.PROJECTION_PERSPECTIVE if pc_mode else Camera3D.PROJECTION_ORTHOGONAL
+	camera.fov = 72.0
 	camera.size = 15.0
 	camera.rotation = Vector3(-deg_to_rad(camera_angle), yaw, 0)
 	camera.far = 300 * FOOT
 	var ui := CanvasLayer.new()
 	add_child(ui)
 	hud = preload("res://hud.gd").new()
+	hud.pc_mode = pc_mode
 	ui.add_child(hud)
 	hud.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	hud.movement.connect(func(value): stick = value)
@@ -220,7 +233,7 @@ void fragment() {
 	target_marker = marker
 	_update_combat_hud()
 	menu_panel = PanelContainer.new()
-	menu_panel.position = Vector2(170,120)
+	menu_panel.position = Vector2(48,110) if pc_mode else Vector2(170,120)
 	menu_panel.custom_minimum_size = Vector2(380,0)
 	ui.add_child(menu_panel)
 	var menu := VBoxContainer.new()
@@ -228,7 +241,8 @@ void fragment() {
 	var releases := preload("res://release_updates.gd").new()
 	menu.add_child(releases)
 	angle_button = Button.new()
-	angle_button.text = "Camera: 60°"
+	angle_button.text = "RMB: Rotate / Tilt" if pc_mode else "Camera: 60°"
+	angle_button.disabled = pc_mode
 	menu.add_child(angle_button)
 	angle_button.pressed.connect(toggle_angle)
 	for title in ["Run","Turn","Main Menu","Close"]:
@@ -240,7 +254,10 @@ void fragment() {
 			elif title == "Main Menu": get_tree().change_scene_to_file("res://front_menu.tscn")
 			else: action(title))
 	menu_panel.hide()
-func toggle_inventory() -> void:
+func toggle_inventory(tab: String = "") -> void:
+	if is_instance_valid(inventory_panel) and tab != "":
+		inventory_panel._select_tab(tab)
+		return
 	if is_instance_valid(inventory_panel):
 		inventory_panel.queue_free()
 		inventory_panel=null
@@ -254,11 +271,103 @@ func toggle_inventory() -> void:
 	hud.get_parent().add_child(overlay)
 	overlay.set_model(MODELS[model_index])
 	overlay.set_goblin_kills(quest_goblin_kills)
+	if tab != "": overlay._select_tab(tab)
 	overlay.closed.connect(func():
 		if is_instance_valid(inventory_panel):
 			inventory_panel.queue_free()
 			inventory_panel=null
 			hud.set_process_input(true))
+
+func _unhandled_key(event: InputEvent) -> void:
+	if not pc_mode or not (event is InputEventKey): return
+	var key := event as InputEventKey
+	if not key.pressed or key.echo: return
+	if key.keycode == KEY_ESCAPE:
+		if is_instance_valid(inventory_panel):
+			toggle_inventory()
+		else:
+			hud_action("Menu")
+	elif key.keycode == KEY_I:
+		toggle_inventory()
+	elif key.keycode == KEY_Q:
+		toggle_inventory("Quest")
+	elif is_instance_valid(inventory_panel) or menu_panel.visible:
+		return
+	elif key.keycode == KEY_SPACE:
+		action("Jump")
+	elif key.keycode == KEY_C:
+		hud_action("Crouch")
+	elif key.keycode == KEY_V:
+		set_first_person(not first_person)
+	elif key.keycode == KEY_TAB:
+		hud_action("Lock")
+	elif key.keycode == KEY_F:
+		hud_action("A")
+
+func _unhandled_input(event: InputEvent) -> void:
+	if not pc_mode: return
+	if event is InputEventKey:
+		_unhandled_key(event)
+		return
+	if event is InputEventMouseButton:
+		var mouse := event as InputEventMouseButton
+		if mouse.button_index == MOUSE_BUTTON_RIGHT:
+			mouse_looking = mouse.pressed and not is_instance_valid(inventory_panel) and not menu_panel.visible
+			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED if mouse_looking else Input.MOUSE_MODE_VISIBLE
+		elif mouse.button_index == MOUSE_BUTTON_LEFT and mouse.pressed and not menu_panel.visible and not is_instance_valid(inventory_panel):
+			action("Attack")
+	elif event is InputEventMouseMotion and mouse_looking:
+		camera_yaw -= event.relative.x * MOUSE_SENSITIVITY
+		camera_pitch = clampf(camera_pitch-event.relative.y*MOUSE_SENSITIVITY,deg_to_rad(-75),deg_to_rad(85))
+		get_viewport().set_input_as_handled()
+
+func set_first_person(enabled: bool) -> void:
+	first_person = enabled
+	camera.projection = Camera3D.PROJECTION_PERSPECTIVE if enabled or pc_mode else Camera3D.PROJECTION_ORTHOGONAL
+	# Originals are restored when returning to third person. Character rigs,
+	# textures and animation resources are never altered on disk.
+	for entry in first_person_meshes:
+		if is_instance_valid(entry.instance):
+			(entry.instance as MeshInstance3D).mesh = entry.original
+	if not enabled: return
+	if not first_person_meshes.is_empty():
+		for entry in first_person_meshes:
+			if is_instance_valid(entry.instance):
+				(entry.instance as MeshInstance3D).mesh = entry.filtered
+		return
+	var model := player.get_node_or_null("CharacterVisual")
+	if model == null: return
+	for child in model.find_children("*","MeshInstance3D",true,false):
+		var instance := child as MeshInstance3D
+		if instance == null or instance.mesh == null: continue
+		var truncated := _first_person_body_mesh(instance.mesh)
+		if truncated == null: continue
+		first_person_meshes.append({"instance":instance,"original":instance.mesh,"filtered":truncated})
+		instance.mesh = truncated
+
+func _first_person_body_mesh(original: Mesh) -> ArrayMesh:
+	# Both human models use one skinned mesh, so hiding a separate Head
+	# MeshInstance would also hide the chest, legs and feet. Keep skinned
+	# surfaces intact except triangles in the head/face above 1.43m.
+	var result := ArrayMesh.new()
+	for surface in original.get_surface_count():
+		if original.surface_get_primitive_type(surface) != Mesh.PRIMITIVE_TRIANGLES: return null
+		var arrays := original.surface_get_arrays(surface)
+		var points: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+		var indexes: PackedInt32Array = arrays[Mesh.ARRAY_INDEX]
+		if indexes.is_empty(): return null
+		var kept := PackedInt32Array()
+		for i in range(0,indexes.size(),3):
+			if i+2>=indexes.size(): break
+			var a: int = indexes[i]
+			var b: int = indexes[i+1]
+			var c: int = indexes[i+2]
+			if points[a].y < 1.43 and points[b].y < 1.43 and points[c].y < 1.43:
+				kept.append_array(PackedInt32Array([a,b,c]))
+		arrays[Mesh.ARRAY_INDEX] = kept
+		result.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES,arrays)
+		result.surface_set_material(surface,original.surface_get_material(surface))
+	return result
 
 func hud_action(name: String):
 	if is_instance_valid(inventory_panel): return
@@ -266,6 +375,8 @@ func hud_action(name: String):
 	if name == "Menu":
 		menu_panel.visible = not menu_panel.visible
 		stick = Vector2.ZERO
+		mouse_looking = false
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	elif name == "Attack": action("Attack")
 	elif name == "Lock":
 		lock_enabled = not lock_enabled
@@ -396,8 +507,14 @@ func _update_combat_hud() -> void:
 		hud.queue_redraw()
 
 func _physics_process(dt):
-	var direction := Vector3(stick.x,0,stick.y).rotated(Vector3.UP,yaw)
-	var stick_running := stick.length() >= RUN_STICK_THRESHOLD
+	var input_stick := stick
+	if pc_mode:
+		input_stick = Vector2(float(Input.is_key_pressed(KEY_D))-float(Input.is_key_pressed(KEY_A)),
+			float(Input.is_key_pressed(KEY_S))-float(Input.is_key_pressed(KEY_W))).limit_length()
+	if is_instance_valid(inventory_panel) or (is_instance_valid(menu_panel) and menu_panel.visible):
+		input_stick = Vector2.ZERO
+	var direction := Vector3(input_stick.x,0,input_stick.y).rotated(Vector3.UP,camera_yaw if pc_mode else yaw)
+	var stick_running := Input.is_key_pressed(KEY_SHIFT) if pc_mode else stick.length() >= RUN_STICK_THRESHOLD
 	var is_running := (running or stick_running) and not sneaking
 	var vertical := player.velocity.y
 	var speed_multiplier := SNEAK_SPEED_FACTOR if sneaking else 2.0 if is_running else 1.0
@@ -412,6 +529,8 @@ func _physics_process(dt):
 		facing.y=0.0
 		if facing.length_squared()>0.001:
 			player.rotation.y=atan2(facing.x,facing.z)
+	elif pc_mode and first_person:
+		player.rotation.y = camera_yaw + PI
 	elif direction.length() > 0.1:
 		player.rotation.y = atan2(direction.x,direction.z)
 	if jump_animation_left > 0.0:
@@ -422,14 +541,24 @@ func _physics_process(dt):
 		punch_left = maxf(0.0, punch_left - dt)
 	else:
 		play_imported_animation("sneak" if sneaking else "run" if is_running and direction.length() > 0.1 else "walk" if direction.length() > 0.1 else "idle")
-	var pitch := deg_to_rad(camera_angle)
-	camera.position = player.position + Vector3(0,20*sin(pitch),20*cos(pitch)).rotated(Vector3.UP,yaw)
-	camera.rotation = Vector3(-pitch, yaw, 0)
+	if pc_mode:
+		camera.v_offset = 0.0
+		camera.h_offset = 0.0
+		var cam_eye := player.position+Vector3.UP*1.57
+		var orbit := Vector3(0,0,PC_CAMERA_DISTANCE).rotated(Vector3.RIGHT,-camera_pitch).rotated(Vector3.UP,camera_yaw)
+		# Offset first-person eye slightly forward of the face. Look-down
+		# reveals the original skinned torso/legs/feet (head triangles omitted).
+		camera.position = cam_eye - Vector3(0,0,0.30).rotated(Vector3.UP,camera_yaw) if first_person else cam_eye + orbit
+		camera.rotation = Vector3(-camera_pitch,camera_yaw,0)
+	else:
+		var pitch := deg_to_rad(camera_angle)
+		camera.position = player.position + Vector3(0,20*sin(pitch),20*cos(pitch)).rotated(Vector3.UP,yaw)
+		camera.rotation = Vector3(-pitch,yaw,0)
 	# Frame the player inside the unobstructed play area, not the full screen.
 	# HUD top ends at 100; bottom controls begin 460 logical pixels from bottom.
 	var view_height := get_viewport().get_visible_rect().size.y
 	var hud_height := hud.size.y
-	if view_height > 0.0 and hud_height > 560.0:
+	if not pc_mode and view_height > 0.0 and hud_height > 560.0:
 		var target_y := (100.0 + hud_height - 460.0) * 0.5 / hud_height * view_height
 		camera.v_offset = 0.0
 		var projected_y := camera.unproject_position(player.position + Vector3.UP * 0.85).y

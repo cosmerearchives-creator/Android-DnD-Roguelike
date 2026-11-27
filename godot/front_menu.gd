@@ -6,6 +6,7 @@ const MODELS = ["human_adventurer", "male_human"]
 const NAMES = ["Human Adventurer", "Male Human"]
 var profile := ConfigFile.new()
 func _ready():
+	preload("res://platform_layout.gd").configure_window()
 	var bg := TextureRect.new()
 	bg.texture = preload("res://menu_camp.webp")
 	bg.expand_mode = TextureRect.EXPAND_IGNORE_SIZE

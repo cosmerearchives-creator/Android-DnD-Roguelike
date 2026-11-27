@@ -332,6 +332,17 @@ func _run() -> void:
         _fail("No Goblin Warrior available for target lock test")
         return
     nearby_goblin.global_position = world.player.global_position+Vector3(0,0,1.2)
+    # Keep the test goblin alive during the randomized automatic strike; a
+    # critical or high roll must not invalidate the subsequent HP test.
+    var test_goblin_index := -1
+    for index in world.enemies.mobs.size():
+        if world.enemies.mobs[index].body == nearby_goblin:
+            test_goblin_index = index
+            break
+    if test_goblin_index < 0:
+        _fail("Target goblin absent from combat state")
+        return
+    world.enemies.mobs[test_goblin_index].hp = 100
     world.hud_action("Lock")
     if not world.lock_enabled or not world.hud.toggles.get("Lock",false) or world.locked_target != nearby_goblin or not world.target_marker.visible:
         _fail("Automatic lock-on failed to acquire nearest enemy")
@@ -351,6 +362,7 @@ func _run() -> void:
         _fail("Automatic attack bypassed its one-second cooldown")
         return
     print("AUTO_ATTACK_AND_LOCK_OK")
+    world.enemies.mobs[test_goblin_index].hp = 7
     # Combat has actual dice and HP loss, not the previous one-hit deletion.
     var durable_goblin: CharacterBody3D = nearby_goblin
     var strike_profile := {"attack_bonus":100, "damage_bonus":0,
