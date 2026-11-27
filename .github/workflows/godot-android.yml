@@ -2,7 +2,7 @@ name: Godot Android and Windows
 on:
   push:
     branches: [main]
-    paths: ['godot/**', '.github/workflows/godot-android.yml', 'blender/create_character.py', 'version.properties', 'scripts/prepare-release.py', 'scripts/prepare-windows-release.py']
+    paths: ['godot/**', '.github/workflows/godot-android.yml', 'blender/create_character.py', 'version.properties', 'scripts/prepare-release.py', 'scripts/prepare-windows-release.py', 'scripts/verify_lean_cast.py']
   workflow_dispatch:
     inputs:
       publish:
