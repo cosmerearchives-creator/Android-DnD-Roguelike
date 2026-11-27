@@ -12,10 +12,10 @@ const FONT: Font = preload("res://hud_serif.ttf")
 const SLOTS := DATA.SLOT_NAMES
 const SIGNS := DATA.SLOT_SIGNS
 const TABS := ["Equipment","Items","Materials","Quest"]
-const PROFILE := ["classic_study","petite_pale","classic_male","petite_male","katie","female_base"]
+const PROFILE := ["human_adventurer"]
 var data
 var active_tab := "Equipment"
-var hero_model := "female_base"
+var hero_model := "human_adventurer"
 var preview: SubViewport
 var preview_body: Node3D
 var preview_camera: Camera3D
@@ -51,7 +51,7 @@ func _ready() -> void:
 	selection = data.selected_id
 	var profile := ConfigFile.new()
 	profile.load("user://hero.cfg")
-	hero_model = PROFILE[clampi(int(profile.get_value("hero","model",5)),0,PROFILE.size()-1)]
+	hero_model = PROFILE[clampi(int(profile.get_value("hero","model",0)),0,PROFILE.size()-1)]
 	var settings:=ConfigFile.new()
 	if settings.load("user://tracked_quest.cfg")==OK:
 		quest_tracking=bool(settings.get_value("quest","tracking",false))
@@ -537,29 +537,6 @@ func _load_model() -> void:
 		body.scale=Vector3.ONE*scale
 		body.position.y=-bounds.x*scale
 	body.rotation.y=portrait_turn
-	# The current Female Base has the compatible rigged leather-armor preview.
-	var coat_id: String=data.equipped_id("Body")
-	if hero_model=="female_base" and coat_id=="leather_armor" and ResourceLoader.exists("res://assets/leather_armor_female.glb"):
-		_apply_leather(body)
-
-func _apply_leather(body:Node3D) -> void:
-	var skeletons:=body.find_children("*","Skeleton3D",true,false)
-	if skeletons.is_empty():return
-	var skeleton:=skeletons[0] as Skeleton3D
-	var packed:=load("res://assets/leather_armor_female.glb") as PackedScene
-	var sample:=packed.instantiate()
-	var meshes:=sample.find_children("*","MeshInstance3D",true,false)
-	if meshes.is_empty():sample.queue_free();return
-	var source:=meshes[0] as MeshInstance3D
-	var armor:=MeshInstance3D.new()
-	armor.name="LeatherArmor"
-	armor.mesh=source.mesh
-	armor.skin=source.skin
-	armor.transform=source.transform
-	armor.skeleton=NodePath("..")
-	skeleton.add_child(armor)
-	sample.queue_free()
-
 func _find_bounds(node:Node3D, parent_transform:Transform3D) -> Vector2:
 	var transform:=parent_transform*node.transform
 	var bottom:=INF

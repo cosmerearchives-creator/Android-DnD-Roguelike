@@ -50,15 +50,18 @@ static func _source_bone_name(bone: String) -> String:
 static func _target_bone(source_name: String, destination: Skeleton3D) -> int:
     var candidates: Array = ALIASES.get(source_name, [source_name])
     for candidate in candidates:
-        var index := destination.find_bone(candidate)
-        if index >= 0:
-            return index
+        for candidate_name in [str(candidate), "mixamorig:" + str(candidate), "mixamorig_" + str(candidate)]:
+            var index := destination.find_bone(candidate_name)
+            if index >= 0:
+                return index
     return -1
 
 static func _rest_height(skeleton: Skeleton3D) -> float:
     var hips := skeleton.find_bone("Hips")
     if hips < 0:
         hips = skeleton.find_bone("mixamorig_Hips")
+    if hips < 0:
+        hips = skeleton.find_bone("mixamorig:Hips")
     if hips >= 0:
         return maxf(skeleton.get_bone_global_rest(hips).origin.y, 0.25)
     return 1.0
@@ -151,6 +154,22 @@ static func attach(model: Node3D, in_place: bool = true) -> AnimationPlayer:
                 clip.track_insert_key(converted_idx, time, value,
                     original.track_get_key_transition(track_idx, key_idx))
         library.add_animation(clip_name, clip)
+    # Standing pose derived once from the first Walking frame. This ensures
+    # that every compatible rig has an Idle state without another large asset.
+    if library.has_animation("Walking") and not library.has_animation("Idle"):
+        var walk_clip := library.get_animation("Walking")
+        var idle_clip := Animation.new()
+        idle_clip.length = 1.5
+        idle_clip.loop_mode = Animation.LOOP_LINEAR
+        for track_id in walk_clip.get_track_count():
+            if walk_clip.track_get_key_count(track_id) == 0:
+                continue
+            var hold_track := idle_clip.add_track(walk_clip.track_get_type(track_id))
+            idle_clip.track_set_path(hold_track, walk_clip.track_get_path(track_id))
+            var hold_pose: Variant = walk_clip.track_get_key_value(track_id, 0)
+            idle_clip.track_insert_key(hold_track, 0.0, hold_pose)
+            idle_clip.track_insert_key(hold_track, 1.5, hold_pose)
+        library.add_animation("Idle", idle_clip)
     player.add_animation_library("", library)
     _library_cache[cache_key] = library
     player.set_meta("mapped_bones", mappings.size())

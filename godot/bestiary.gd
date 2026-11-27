@@ -41,7 +41,7 @@ const FIRE_BEETLE = {
         ["Bite", "Melee Weapon Attack: +1 to hit, reach 5 ft., one target. Hit: 2 (1d6 - 1) slashing damage."]
     ]
 }
-const WALK_COMPARISON := "res://assets/classic_study_shared_walk.glb"
+const SHARED = preload("res://humanoid_shared_animations.gd")
 const GOLD := Color("#cfb576")
 const PALE := Color("#f3dfb8")
 const DARK := Color("#0b292e")
@@ -55,10 +55,7 @@ var preview_model: Node3D
 var preview_controls: HBoxContainer
 var preview_title: Label
 var preview_subtitle: Label
-var comparison_button: Button
-var showing_comparison := false
 var variant_index := 0
-var variant_picker: OptionButton
 var creature_picker: OptionButton
 var stats_content: VBoxContainer
 var active_creature := "Goblin"
@@ -187,14 +184,11 @@ func _ready() -> void:
 	preview_controls = HBoxContainer.new()
 	preview_controls.add_theme_constant_override("separation", 8)
 	preview_stack.add_child(preview_controls)
-	for clip in ["Idle", "Walk", "Attack"]:
+	for clip in ["Walk", "Attack", "Axe Spin"]:
 		var preview_button := _button(clip, _play_preview_animation.bind(clip))
 		preview_button.custom_minimum_size.y = 44
 		preview_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		preview_controls.add_child(preview_button)
-	comparison_button = _button("Compare Walk on Classic Study", _toggle_walk_comparison)
-	comparison_button.custom_minimum_size.y = 44
-	preview_stack.add_child(comparison_button)
 	creature_picker = OptionButton.new()
 	creature_picker.custom_minimum_size.y = 48
 	creature_picker.add_theme_font_override("font", SERIF)
@@ -202,16 +196,8 @@ func _ready() -> void:
 	creature_picker.add_item("Goblin")
 	creature_picker.add_item("Fire Beetle")
 	creature_picker.item_selected.connect(_select_creature)
-	preview_stack.add_child(creature_picker)
-	variant_picker = OptionButton.new()
-	variant_picker.custom_minimum_size.y = 44
-	variant_picker.add_theme_font_override("font", SERIF)
-	variant_picker.add_theme_font_size_override("font_size", 22)
-	for variant in GOBLINS.ENTRIES:
-		variant_picker.add_item(variant.name)
-	variant_picker.item_selected.connect(_select_goblin_variant)
-	preview_stack.add_child(variant_picker)
-
+	layout.add_child(creature_picker)
+	layout.move_child(creature_picker, 3)
 	var stats_panel := PanelContainer.new()
 	stats_panel.add_theme_stylebox_override("panel", _panel())
 	stats_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -249,9 +235,7 @@ func _select_creature(index: int) -> void:
 		active_creature = "Fire Beetle"
 		preview_title.text = FIRE_BEETLE.name
 		preview_subtitle.text = FIRE_BEETLE.subtitle
-		variant_picker.hide()
-		comparison_button.hide()
-		preview_controls.visible = preview_animator != null
+		preview_controls.visible = false
 		_render_stats(FIRE_BEETLE)
 	else:
 		var variant: Dictionary = GOBLINS.ENTRIES[variant_index]
@@ -261,8 +245,6 @@ func _select_creature(index: int) -> void:
 		active_creature = "Goblin"
 		preview_title.text = variant.name
 		preview_subtitle.text = variant.get("credit", ENTRIES[0].subtitle)
-		variant_picker.show()
-		comparison_button.visible = variant_index == 0
 		preview_controls.visible = preview_animator != null
 		_render_stats(ENTRIES[0])
 
@@ -281,39 +263,12 @@ func _add_description(parent: VBoxContainer, name: String, description: String) 
 	parent.add_child(_label(name, 23, true))
 	parent.add_child(_label(description, 20))
 
-func _select_goblin_variant(index: int) -> void:
-	if active_creature != "Goblin":
-		return
-	var variant: Dictionary = GOBLINS.ENTRIES[index]
-	if not _load_creature(variant.asset):
-		variant_picker.select(variant_index)
-		return
-	variant_index = index
-	showing_comparison = false
-	preview_title.text = variant.name
-	preview_subtitle.text = variant.get("credit", ENTRIES[0].subtitle)
-	preview_controls.visible = preview_animator != null
-	comparison_button.visible = index == 0
-	comparison_button.text = "Compare Walk on Classic Study"
-
-func _toggle_walk_comparison() -> void:
-	var next_comparison := not showing_comparison
-	var path: String = WALK_COMPARISON if next_comparison else GOBLINS.ENTRIES[variant_index].asset
-	if not _load_creature(path, "Walk"):
-		comparison_button.text = "Walk preview unavailable"
-		return
-	showing_comparison = next_comparison
-	preview_title.text = "Classic Study · Shared Walk" if showing_comparison else GOBLINS.ENTRIES[variant_index].name
-	preview_subtitle.text = "Goblin Warrior Walk on a taller rig" if showing_comparison else ENTRIES[0].subtitle
-	preview_controls.visible = not showing_comparison
-	comparison_button.text = "Return to Goblin Warrior" if showing_comparison else "Compare Walk on Classic Study"
-
 func _load_creature(path: String, state := "Idle") -> bool:
 	if not ResourceLoader.exists(path):
 		return false
 	var instance: Node3D = load(path).instantiate()
 	var bounds := _bounds_for(instance, Transform3D.IDENTITY)
-	if bounds.size.length() < 0.01:
+	if bounds.size.length() < 0.00000001 or bounds.size.y < 0.00000001:
 		instance.free()
 		return false
 	if is_instance_valid(preview_model):
@@ -321,12 +276,15 @@ func _load_creature(path: String, state := "Idle") -> bool:
 		preview_model.queue_free()
 	preview_model = instance
 	creature_root.add_child(instance)
-	preview_animator = _find_animator(instance)
+	preview_animator = SHARED.attach(instance) if path == GOBLINS.ENTRIES[0].asset else _find_animator(instance)
 	_play_preview_animation(state)
-	var center := bounds.get_center()
-	instance.position = -center
-	var height := maxf(bounds.size.y, 0.2)
-	var diameter := maxf(maxf(bounds.size.x, bounds.size.z), height)
+	# Some imported GLBs (notably the fire beetle) use sub-centimeter scale.
+	# Normalize the preview independently of world collision/physical height.
+	var target_height := 0.65 if path == FIRE_BEETLE.asset else 1.4
+	var preview_scale := target_height / bounds.size.y
+	instance.scale *= preview_scale
+	instance.position = -bounds.get_center() * preview_scale
+	var diameter := maxf(maxf(bounds.size.x, bounds.size.z) * preview_scale, target_height)
 	var distance := diameter * 1.65
 	camera.position = Vector3(0, 0, distance)
 	camera.look_at(Vector3.ZERO)
@@ -368,12 +326,18 @@ func _find_animator(node: Node) -> AnimationPlayer:
 	return null
 
 func _play_preview_animation(state: String) -> void:
-	if preview_animator == null:
+	if preview_animator == null: return
+	var local_anim: AnimationPlayer = _find_animator(preview_model) if is_instance_valid(preview_model) else null
+	if local_anim != null and local_anim != preview_animator: local_anim.stop()
+	if state == "Axe Spin" and local_anim != null and local_anim.has_animation("Axe_Spin_Attack"):
+		preview_animator.stop()
+		local_anim.play("Axe_Spin_Attack")
 		return
+	var wanted := "Walking" if state == "Walk" and preview_animator.name == "SharedHumanoidAnimations" else "Running" if state == "Run" else state
 	for clip in preview_animator.get_animation_list():
-		if clip.to_lower().contains(state.to_lower()):
+		if clip.to_lower().contains(wanted.to_lower()):
 			var animation := preview_animator.get_animation(clip)
-			animation.loop_mode = Animation.LOOP_NONE if state == "Attack" else Animation.LOOP_LINEAR
+			animation.loop_mode = Animation.LOOP_NONE if state in ["Attack", "Axe Spin"] else Animation.LOOP_LINEAR
 			preview_animator.play(clip)
 			return
 

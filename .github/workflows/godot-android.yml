@@ -45,9 +45,15 @@ jobs:
       - name: Export models
         run: |
           blender -b -t 2 --python-exit-code 1 --python godot/export_models.py
-          test -s godot/assets/classic_study.glb
-          test -s godot/assets/dagger_goblin.glb
+          test -s godot/assets/pine.glb
+          test -s godot/assets/broadleaf.glb
+          test -s godot/assets/boulder.glb
+          test -s godot/assets/human_adventurer.glb
+          test -s godot/assets/goblin_warrior.glb
+          test -s godot/assets/fire_beetle.glb
+          test -s godot/assets/humanoid_mixamo_animation_library.glb
           rm -f godot/assets/*.blend*
+          python3 scripts/verify_lean_cast.py
       - name: Configure Android export
         run: |
           mkdir -p ~/.config/godot dist
@@ -67,6 +73,7 @@ jobs:
       - name: Import and export
         run: |
           godot --headless --path godot --editor --import
+          godot --headless --path godot --script res://tests/lean_cast_smoke.gd
           godot --headless --path godot --quit-after 10
           godot --headless --path godot --export-release Android ../dist/unsigned.apk
           test -s dist/unsigned.apk

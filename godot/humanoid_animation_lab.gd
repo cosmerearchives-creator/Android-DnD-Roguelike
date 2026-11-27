@@ -5,8 +5,8 @@ const GOLD := Color("#cfb576")
 const PALE := Color("#f3dfb8")
 const SERIF = preload("res://hud_serif.ttf")
 const TARGETS := [
-    {"name": "Female Base (22 bones)", "asset": "res://assets/female_base.glb"},
-    {"name": "Goblin Warrior (15 bones)", "asset": "res://assets/goblin_warrior.glb"}
+    {"name": "Human Adventurer (Mixamo)", "asset": "res://assets/human_adventurer.glb"},
+    {"name": "Goblin Warrior (Mixamo)", "asset": "res://assets/goblin_warrior.glb"}
 ]
 var viewport: SubViewport
 var model_root: Node3D
@@ -69,7 +69,7 @@ func _ready() -> void:
     var heading := _text("HUMANOID ANIMATION LAB", 34)
     heading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
     layout.add_child(heading)
-    var description := _text("One shared skeleton library • 20 motion clips • two different target rigs", 20)
+    var description := _text("Shared humanoid library • one human • one goblin", 20)
     description.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
     layout.add_child(description)
     model_picker = OptionButton.new()

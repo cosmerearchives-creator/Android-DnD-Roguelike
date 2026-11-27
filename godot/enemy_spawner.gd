@@ -3,6 +3,7 @@ extends Node3D
 ## Uses the same imported animation clips as the Bestiary.
 const FOOT := 0.3048
 const GOBLINS = preload("res://goblin_variants.gd")
+const SHARED = preload("res://humanoid_shared_animations.gd")
 const BEETLE = "res://assets/fire_beetle.glb"
 const MAX_ENEMIES := 8
 const SPAWN_INTERVAL := 11.0
@@ -101,7 +102,7 @@ func _spawn(path: String, kind: String) -> void:
 	mesh.name = "CharacterVisual"
 	body.add_child(mesh)
 	var bounds := _bounds(mesh,Transform3D.IDENTITY)
-	var desired_height := 0.52 if kind == "Fire Beetle" else 1.42 if kind == "Emerald Blade Warden" else 1.22
+	var desired_height := 0.52 if kind == "Fire Beetle" else 1.22
 	if is_finite(bounds.x) and is_finite(bounds.y) and bounds.y > bounds.x + 0.01:
 		mesh.scale *= desired_height/(bounds.y-bounds.x)
 		mesh.position.y = -bounds.x*mesh.scale.y
@@ -120,7 +121,7 @@ func _spawn(path: String, kind: String) -> void:
 		glow.shadow_enabled = false
 		glow.position.y = 0.3
 		body.add_child(glow)
-	var animator := _animator(mesh)
+	var animator: AnimationPlayer = _animator(mesh) if kind == "Fire Beetle" else SHARED.attach(mesh)
 	mobs.append({
 		"body":body, "animator":animator, "kind":kind,
 		"direction":Vector3.ZERO,"timer":rng.randf_range(0.2,2.0),

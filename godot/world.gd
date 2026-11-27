@@ -1,6 +1,7 @@
 extends Node3D
 const FOOT = 0.3048
 const GOBLINS = preload("res://goblin_variants.gd")
+const SHARED = preload("res://humanoid_shared_animations.gd")
 var player: CharacterBody3D
 var enemies
 var camera: Camera3D
@@ -11,17 +12,10 @@ var running := false
 var yaw := 0.0
 var camera_angle := 60.0
 var angle_button: Button
-var model_index := 1
-var animation_clock := 0.0
+var model_index := 0
 var punch_left := 0.0
-var current_pose := ""
-var pose_cache := {}
-var model_button: Button
-var leather_button: Button
-var leather_equipped := false
-const FEMALE_LEATHER := "res://assets/leather_armor_female.glb"
-const MODELS = ["classic_study", "petite_pale", "classic_male", "petite_male", "katie", "female_base"]
-const MODEL_NAMES = ["Classic Ranger", "Petite Scout", "Classic Male", "Petite Male", "Katie", "Female Base"]
+const MODELS = ["human_adventurer"]
+const MODEL_NAMES = ["Human Adventurer"]
 var status: Label
 var hud: Control
 var menu_panel: PanelContainer
@@ -50,24 +44,6 @@ func lowest_mesh(node: Node3D, relative: Transform3D) -> float:
 func ground_visual(model: Node3D):
 	var low := lowest_mesh(model,Transform3D.IDENTITY)
 	if is_finite(low): model.position.y -= low
-func highest_mesh(node: Node3D, relative: Transform3D) -> float:
-	var transform := relative * node.transform
-	var high := -INF
-	if node is MeshInstance3D and node.mesh != null:
-		var bounds: AABB = node.get_aabb()
-		for i in range(8):
-			high = maxf(high,(transform * bounds.get_endpoint(i)).y)
-	for child in node.get_children():
-		if child is Node3D: high = maxf(high,highest_mesh(child,transform))
-	return high
-func fit_katie_visual(model: Node3D):
-	# Katie is a composite portrait-head and procedural-body asset, exported Z-up.
-	# Match the existing character height while keeping feet planted on the floor.
-	var bottom := lowest_mesh(model,Transform3D.IDENTITY)
-	var top := highest_mesh(model,Transform3D.IDENTITY)
-	if is_finite(bottom) and is_finite(top) and top > bottom + 0.01:
-		model.scale *= clampf(2.05 / (top-bottom),0.05,20.0)
-	ground_visual(model)
 func body(pos: Vector3, asset: String, color: Color, is_goblin := false) -> CharacterBody3D:
 	var b := CharacterBody3D.new()
 	add_child(b)
@@ -83,8 +59,8 @@ func body(pos: Vector3, asset: String, color: Color, is_goblin := false) -> Char
 		var model = load(asset).instantiate()
 		model.name = "CharacterVisual"
 		b.add_child(model)
-		if asset.ends_with("/katie.glb"): fit_katie_visual(model)
-		else: ground_visual(model)
+		ground_visual(model)
+		if not is_goblin: SHARED.attach(model)
 	else:
 		var mesh := CapsuleMesh.new()
 		mesh.radius = 0.3
@@ -167,8 +143,8 @@ void fragment() {
 		rock.rotation.y = rng.randf_range(0,TAU)
 	var profile := ConfigFile.new()
 	profile.load("user://hero.cfg")
-	model_index = clampi(int(profile.get_value("hero","model",1)),0,MODELS.size()-1)
-	if not ResourceLoader.exists("res://assets/%s.glb" % MODELS[model_index]): model_index = 1
+	model_index = clampi(int(profile.get_value("hero","model",0)),0,MODELS.size()-1)
+	if not ResourceLoader.exists("res://assets/%s.glb" % MODELS[model_index]): push_error("Human model is missing")
 	player = body(Vector3.ZERO,"res://assets/%s.glb" % MODELS[model_index],Color.BEIGE)
 	var quest_save:=ConfigFile.new()
 	if quest_save.load("user://quest_progress.cfg")==OK:
@@ -222,16 +198,6 @@ void fragment() {
 	angle_button.text = "Camera: 60°"
 	menu.add_child(angle_button)
 	angle_button.pressed.connect(toggle_angle)
-	model_button = Button.new()
-	model_button.text = MODEL_NAMES[model_index]
-	menu.add_child(model_button)
-	model_button.pressed.connect(cycle_model)
-	leather_button = Button.new()
-	leather_button.pressed.connect(func():
-		leather_equipped = not leather_equipped
-		update_leather_armor())
-	menu.add_child(leather_button)
-	update_leather_armor()
 	for title in ["Run","Turn","Main Menu","Close"]:
 		var button := Button.new()
 		button.text = title
@@ -255,10 +221,6 @@ func toggle_inventory() -> void:
 	hud.get_parent().add_child(overlay)
 	overlay.set_model(MODELS[model_index])
 	overlay.set_goblin_kills(quest_goblin_kills)
-	overlay.equipment_changed.connect(func(slot: String, id: String):
-		if slot=="Body" and MODELS[model_index]=="female_base":
-			leather_equipped=(id=="leather_armor")
-			update_leather_armor())
 	overlay.closed.connect(func():
 		if is_instance_valid(inventory_panel):
 			inventory_panel.queue_free()
@@ -284,101 +246,18 @@ func hud_action(name: String):
 		notice.canceled.connect(notice.queue_free)
 		notice.popup_centered()
 
-func show_pose(asset: String):
-	if asset == current_pose: return
-	var path := "res://assets/%s.glb" % asset
-	if not ResourceLoader.exists(path): return
-	if not pose_cache.has(asset):
-		pose_cache[asset] = load(path)
-	var visual := (pose_cache[asset] as PackedScene).instantiate()
-	var old := player.get_node_or_null("CharacterVisual")
-	if old != null:
-		player.remove_child(old)
-		old.queue_free()
-	visual.name = "CharacterVisual"
-	player.add_child(visual)
-	if asset.begins_with("katie"): fit_katie_visual(visual)
-	else: ground_visual(visual)
-	current_pose = asset
-func find_imported_animator(node: Node) -> AnimationPlayer:
-	if node is AnimationPlayer: return node as AnimationPlayer
-	for child in node.get_children():
-		var found := find_imported_animator(child)
-		if found != null: return found
-	return null
-func play_imported_animation(state: String):
+func play_imported_animation(state: String) -> void:
 	var visual := player.get_node_or_null("CharacterVisual")
 	if visual == null: return
-	var animator := find_imported_animator(visual)
+	var animator := visual.get_node_or_null("SharedHumanoidAnimations") as AnimationPlayer
+	if animator == null: animator = SHARED.attach(visual)
 	if animator == null: return
-	var clip := ""
-	for candidate in animator.get_animation_list():
-		if candidate.to_lower().contains(state):
-			clip = candidate
-			break
-	if clip.is_empty() and state == "attack":
-		for candidate in animator.get_animation_list():
-			if candidate.to_lower().contains("punch"):
-				clip = candidate
-				break
-	if clip.is_empty():
-		if animator.is_playing(): animator.stop()
-	else:
-		var animation := animator.get_animation(clip)
-		animation.loop_mode = Animation.LOOP_NONE if state == "attack" else Animation.LOOP_LINEAR
-		animator.speed_scale = animation.length / 0.5 if state == "attack" else (2.0 if state == "walk" and running else 1.0)
-		if animator.assigned_animation == clip:
-			return
-		animator.play(clip)
-func cycle_model():
-	var next_index := (model_index + 1) % MODELS.size()
-	for ignored in range(MODELS.size()):
-		if ResourceLoader.exists("res://assets/%s.glb" % MODELS[next_index]): break
-		next_index = (next_index + 1) % MODELS.size()
-	var asset := "res://assets/%s.glb" % MODELS[next_index]
-	if not ResourceLoader.exists(asset) or next_index == model_index: return
-	var old := player.get_node_or_null("CharacterVisual")
-	if old != null:
-		player.remove_child(old)
-		old.queue_free()
-	var visual := (load(asset) as PackedScene).instantiate()
-	visual.name = "CharacterVisual"
-	player.add_child(visual)
-	if MODELS[next_index] == "katie": fit_katie_visual(visual)
-	else: ground_visual(visual)
-	model_index = next_index
-	current_pose = MODELS[model_index]
-	model_button.text = MODEL_NAMES[model_index]
-	update_leather_armor()
-
-func update_leather_armor() -> void:
-	var compatible: bool = MODELS[model_index] == "female_base"
-	leather_button.visible = compatible
-	leather_button.text = "Remove Leather Armor" if leather_equipped else "Equip Leather Armor"
-	if not compatible:
-		return
-	var visual := player.get_node_or_null("CharacterVisual")
-	var skeletons := visual.find_children("*", "Skeleton3D", true, false)
-	if skeletons.is_empty():
-		return
-	var skeleton := skeletons[0] as Skeleton3D
-	var equipped := skeleton.get_node_or_null("LeatherArmor") as MeshInstance3D
-	if equipped != null:
-		equipped.visible = leather_equipped
-		return
-	if not leather_equipped:
-		return
-	var armor_scene := (load(FEMALE_LEATHER) as PackedScene).instantiate()
-	var source := armor_scene.find_children("*", "MeshInstance3D", true, false)[0] as MeshInstance3D
-	var armor := MeshInstance3D.new()
-	armor.name = "LeatherArmor"
-	armor.mesh = source.mesh
-	armor.skin = source.skin
-	armor.transform = source.transform
-	armor.skeleton = NodePath("..")
-	skeleton.add_child(armor)
-	armor_scene.free()
-
+	var clip := "Running" if state == "run" else "Walking" if state == "walk" else "Attack" if state == "attack" else "Idle"
+	if not animator.has_animation(clip): return
+	var resource := animator.get_animation(clip)
+	animator.speed_scale = resource.length / 0.5 if state == "attack" else 1.0
+	if animator.assigned_animation == clip and animator.is_playing(): return
+	animator.play(clip)
 func toggle_angle():
 	camera_angle = 75.0 if camera_angle == 60.0 else 60.0
 	angle_button.text = "Camera: %d°" % int(camera_angle)
@@ -397,23 +276,11 @@ func _physics_process(dt):
 	player.velocity.y = -0.5 if player.is_on_floor() else vertical - 9.8*dt
 	player.move_and_slide()
 	if direction.length() > 0.1: player.rotation.y = atan2(direction.x,direction.z)
-	var base: String = MODELS[model_index]
-	if base == "female_base":
-		if punch_left > 0.0:
-			play_imported_animation("attack")
-			punch_left = maxf(0.0, punch_left - dt)
-		else:
-			play_imported_animation("walk" if direction.length() > 0.1 else "idle")
-	elif punch_left > 0.0:
-		var frame := clampi(int((0.5-punch_left)*10.0),0,4)
-		show_pose("%s_punch_%d" % [base,frame])
-		punch_left = maxf(0.0,punch_left-dt)
-	elif direction.length() > 0.1:
-		animation_clock += dt * (2.0 if running else 1.0)
-		show_pose("%s_walk_%d" % [base,int(animation_clock*10.0)%8])
+	if punch_left > 0.0:
+		play_imported_animation("attack")
+		punch_left = maxf(0.0, punch_left - dt)
 	else:
-		animation_clock = 0.0
-		show_pose(base)
+		play_imported_animation("run" if running and direction.length() > 0.1 else "walk" if direction.length() > 0.1 else "idle")
 	var pitch := deg_to_rad(camera_angle)
 	camera.position = player.position + Vector3(0,20*sin(pitch),20*cos(pitch)).rotated(Vector3.UP,yaw)
 	camera.rotation = Vector3(-pitch, yaw, 0)
