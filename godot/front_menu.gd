@@ -68,10 +68,15 @@ func main_menu():
 	button("Animation Lab",func(): get_tree().change_scene_to_file("res://humanoid_animation_lab.tscn"))
 	button("Quadruped Animation Lab",func(): get_tree().change_scene_to_file("res://quadruped_animation_lab.tscn"))
 	button("Settings & Updates",settings)
+	if not OS.has_feature("mobile") and not OS.has_feature("web") and not OS.has_feature("headless"):
+		content.add_child(preload("res://pc_release_updates.gd").new())
 func settings():
 	clear()
 	heading("Settings",44)
-	content.add_child(preload("res://release_updates.gd").new())
+	if not OS.has_feature("mobile") and not OS.has_feature("web"):
+		content.add_child(preload("res://pc_release_updates.gd").new())
+	else:
+		content.add_child(preload("res://release_updates.gd").new())
 	button("Back",main_menu)
 func creator():
 	clear()
@@ -93,26 +98,40 @@ func creator():
 	button("Back",main_menu)
 func _begin_world_prefetch() -> void:
 	if not is_inside_tree(): return
-	world_prefetch_active = ResourceLoader.load_threaded_request(WORLD_SCENE,"PackedScene",true) == OK
+	ForestLoading.prefetch_assets()
+	if not world_prefetch_active:
+		world_prefetch_active = ResourceLoader.load_threaded_request(WORLD_SCENE, "PackedScene", true) == OK
 
 func _process(_delta: float) -> void:
-	if awaiting_world and ResourceLoader.load_threaded_get_status(WORLD_SCENE) != ResourceLoader.THREAD_LOAD_IN_PROGRESS:
+	if not awaiting_world: return
+	var scene_progress: Array = []
+	var scene_status := ResourceLoader.THREAD_LOAD_INVALID_RESOURCE
+	if world_prefetch_active:
+		scene_status = ResourceLoader.load_threaded_get_status(WORLD_SCENE, scene_progress)
+	var scene_fraction := float(scene_progress[0]) if not scene_progress.is_empty() else (1.0 if scene_status == ResourceLoader.THREAD_LOAD_LOADED else 0.0)
+	var asset_fraction: float = ForestLoading.assets_progress()
+	ForestLoading.report(0.5 * (0.65 * scene_fraction + 0.35 * asset_fraction),
+		"Loading forest resources... %d%%" % int(100.0 * (0.65 * scene_fraction + 0.35 * asset_fraction)))
+	if scene_status == ResourceLoader.THREAD_LOAD_FAILED or scene_status == ResourceLoader.THREAD_LOAD_INVALID_RESOURCE:
+		world_prefetch_active = false
+	if (scene_status == ResourceLoader.THREAD_LOAD_LOADED or not world_prefetch_active) and ForestLoading.all_assets_ready():
 		awaiting_world = false
-		_open_prepared_world()
+		call_deferred("_open_prepared_world")
 
 func _open_prepared_world() -> void:
+	# Draw the persistent overlay before creating the potentially heavy world.
+	await get_tree().process_frame
+	ForestLoading.report(0.5, "Creating the forest and preparing scenery...")
 	if world_prefetch_active and ResourceLoader.load_threaded_get_status(WORLD_SCENE) == ResourceLoader.THREAD_LOAD_LOADED:
 		var packed := ResourceLoader.load_threaded_get(WORLD_SCENE) as PackedScene
 		if packed != null:
 			get_tree().change_scene_to_packed(packed)
 			return
-	# Graceful fallback for unavailable platform threading.
+	# Fallback when threading fails, keeping the loading overlay visible.
 	get_tree().change_scene_to_file(WORLD_SCENE)
 
 func enter_world():
-	if world_prefetch_active and ResourceLoader.load_threaded_get_status(WORLD_SCENE) == ResourceLoader.THREAD_LOAD_IN_PROGRESS:
-		awaiting_world = true
-		clear()
-		heading("Preparing the forest...",40)
-		return
-	_open_prepared_world()
+	ForestLoading.begin()
+	if not world_prefetch_active:
+		_begin_world_prefetch()
+	awaiting_world = true

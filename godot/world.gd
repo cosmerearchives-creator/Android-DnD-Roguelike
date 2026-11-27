@@ -108,6 +108,8 @@ func body(pos: Vector3, asset: String, color: Color, is_goblin := false) -> Char
 func _ready():
 	PLATFORM.configure_window()
 	pc_mode = PLATFORM.is_pc()
+	if ForestLoading.visible:
+		ForestLoading.report(0.5, "Initializing character, lighting and world...")
 	rng.seed = 812
 	var ground := StaticBody3D.new()
 	add_child(ground)
@@ -239,7 +241,7 @@ void fragment() {
 	ui.add_child(menu_panel)
 	var menu := VBoxContainer.new()
 	menu_panel.add_child(menu)
-	var releases := preload("res://release_updates.gd").new()
+	var releases: VBoxContainer = preload("res://pc_release_updates.gd").new() if pc_mode else preload("res://release_updates.gd").new()
 	menu.add_child(releases)
 	angle_button = Button.new()
 	angle_button.text = "Mouse: Look Around" if pc_mode else "Camera: 60°"
@@ -263,7 +265,7 @@ func _place_scenery(job: Dictionary) -> void:
 		tree.position = job.position
 		var path: String = job.path
 		if not scenery_scene_cache.has(path):
-			scenery_scene_cache[path] = load(path)
+			scenery_scene_cache[path] = ForestLoading.get_scenery(path)
 		var model := (scenery_scene_cache[path] as PackedScene).instantiate() as Node3D
 		tree.add_child(model)
 		var scale_factor: float = job.scale
@@ -278,7 +280,7 @@ func _place_scenery(job: Dictionary) -> void:
 		tree.add_child(col)
 	else:
 		if not scenery_scene_cache.has("rock"):
-			scenery_scene_cache["rock"] = preload("res://assets/boulder.glb")
+			scenery_scene_cache["rock"] = ForestLoading.get_scenery("res://assets/boulder.glb")
 		var rock := (scenery_scene_cache["rock"] as PackedScene).instantiate() as Node3D
 		add_child(rock)
 		rock.position = job.position
@@ -295,15 +297,21 @@ func _process(_delta: float) -> void:
 		scenery_placed += 1
 		placed_this_frame += 1
 		if Time.get_ticks_usec() >= deadline: break
+	if ForestLoading.visible:
+		ForestLoading.report(0.5 + 0.5 * float(scenery_next) / float(maxi(1, scenery_jobs.size())),
+			"Growing forest scenery... %d / %d" % [scenery_next, scenery_jobs.size()])
 	if scenery_next >= scenery_jobs.size():
 		scenery_finished = true
 		scenery_jobs.clear()
 		scenery_scene_cache.clear()
+		if ForestLoading.visible:
+			ForestLoading.finish()
+			_sync_pc_mouse_mode()
 		set_process(false)
 
 func _sync_pc_mouse_mode() -> void:
 	if not pc_mode: return
-	var ui_open := is_instance_valid(inventory_panel) or (is_instance_valid(menu_panel) and menu_panel.visible)
+	var ui_open := ForestLoading.visible or is_instance_valid(inventory_panel) or (is_instance_valid(menu_panel) and menu_panel.visible)
 	mouse_looking = not ui_open
 	if DisplayServer.get_name() != "headless":
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE if ui_open else Input.MOUSE_MODE_CAPTURED
