@@ -79,6 +79,9 @@ func _run() -> void:
 	if is_equal_approx(world.camera_yaw,old_yaw) or is_equal_approx(world.camera_pitch,old_pitch):
 		_fail("Free mouse motion did not rotate yaw and pitch")
 		return
+	if world.camera_pitch <= old_pitch:
+		_fail("Mouse moving downward must move camera downward, not inverted")
+		return
 	var right := InputEventMouseButton.new()
 	right.button_index = MOUSE_BUTTON_RIGHT
 	right.pressed = true

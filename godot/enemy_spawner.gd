@@ -17,7 +17,8 @@ const INITIAL_SPAWN_INTERVAL := 0.18
 # Apply the correction only to their *visuals*, not collision bodies.
 const VISUAL_FORWARD_OFFSETS := {
     "Goblin Warrior": PI,
-    "Fire Beetle": PI
+    "Fire Beetle": PI,
+    "Twig Blight": PI
 }
 const MAX_RANGE := 37.0
 const SPAWN_MIN := 14.0

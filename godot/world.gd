@@ -393,7 +393,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			action("Attack")
 	elif event is InputEventMouseMotion and mouse_looking:
 		camera_yaw -= event.relative.x * MOUSE_SENSITIVITY
-		camera_pitch = clampf(camera_pitch-event.relative.y*MOUSE_SENSITIVITY,deg_to_rad(-75),deg_to_rad(85))
+		camera_pitch = clampf(camera_pitch+event.relative.y*MOUSE_SENSITIVITY,deg_to_rad(-75),deg_to_rad(85))
 		get_viewport().set_input_as_handled()
 
 func set_first_person(enabled: bool) -> void:

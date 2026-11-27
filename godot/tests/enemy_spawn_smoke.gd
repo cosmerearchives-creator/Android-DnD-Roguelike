@@ -18,6 +18,9 @@ func _run() -> void:
 	root.add_child(spawner)
 	spawner.set_physics_process(false)
 	var list: Array=load("res://goblin_variants.gd").ENTRIES
+	if not is_equal_approx(float(spawner.VISUAL_FORWARD_OFFSETS.get("Twig Blight", 0.0)), PI):
+		printerr("Twig Blight must face its movement direction using its visual forward offset")
+		quit(6);return
 	for entry in list:
 		spawner.scenes[str(entry.asset)]=packed
 	spawner.scenes[spawner.BEETLE]=packed
