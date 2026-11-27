@@ -7,7 +7,7 @@ root = Path(__file__).resolve().parents[1]
 assets = root/"godot"/"assets"
 allowed = {
     "human_adventurer.glb", "goblin_warrior.glb", "fire_beetle.glb",
-    "male_human.glb", "twig_blight.glb", "wolf_quadruped.glb",
+    "male_human.glb", "male_human_leather_armored.glb", "twig_blight.glb", "wolf_quadruped.glb",
     "humanoid_mixamo_animation_library.glb", "pine.glb", "broadleaf.glb",
     "boulder.glb",
 }
@@ -41,6 +41,10 @@ assert len(gltf_info("male_human.glb").get("skins", [])) == 1
 assert len(gltf_info("twig_blight.glb").get("skins", [])) == 1
 assert len(gltf_info("twig_blight.glb")["skins"][0]["joints"]) == 28
 assert len(gltf_info("male_human.glb")["skins"][0]["joints"]) == 84
+armored = gltf_info("male_human_leather_armored.glb")
+assert len(armored.get("skins", [])) == 1 and len(armored["skins"][0]["joints"]) == 84
+assert len(armored["meshes"]) == 2 and len(armored.get("animations", [])) == len(gltf_info("male_human.glb").get("animations", []))
+assert {armored["nodes"][i]["name"] for i in armored["skins"][0]["joints"]} == {gltf_info("male_human.glb")["nodes"][i]["name"] for i in gltf_info("male_human.glb")["skins"][0]["joints"]}
 assert "Shield_Push_Left" in [a["name"] for a in gltf_info("twig_blight.glb")["animations"]]
 assert len(beetle.get("skins", [])) == 1
 wolf = gltf_info("wolf_quadruped.glb")
