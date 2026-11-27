@@ -31,3 +31,8 @@ The supplied tavern is an open-roof room, not a complete roofed exterior. Keep t
 - Inventory opens as a true pause modal, world time and combat stop while menus remain usable.
 - Edge-only grass/dirt/leaves/moss/mud/rocky transition with persistent 0-30in in-game blending slider (6in default), no whole-tile blurring.
 - Restore saved fullscreen/window state and camera perspective/zoom when playing next time. Assets move Imports -> Review after importing.
+
+## v0.3.193 ground cover
+- Asset sheet geometry may be a single mesh; extract full independent clusters by spatial grouping of connected components, preserve original images and source files rather than split every leaf separately.
+- Use 40 active decorative ground-cover meshes in instanced draw batches and retain 8 other usable broadleaf variants in the collection. Do not pretend broadleaf foliage is one of 4 still-missing short-grass models.
+- Seeded placement with biome palette, natural rotation/scale, modest boundary clustering, no clutter collision. Terrain grid stays 5ft for game rules; refine geometry/material edge without editing source mesh or compromising textures.

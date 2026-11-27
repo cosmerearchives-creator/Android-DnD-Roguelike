@@ -67,7 +67,7 @@ func _shader() -> Shader:
 	var shader := Shader.new()
 	shader.code = """shader_type spatial;
 render_mode depth_draw_opaque, cull_back;
-uniform sampler2D tex_color : source_color, filter_linear_mipmap;
+uniform sampler2D tex_color : source_color, repeat_enable, filter_linear_mipmap;
 uniform sampler2D tex_normal : hint_normal, filter_linear_mipmap;
 uniform sampler2D tex_orm : filter_linear_mipmap;
 uniform sampler2D biome_grass : source_color, filter_linear_mipmap;
@@ -79,12 +79,19 @@ uniform sampler2D biome_rocky : source_color, filter_linear_mipmap;
 uniform vec3 tint : source_color = vec3(1.0);
 uniform vec2 raw_min = vec2(-0.5);
 uniform vec2 raw_size = vec2(1.0);
+uniform float edge_flat_y = 0.0;
 uniform float blend_inches : hint_range(0.0,30.0,1.0) = 6.0;
 varying vec2 ground_coordinate;
 varying vec4 neighbor_ids;
 varying vec2 ground_world;
 void vertex() {
     ground_coordinate = (VERTEX.xz - raw_min) / raw_size;
+    // Source models have small extruded perimeter faces. Flatten only their
+    // outer rim to the shared 5ft top elevation to hide black side-wall lines.
+    float dist_to_edge = min(min(ground_coordinate.x,1.0-ground_coordinate.x),
+        min(ground_coordinate.y,1.0-ground_coordinate.y));
+    float flatten_rim = 1.0-smoothstep(0.0,.065,dist_to_edge);
+    VERTEX.y=mix(VERTEX.y,edge_flat_y,flatten_rim);
     neighbor_ids = INSTANCE_CUSTOM;
     ground_world = (MODEL_MATRIX * vec4(VERTEX,1.0)).xz;
 }
@@ -107,6 +114,18 @@ void fragment() {
     METALLIC = clamp(mr.b,0.0,1.0);
     NORMAL_MAP = texture(tex_normal,UV).rgb;
     NORMAL_MAP_DEPTH = 1.0;
+    // Matching terrain tiles use a small amount of world-space color at
+    // their shared border: both sides sample the SAME map coordinates.
+    // The tile interior retains its original source UV, texture and normals.
+    float match_edge = 1.0;
+    if (neighbor_ids.r < .01) match_edge = min(match_edge,ground_coordinate.x);
+    if (neighbor_ids.g < .01) match_edge = min(match_edge,1.0-ground_coordinate.x);
+    if (neighbor_ids.b < .01) match_edge = min(match_edge,ground_coordinate.y);
+    if (neighbor_ids.a < .01) match_edge = min(match_edge,1.0-ground_coordinate.y);
+    float align = 1.0-smoothstep(0.0,.10,match_edge);
+    vec2 shared_uv=ground_world*.145+vec2(.271,.163);
+    vec3 shared_sample=texture(tex_color,shared_uv).rgb*tint;
+    ALBEDO=mix(ALBEDO,shared_sample,align*.79);
     // Edge-only 0..30 inches inward, zero mixing in the tile interior.
     float width = min(0.5,blend_inches*0.0254/1.524);
     if (width > 0.00001) {
@@ -150,6 +169,7 @@ func _material(kind: String, source: StandardMaterial3D, box: AABB, shade: Shade
 	material.set_shader_parameter("tint",tints.get(kind,Vector3.ONE))
 	material.set_shader_parameter("raw_min",Vector2(box.position.x,box.position.z))
 	material.set_shader_parameter("raw_size",Vector2(box.size.x,box.size.z))
+	material.set_shader_parameter("edge_flat_y",box.position.y+box.size.y)
 	material.set_shader_parameter("blend_inches",blend_inches)
 	_materials.append(material)
 	return material

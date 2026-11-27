@@ -50,3 +50,8 @@ NOT RUN: on-device Android render and sustained FPS/memory, signed release insta
 - inventory_pause_and_blend_smoke.gd: 15 slots, 6 full terrains+underlays, 0-30in slider saved to disk, modal pausing and resume, Materials tab interaction while paused.
 - display_camera_persistence_smoke.gd: saved fullscreen/window geometry and camera perspective/zoom to user config; check F11 and gameplay perspective live.
 - PC visual review: actual Godot screenshot exports of all four tabs and tavern/ground; live source GLBs render without shader error. Android real-device FPS/scale check still outstanding.
+
+## v0.3.193 QA acceptance
+- Run python scripts/verify_ground_cover_import.py: 4 unmodified source checksums when local Review available, 4 derivative model collections, 48 names, all original 2048px image hashes and PBR count unchanged, zero skeletons.
+- Run Godot tests/ground_cover_smoke.gd: 40 3D MultiMesh variants, 1,666 placements in six biome types, 2048px imported albedo textures, model origins on floor, narrow material edge shader present. Confirm PC 1600x900 screenshot in Ground Cover Review. Crosscheck current 2014 5e player/enemy/inventory/PC regression suite.
+- Verify CI Godot4.4.1 Linux imports, Android and Windows exports, original production APK signature, updater JSON manifests and release assets. Real-device visual/performance still outstanding.

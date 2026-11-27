@@ -38,6 +38,10 @@ func _run() -> void:
 			_fail("PC top icon absent: " + name)
 			return
 	print("PC_HUD_AND_CAMERA_OK")
+	# Respect persisted camera preferences: the test must start its V toggle
+	# from third person even when the user previously closed in first person.
+	var originally_first_person: bool = world.first_person
+	if world.first_person: world.set_first_person(false)
 	world._unhandled_key(_key(KEY_C))
 	if not world.sneaking:
 		_fail("C did not toggle crouch")
@@ -156,6 +160,7 @@ func _run() -> void:
 	if world.attack <= 0.0:
 		_fail("Left click did not perform attack")
 		return
+	world.set_first_person(originally_first_person)
 	world.queue_free()
 	print("PC_PLATFORM_SMOKE_OK")
 	quit(0)

@@ -83,6 +83,7 @@ var hud: Control
 var menu_panel: PanelContainer
 var inventory_panel: Control
 var terrain_layer: Node3D
+var ground_cover_layer: Node3D
 var terrain_blend_label: Label
 var quest_goblin_kills := 0
 var rng := RandomNumberGenerator.new()
@@ -203,6 +204,9 @@ void fragment() {
 	# Terrain is generated in six MultiMesh batches, one asset per frame.
 	terrain_layer = preload("res://terrain_layer.gd").new()
 	add_child(terrain_layer)
+	# Small original-source forest debris/vegetation, grouped into MultiMeshes.
+	ground_cover_layer = preload("res://ground_cover_layer.gd").new()
+	add_child(ground_cover_layer)
 	# Generate the same positions, scales, rotations and proportions as before
 	# without creating/rendering/colliding 400+ objects in a single frame.
 	for i in range(260):

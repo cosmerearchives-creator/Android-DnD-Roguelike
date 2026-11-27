@@ -29,3 +29,7 @@ NEXT: refine biome transitions and reduce visible square patch boundaries; then 
 ## Implemented v0.3.192 (release target)
 - Approved single milestone: replace grass, light 0-30in edge blending slider, close gaps with square earth underlays, window/fullscreen + camera persistence, true inventory pause, handcrafted ornate Equipment/Items/Materials/Quests UI, 15 approved equipment slots with Secondary. All are integrated and locally tested; verify published release artifacts. See docs/inventory-terrain-settings-v0.3.192.md.
 - Future: complete item usage/drop/stat/proficiency rules, expand actual material and quest data, improve biome UV tile seamlessness and shader mobile performance; these are separate from the completed UI rendering.
+
+## v0.3.193 ground-cover integration
+- Implemented/tested: source-audited Blender extraction, 48 model variants with shared untouched 2048px images; 40 instanced model types/1,666 copies by biome, no player-blocking ground-cover collision. Added common rim elevation + same-material edge sampling, retained 6in default adjustable different-type blends. Four originals moved into Review. See docs/ground-cover-and-seams-v0.3.193.md.
+- Future: supply 4 authentic short grass variants; replace questionable pale moss/white-edged foliage; expand ground-cover distribution beyond 530-cell starter patch when terrain chunks grow; benchmark phone FPS/memory; ultimately use world-space seamless material baking/continuous chunk mesh to completely eliminate source tile boundaries.

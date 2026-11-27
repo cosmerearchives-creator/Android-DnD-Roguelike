@@ -31,3 +31,7 @@ Verified: original five ground + tavern GLB SHA256 and 23 source image bytes; fu
 ## v0.3.192 combined publishing milestone (2026-11-27)
 - Implemented new user-provided grass source and reviewed original, terrain underlay and edge-only shader with saved 0-30in live slider, display/camera preferences, 15-slot inventory, ornate SVG four-tab desktop UI, and real inventory pause.
 - Local Godot 4.5.1 headless tests and Windows OpenGL previews passed; CI signed Android/Windows publishing and device-side FPS remain subject to release verification. Details and known limits: docs/inventory-terrain-settings-v0.3.192.md.
+
+## v0.3.193 — Ground cover + tile rim refinement (2026-11-27)
+- Implemented and locally tested: four GLB collection extracts (48 named models), 40 active variants / 1,666 deterministic instanced plants/debris across 530 local terrain cells, 2048x2048 embedded source textures SHA-identical, Godot 4.5.1 gameplay render and headless smoke, vertex shader rim flattening plus limited shared world-space seam color. Original four source GLBs moved Imports -> Beastiary Review.
+- Missing exactly 4/4 requested short-grass assets; 12 broadleaf extras are alternatives, not relabeled grass (4 active, 8 reserved). Some pale moss/white foliage artifacts remain. Square grid seams reduced only partially, and real Android performance not verified. Details: docs/ground-cover-and-seams-v0.3.193.md. Signed APK/PC release verification pending.

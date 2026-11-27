@@ -1,0 +1,730 @@
+[
+  {
+    "source": "Meshy_AI_Assorted_Wild_Ground_Plants_20261127_texture(1).glb",
+    "original_sha256": "2a6b5497634570d9b8d9319be020eac77afb576bdf7e71203f7f994f6ee9c023",
+    "group": "woodland_bonus",
+    "output": "G:\\ChatGPT Projects\\Forests of Hell\\ForestsOfHellSource\\godot\\assets\\ground_cover\\woodland_bonus.glb",
+    "materials": [
+      "Material_0"
+    ],
+    "source_component_count": 614,
+    "variants": [
+      {
+        "id": "woodland_extra_01",
+        "vertices": 219,
+        "world_dimensions_m": [
+          0.131,
+          0.075,
+          0.104
+        ],
+        "center": [
+          -0.4075,
+          0.3003
+        ],
+        "origin_bottom": -0.0505
+      },
+      {
+        "id": "woodland_extra_02",
+        "vertices": 670,
+        "world_dimensions_m": [
+          0.345,
+          0.219,
+          0.092
+        ],
+        "center": [
+          -0.1816,
+          0.3064
+        ],
+        "origin_bottom": -0.0564
+      },
+      {
+        "id": "woodland_extra_03",
+        "vertices": 312,
+        "world_dimensions_m": [
+          0.267,
+          0.141,
+          0.097
+        ],
+        "center": [
+          0.189,
+          0.3594
+        ],
+        "origin_bottom": -0.0505
+      },
+      {
+        "id": "woodland_extra_04",
+        "vertices": 363,
+        "world_dimensions_m": [
+          0.112,
+          0.119,
+          0.098
+        ],
+        "center": [
+          0.3569,
+          0.3877
+        ],
+        "origin_bottom": -0.0481
+      },
+      {
+        "id": "woodland_extra_05",
+        "vertices": 913,
+        "world_dimensions_m": [
+          0.21,
+          0.258,
+          0.103
+        ],
+        "center": [
+          -0.3687,
+          0.1609
+        ],
+        "origin_bottom": -0.054
+      },
+      {
+        "id": "woodland_extra_06",
+        "vertices": 496,
+        "world_dimensions_m": [
+          0.303,
+          0.296,
+          0.083
+        ],
+        "center": [
+          0.0652,
+          0.2058
+        ],
+        "origin_bottom": -0.051
+      },
+      {
+        "id": "woodland_extra_07",
+        "vertices": 324,
+        "world_dimensions_m": [
+          0.304,
+          0.262,
+          0.095
+        ],
+        "center": [
+          0.26,
+          -0.1472
+        ],
+        "origin_bottom": -0.0549
+      },
+      {
+        "id": "woodland_extra_08",
+        "vertices": 300,
+        "world_dimensions_m": [
+          0.224,
+          0.233,
+          0.083
+        ],
+        "center": [
+          -0.1086,
+          -0.2161
+        ],
+        "origin_bottom": -0.0496
+      },
+      {
+        "id": "woodland_extra_09",
+        "vertices": 359,
+        "world_dimensions_m": [
+          0.334,
+          0.149,
+          0.098
+        ],
+        "center": [
+          -0.1594,
+          -0.3538
+        ],
+        "origin_bottom": -0.0491
+      },
+      {
+        "id": "woodland_extra_10",
+        "vertices": 508,
+        "world_dimensions_m": [
+          0.234,
+          0.148,
+          0.099
+        ],
+        "center": [
+          0.157,
+          -0.3005
+        ],
+        "origin_bottom": -0.051
+      },
+      {
+        "id": "woodland_extra_11",
+        "vertices": 400,
+        "world_dimensions_m": [
+          0.13,
+          0.155,
+          0.099
+        ],
+        "center": [
+          0.4109,
+          -0.2556
+        ],
+        "origin_bottom": -0.0481
+      },
+      {
+        "id": "woodland_extra_12",
+        "vertices": 335,
+        "world_dimensions_m": [
+          0.109,
+          0.124,
+          0.096
+        ],
+        "center": [
+          -0.3542,
+          -0.3862
+        ],
+        "origin_bottom": -0.0486
+      }
+    ],
+    "exported_meshes": 12,
+    "exported_images": 3
+  },
+  {
+    "source": "Meshy_AI_Assorted_Wild_Ground_Plants_20261127_texture(2).glb",
+    "original_sha256": "aa049962ce8ba493b1d313b3868e4adb0fbfd24d15505e1e4f2fbe193daa7823",
+    "group": "plants",
+    "output": "G:\\ChatGPT Projects\\Forests of Hell\\ForestsOfHellSource\\godot\\assets\\ground_cover\\plants.glb",
+    "materials": [
+      "Material_0"
+    ],
+    "source_component_count": 682,
+    "variants": [
+      {
+        "id": "tall_grass_01",
+        "vertices": 500,
+        "world_dimensions_m": [
+          0.131,
+          0.154,
+          0.113
+        ],
+        "center": [
+          -0.3286,
+          0.3982
+        ],
+        "origin_bottom": -0.0554
+      },
+      {
+        "id": "tall_grass_02",
+        "vertices": 547,
+        "world_dimensions_m": [
+          0.306,
+          0.178,
+          0.09
+        ],
+        "center": [
+          -0.1365,
+          0.3896
+        ],
+        "origin_bottom": -0.0559
+      },
+      {
+        "id": "tall_grass_03",
+        "vertices": 358,
+        "world_dimensions_m": [
+          0.272,
+          0.16,
+          0.111
+        ],
+        "center": [
+          0.1863,
+          0.3721
+        ],
+        "origin_bottom": -0.0554
+      },
+      {
+        "id": "tall_grass_04",
+        "vertices": 546,
+        "world_dimensions_m": [
+          0.123,
+          0.132,
+          0.103
+        ],
+        "center": [
+          0.3503,
+          0.3765
+        ],
+        "origin_bottom": -0.054
+      },
+      {
+        "id": "small_fern_01",
+        "vertices": 126,
+        "world_dimensions_m": [
+          0.136,
+          0.119,
+          0.09
+        ],
+        "center": [
+          -0.3459,
+          -0.0066
+        ],
+        "origin_bottom": -0.0554
+      },
+      {
+        "id": "small_fern_02",
+        "vertices": 264,
+        "world_dimensions_m": [
+          0.346,
+          0.172,
+          0.076
+        ],
+        "center": [
+          -0.1567,
+          -0.0034
+        ],
+        "origin_bottom": -0.0569
+      },
+      {
+        "id": "small_fern_03",
+        "vertices": 519,
+        "world_dimensions_m": [
+          0.214,
+          0.229,
+          0.113
+        ],
+        "center": [
+          0.1455,
+          0.0027
+        ],
+        "origin_bottom": -0.0574
+      },
+      {
+        "id": "woodland_plant_01",
+        "vertices": 695,
+        "world_dimensions_m": [
+          0.138,
+          0.139,
+          0.098
+        ],
+        "center": [
+          -0.3269,
+          -0.3777
+        ],
+        "origin_bottom": -0.0569
+      },
+      {
+        "id": "woodland_plant_02",
+        "vertices": 379,
+        "world_dimensions_m": [
+          0.305,
+          0.212,
+          0.085
+        ],
+        "center": [
+          -0.1489,
+          -0.3687
+        ],
+        "origin_bottom": -0.0564
+      },
+      {
+        "id": "woodland_plant_03",
+        "vertices": 834,
+        "world_dimensions_m": [
+          0.309,
+          0.147,
+          0.105
+        ],
+        "center": [
+          0.1763,
+          -0.3794
+        ],
+        "origin_bottom": -0.0564
+      },
+      {
+        "id": "woodland_plant_04",
+        "vertices": 494,
+        "world_dimensions_m": [
+          0.116,
+          0.153,
+          0.103
+        ],
+        "center": [
+          0.3679,
+          -0.3918
+        ],
+        "origin_bottom": -0.0569
+      }
+    ],
+    "exported_meshes": 11,
+    "exported_images": 1
+  },
+  {
+    "source": "Meshy_AI_Forest_Floor_Debris_Collection_20261127_texture.glb",
+    "original_sha256": "976e43a7d7613dace73847e5e1efbc1816ea46e4b72812ad482bbc495dcfe78d",
+    "group": "debris",
+    "output": "G:\\ChatGPT Projects\\Forests of Hell\\ForestsOfHellSource\\godot\\assets\\ground_cover\\debris.glb",
+    "materials": [
+      "Material_0"
+    ],
+    "source_component_count": 327,
+    "variants": [
+      {
+        "id": "loose_stone_01",
+        "vertices": 350,
+        "world_dimensions_m": [
+          0.171,
+          0.132,
+          0.045
+        ],
+        "center": [
+          -0.3809,
+          0.396
+        ],
+        "origin_bottom": -0.0369
+      },
+      {
+        "id": "loose_stone_02",
+        "vertices": 386,
+        "world_dimensions_m": [
+          0.195,
+          0.153,
+          0.075
+        ],
+        "center": [
+          -0.1296,
+          0.3982
+        ],
+        "origin_bottom": -0.0364
+      },
+      {
+        "id": "loose_stone_03",
+        "vertices": 599,
+        "world_dimensions_m": [
+          0.3,
+          0.156,
+          0.034
+        ],
+        "center": [
+          0.1626,
+          0.3958
+        ],
+        "origin_bottom": -0.0403
+      },
+      {
+        "id": "loose_stone_04",
+        "vertices": 667,
+        "world_dimensions_m": [
+          0.172,
+          0.14,
+          0.053
+        ],
+        "center": [
+          0.385,
+          0.3962
+        ],
+        "origin_bottom": -0.0364
+      },
+      {
+        "id": "fallen_leaves_01",
+        "vertices": 320,
+        "world_dimensions_m": [
+          0.16,
+          0.327,
+          0.033
+        ],
+        "center": [
+          -0.3784,
+          0.2083
+        ],
+        "origin_bottom": -0.0369
+      },
+      {
+        "id": "fallen_leaves_02",
+        "vertices": 275,
+        "world_dimensions_m": [
+          0.314,
+          0.306,
+          0.042
+        ],
+        "center": [
+          -0.1697,
+          0.2051
+        ],
+        "origin_bottom": -0.0369
+      },
+      {
+        "id": "fallen_leaves_03",
+        "vertices": 380,
+        "world_dimensions_m": [
+          0.209,
+          0.329,
+          0.045
+        ],
+        "center": [
+          0.1187,
+          0.2136
+        ],
+        "origin_bottom": -0.0383
+      },
+      {
+        "id": "fallen_twig_01",
+        "vertices": 178,
+        "world_dimensions_m": [
+          0.181,
+          0.272,
+          0.016
+        ],
+        "center": [
+          -0.3396,
+          -0.2451
+        ],
+        "origin_bottom": -0.0359
+      },
+      {
+        "id": "fallen_twig_02",
+        "vertices": 584,
+        "world_dimensions_m": [
+          0.327,
+          0.341,
+          0.014
+        ],
+        "center": [
+          -0.1558,
+          -0.2251
+        ],
+        "origin_bottom": -0.0359
+      },
+      {
+        "id": "fallen_twig_03",
+        "vertices": 237,
+        "world_dimensions_m": [
+          0.194,
+          0.259,
+          0.04
+        ],
+        "center": [
+          0.1147,
+          -0.2283
+        ],
+        "origin_bottom": -0.0374
+      },
+      {
+        "id": "fallen_branch_01",
+        "vertices": 197,
+        "world_dimensions_m": [
+          0.135,
+          0.098,
+          0.023
+        ],
+        "center": [
+          -0.354,
+          -0.4209
+        ],
+        "origin_bottom": -0.0374
+      },
+      {
+        "id": "fallen_branch_02",
+        "vertices": 381,
+        "world_dimensions_m": [
+          0.244,
+          0.115,
+          0.026
+        ],
+        "center": [
+          -0.1213,
+          -0.4177
+        ],
+        "origin_bottom": -0.0374
+      },
+      {
+        "id": "fallen_branch_03",
+        "vertices": 323,
+        "world_dimensions_m": [
+          0.259,
+          0.133,
+          0.041
+        ],
+        "center": [
+          0.0901,
+          -0.4041
+        ],
+        "origin_bottom": -0.0383
+      }
+    ],
+    "exported_meshes": 13,
+    "exported_images": 1
+  },
+  {
+    "source": "Meshy_AI_Forest_Floor_Elements_20261127_texture.glb",
+    "original_sha256": "30531abb0379898b75eb834aceb1d18df75a7ae34322afd5c00fdab64bb93c6c",
+    "group": "elements",
+    "output": "G:\\ChatGPT Projects\\Forests of Hell\\ForestsOfHellSource\\godot\\assets\\ground_cover\\elements.glb",
+    "materials": [
+      "Material_0"
+    ],
+    "source_component_count": 300,
+    "variants": [
+      {
+        "id": "mushroom_01",
+        "vertices": 363,
+        "world_dimensions_m": [
+          0.145,
+          0.146,
+          0.131
+        ],
+        "center": [
+          -0.3284,
+          0.4053
+        ],
+        "origin_bottom": -0.0676
+      },
+      {
+        "id": "mushroom_02",
+        "vertices": 765,
+        "world_dimensions_m": [
+          0.275,
+          0.142,
+          0.135
+        ],
+        "center": [
+          -0.1614,
+          0.3801
+        ],
+        "origin_bottom": -0.0676
+      },
+      {
+        "id": "mushroom_03",
+        "vertices": 554,
+        "world_dimensions_m": [
+          0.326,
+          0.145,
+          0.122
+        ],
+        "center": [
+          0.1677,
+          0.3586
+        ],
+        "origin_bottom": -0.0696
+      },
+      {
+        "id": "mushroom_04",
+        "vertices": 436,
+        "world_dimensions_m": [
+          0.158,
+          0.124,
+          0.119
+        ],
+        "center": [
+          0.3152,
+          0.3723
+        ],
+        "origin_bottom": -0.0676
+      },
+      {
+        "id": "moss_cluster_01",
+        "vertices": 91,
+        "world_dimensions_m": [
+          0.19,
+          0.333,
+          0.075
+        ],
+        "center": [
+          -0.3025,
+          0.2017
+        ],
+        "origin_bottom": -0.0671
+      },
+      {
+        "id": "moss_cluster_02",
+        "vertices": 84,
+        "world_dimensions_m": [
+          0.213,
+          0.197,
+          0.042
+        ],
+        "center": [
+          -0.0852,
+          0.1067
+        ],
+        "origin_bottom": -0.0681
+      },
+      {
+        "id": "moss_cluster_03",
+        "vertices": 138,
+        "world_dimensions_m": [
+          0.154,
+          0.338,
+          0.061
+        ],
+        "center": [
+          0.1106,
+          0.1719
+        ],
+        "origin_bottom": -0.0664
+      },
+      {
+        "id": "exposed_root_01",
+        "vertices": 245,
+        "world_dimensions_m": [
+          0.19,
+          0.314,
+          0.048
+        ],
+        "center": [
+          -0.26,
+          -0.2678
+        ],
+        "origin_bottom": -0.0676
+      },
+      {
+        "id": "exposed_root_02",
+        "vertices": 721,
+        "world_dimensions_m": [
+          0.274,
+          0.309,
+          0.061
+        ],
+        "center": [
+          -0.0491,
+          -0.2651
+        ],
+        "origin_bottom": -0.0715
+      },
+      {
+        "id": "exposed_root_03",
+        "vertices": 565,
+        "world_dimensions_m": [
+          0.258,
+          0.18,
+          0.028
+        ],
+        "center": [
+          0.1748,
+          -0.1855
+        ],
+        "origin_bottom": -0.0706
+      },
+      {
+        "id": "pinecone_01",
+        "vertices": 480,
+        "world_dimensions_m": [
+          0.071,
+          0.092,
+          0.084
+        ],
+        "center": [
+          -0.2803,
+          -0.4285
+        ],
+        "origin_bottom": -0.0662
+      },
+      {
+        "id": "pinecone_02",
+        "vertices": 950,
+        "world_dimensions_m": [
+          0.223,
+          0.101,
+          0.092
+        ],
+        "center": [
+          -0.1763,
+          -0.4258
+        ],
+        "origin_bottom": -0.0706
+      }
+    ],
+    "exported_meshes": 12,
+    "exported_images": 3
+  }
+]

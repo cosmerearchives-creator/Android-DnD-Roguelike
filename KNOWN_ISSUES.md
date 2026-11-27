@@ -31,3 +31,9 @@ Godot 4.5.1 on Stormfather: `--headless --path ... --quit-after` main-scene boot
 - Android device FPS and GPU impact of six neighboring sampled textures not benchmarked. Windows GTX1080Ti graphical smoke passes.
 - Equipment UI displays actual character and implemented stats only; unimplemented six-ability-score values/proficiencies show absent/unrecorded, and Quest/Mats tabs don't fabricate unavailable game content. World Drop and Use disabled pending real persistent-world item behavior; Compare is preliminary name/weight.
 - Custom ornate styling closely follows references structurally but not pixel-for-pixel; mobile UI retains portrait orientation and uses the same ornamental skin. Verify on target Android hardware.
+
+## v0.3.193 unresolved ground-cover and tile matters
+- **Missing four short-grass variants:** the provided ground-plants GLBs contain tall grasses, ferns and broadleaf foliage but nothing confidently classifiable as four short-grass clusters. Do not silently substitute other categories. Request appropriate source sheet later.
+- Some pale beige moss-like pieces and green/white-edged broadleaf models from generated sources look less natural than the target; original geometry and maps retained faithfully, should replace with better inputs rather than fabricate corrections.
+- Ground tiles still show square grid seam edges in Godot screenshot despite world-space edge sampling, rim elevation matching and added scatter. Per-model UV atlas is non-seamless; future continuous mesh + derived topdown/world-space texture blending likely needed. Overlay strips were tested and rejected due worse visual grid.
+- Android device memory/FPS and alpha/material artifacts of 40 concurrent MultiMesh types / 1,666 visible placements have not been measured; smaller area-specific streaming or culling may be appropriate later without reducing texture fidelity.

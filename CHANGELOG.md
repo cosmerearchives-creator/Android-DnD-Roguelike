@@ -40,3 +40,8 @@ See `docs/inventory-tabs-and-spawn.md`, `docs/forest-bestiary-roaming.md`, `docs
 - Saved fullscreen/window position/size and first-/third-person camera perspective and zoom/FOV.
 - Inventory now truly pauses world/AI/clock; resumes on close.
 - Added ornate 4-tab equipment/item/material/quest UI with actual player model, actual quest progress, 15 equipment slots and save migration for Secondary, new tests and documentation.
+
+## v0.3.193 — 2026-11-27
+- Imported 4 original high-resolution forest-clutter sheets as 48 separated named variants, preserving full-res PBR image bytes and moving originals to Beastiary Review.
+- Added 40 active biome-aware instanced clutter types (1,666 decorative placements): grasses, ferns, plants, rocks, leaves, twigs, branches, mushrooms, moss-like growth, roots, pinecones; 8 extra broadleaf variants retained and 4 requested short-grass models remain missing.
+- Matched irregular terrain mesh rim elevation and lightly normalized same-type tile edge albedos via world coordinates while retaining per-material blend slider and original tile interiors. Added source/checksum/regression gates and PC visual review.
