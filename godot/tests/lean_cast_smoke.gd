@@ -17,8 +17,8 @@ func _run() -> void:
     for item in [
         {"label":"Human","path":"res://assets/human_adventurer.glb","min_bones":55},
         {"label":"Goblin","path":"res://assets/goblin_warrior.glb","min_bones":18},
-        {"label":"Male Human","path":"res://assets/male_human.glb","min_bones":20},
-        {"label":"Twig Blight","path":"res://assets/twig_blight.glb","min_bones":20}
+        {"label":"Male Human","path":"res://assets/male_human.glb","min_bones":60},
+        {"label":"Twig Blight","path":"res://assets/twig_blight.glb","min_bones":28}
     ]:
         var source: PackedScene = load(item.path)
         if source == null:
@@ -31,6 +31,30 @@ func _run() -> void:
         if skeleton == null or player == null or int(player.get_meta("mapped_bones")) < int(item.min_bones):
             _fail("No compatible humanoid retargeting for " + str(item.label))
             return
+        # Import acceptance is now anatomy-based, not a low bone count.
+        if item.label != "Human":
+            var source_scene: Node3D = load("res://assets/humanoid_mixamo_animation_library.glb").instantiate()
+            var origin := Shared.find_skeleton(source_scene)
+            var mapping := Shared._build_mapping(origin, skeleton)
+            var validation := Shared.validate_humanoid(origin, skeleton, mapping)
+            if not validation.valid:
+                _fail("Import gate failed for " + str(item.label) + ": " + str(validation.missing))
+                return
+            if item.label == "Male Human":
+                if int(validation.mapped) < 60 or int(validation.fingers) < 30:
+                    _fail("Male custom articulated fingers were dropped")
+                    return
+                for side in ["Left", "Right"]:
+                    var actual := Shared._actual_hand_root(skeleton, side)
+                    var nominal := Shared._named_bone(skeleton, side + "Hand")
+                    if actual == nominal or Shared._custom_finger_mapping(skeleton, side).size() < 15:
+                        _fail("Male humanoid still targets dummy hands")
+                        return
+            if item.label == "Twig Blight":
+                if skeleton.get_bone_count() != 28 or int(validation.mapped) != 28:
+                    _fail("Twig Blight 28-bone skeleton was modified or lost its coverage")
+                    return
+            source_scene.free()
         for clip in ["Idle","Walking","Running","Attack","Push","Crossbow","Attack_Claw_01_BackSwipe"]:
             if not player.has_animation(clip):
                 _fail(str(item.label) + " lacks " + clip)

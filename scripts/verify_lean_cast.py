@@ -39,6 +39,8 @@ assert "Axe_Spin_Attack" in [a["name"] for a in goblin.get("animations", [])]
 assert len(shared.get("animations", [])) == 20
 assert len(gltf_info("male_human.glb").get("skins", [])) == 1
 assert len(gltf_info("twig_blight.glb").get("skins", [])) == 1
+assert len(gltf_info("twig_blight.glb")["skins"][0]["joints"]) == 28
+assert len(gltf_info("male_human.glb")["skins"][0]["joints"]) == 84
 assert "Shield_Push_Left" in [a["name"] for a in gltf_info("twig_blight.glb")["animations"]]
 assert len(beetle.get("skins", [])) == 1
 asset_total = sum(p.stat().st_size for p in assets.iterdir() if p.is_file())
