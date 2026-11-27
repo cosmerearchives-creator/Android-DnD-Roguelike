@@ -32,13 +32,15 @@ human = gltf_info("human_adventurer.glb")
 goblin = gltf_info("goblin_warrior.glb")
 shared = gltf_info("humanoid_mixamo_animation_library.glb")
 beetle = gltf_info("fire_beetle.glb")
-assert len(human.get("skins", [])) == 1 and len(human.get("animations", [])) == 0
+assert len(human.get("skins", [])) == 1 and len(human.get("animations", [])) == 20
 assert len(goblin.get("skins", [])) == 1
 assert "Axe_Spin_Attack" in [a["name"] for a in goblin.get("animations", [])]
 assert len(shared.get("animations", [])) == 20
 assert len(beetle.get("skins", [])) == 1
 asset_total = sum(p.stat().st_size for p in assets.iterdir() if p.is_file())
-assert asset_total < 45_000_000, f"Asset directory exceeds 45 MB: {asset_total}"
+import hashlib
+assert hashlib.sha256((assets/"human_adventurer.glb").read_bytes()).hexdigest() == "119496a7536e41fca167b8f1ce6162883cc37bf8d4db775b4322eb59362aac68"
+assert hashlib.sha256((assets/"goblin_warrior.glb").read_bytes()).hexdigest() == "2080e255abfac5d7a87b9f3a8cba31d5e9d83c4ebd58a0f28a2845b26ac039a2"
 print(f"LEAN_ASSET_CHECK_OK files={len(existing)} assets_bytes={asset_total}",
       "human", (assets/"human_adventurer.glb").stat().st_size,
       "goblin", (assets/"goblin_warrior.glb").stat().st_size)

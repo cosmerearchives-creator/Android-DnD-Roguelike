@@ -135,7 +135,7 @@ func _ready() -> void:
     status = _text("Loading shared library…", 20)
     status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
     layout.add_child(status)
-    layout.add_child(_text("Drag to rotate • Scroll or pinch to zoom • All motions play in place", 18))
+    layout.add_child(_text("Drag to rotate • Scroll or pinch to zoom • Human uses original motion", 18))
     _load_target(0)
     if clip_picker.item_count > 0:
         var initial := _index_of_clip("Walking")

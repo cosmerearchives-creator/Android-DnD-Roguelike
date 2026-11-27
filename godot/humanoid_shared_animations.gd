@@ -75,6 +75,35 @@ static func attach(model: Node3D, in_place: bool = true) -> AnimationPlayer:
     var destination := find_skeleton(model)
     if destination == null:
         return null
+    # The canonical human already contains the original animation tracks.
+    # Copy the native library and preserve its root path, keys and track types.
+    var native := find_animator(model)
+    if native != null and native.has_animation("Walking") and native.has_animation("Crossbow"):
+        var direct := AnimationPlayer.new()
+        direct.name = "SharedHumanoidAnimations"
+        model.add_child(direct)
+        direct.root_node = direct.get_path_to(native.get_node(native.root_node))
+        for lib_name in native.get_animation_library_list():
+            direct.add_animation_library(lib_name, native.get_animation_library(lib_name))
+        var idle_library := AnimationLibrary.new()
+        var idle := Animation.new()
+        idle.length = 1.5
+        idle.loop_mode = Animation.LOOP_LINEAR
+        var walk := native.get_animation("Walking")
+        for i in walk.get_track_count():
+            if walk.track_get_key_count(i) == 0: continue
+            var idx := idle.add_track(walk.track_get_type(i))
+            idle.track_set_path(idx, walk.track_get_path(i))
+            idle.track_insert_key(idx, 0.0, walk.track_get_key_value(i, 0))
+        # Keep native library untouched by adding the synthetic idle to a copy.
+        var base := direct.get_animation_library("").duplicate() as AnimationLibrary
+        base.add_animation("Idle", idle)
+        direct.remove_animation_library("")
+        direct.add_animation_library("", base)
+        direct.set_meta("mapped_bones", destination.get_bone_count())
+        direct.set_meta("native_reference", true)
+        native.stop()
+        return direct
     var source_instance := SOURCE.instantiate()
     var origin := find_skeleton(source_instance)
     var source_player := find_animator(source_instance)
