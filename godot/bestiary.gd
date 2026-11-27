@@ -22,6 +22,25 @@ const ENTRIES = [{
 	]
 }]
 const GOBLINS = preload("res://goblin_variants.gd")
+const FIRE_BEETLE = {
+    "name": "Fire Beetle",
+    "asset": "res://assets/fire_beetle.glb",
+    "subtitle": "Small beast, unaligned",
+    "details": [
+        ["Size", "Small"], ["Creature type", "Beast"], ["Alignment", "Unaligned"],
+        ["Armor class", "13 (natural armor)"], ["Hit points", "4 (1d6 + 1)"],
+        ["Speed", "30 ft."], ["STR / DEX / CON", "8 (-1) / 10 (+0) / 12 (+1)"],
+        ["INT / WIS / CHA", "1 (-5) / 7 (-2) / 3 (-4)"],
+        ["Senses", "Blindsight 30 ft., passive Perception 8"],
+        ["Languages", "None"], ["Challenge rating", "0 (10 XP)"]
+    ],
+    "abilities": [
+        ["Illumination", "The beetle sheds bright light in a 10-foot radius and dim light for an additional 10 feet."]
+    ],
+    "attacks": [
+        ["Bite", "Melee Weapon Attack: +1 to hit, reach 5 ft., one target. Hit: 2 (1d6 - 1) slashing damage."]
+    ]
+}
 const WALK_COMPARISON := "res://assets/classic_study_shared_walk.glb"
 const GOLD := Color("#cfb576")
 const PALE := Color("#f3dfb8")
@@ -40,6 +59,9 @@ var comparison_button: Button
 var showing_comparison := false
 var variant_index := 0
 var variant_picker: OptionButton
+var creature_picker: OptionButton
+var stats_content: VBoxContainer
+var active_creature := "Goblin"
 
 func _panel() -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
@@ -164,6 +186,14 @@ func _ready() -> void:
 	comparison_button = _button("Compare Walk on Classic Study", _toggle_walk_comparison)
 	comparison_button.custom_minimum_size.y = 44
 	preview_stack.add_child(comparison_button)
+	creature_picker = OptionButton.new()
+	creature_picker.custom_minimum_size.y = 48
+	creature_picker.add_theme_font_override("font", SERIF)
+	creature_picker.add_theme_font_size_override("font_size", 23)
+	creature_picker.add_item("Goblin")
+	creature_picker.add_item("Fire Beetle")
+	creature_picker.item_selected.connect(_select_creature)
+	preview_stack.add_child(creature_picker)
 	variant_picker = OptionButton.new()
 	variant_picker.custom_minimum_size.y = 44
 	variant_picker.add_theme_font_override("font", SERIF)
@@ -181,19 +211,50 @@ func _ready() -> void:
 	var scroll := ScrollContainer.new()
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	stats_panel.add_child(scroll)
-	var contents := VBoxContainer.new()
-	contents.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	contents.add_theme_constant_override("separation", 9)
-	scroll.add_child(contents)
-	contents.add_child(_label("GOBLIN ATTRIBUTES", 29, true))
+	stats_content = VBoxContainer.new()
+	stats_content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	stats_content.add_theme_constant_override("separation", 9)
+	scroll.add_child(stats_content)
+	_render_stats(ENTRIES[0])
+
+func _render_stats(entry: Dictionary) -> void:
+	for child in stats_content.get_children():
+		stats_content.remove_child(child)
+		child.queue_free()
+	stats_content.add_child(_label("GOBLIN ATTRIBUTES" if active_creature == "Goblin" else "FIRE BEETLE ATTRIBUTES", 29, true))
 	for line in entry.details:
-		_add_stat(contents, line[0], line[1])
-	contents.add_child(_label("SPECIAL ABILITIES", 29, true))
+		_add_stat(stats_content, line[0], line[1])
+	stats_content.add_child(_label("SPECIAL ABILITIES", 29, true))
 	for line in entry.abilities:
-		_add_description(contents, line[0], line[1])
-	contents.add_child(_label("ATTACKS", 29, true))
+		_add_description(stats_content, line[0], line[1])
+	stats_content.add_child(_label("ATTACKS", 29, true))
 	for line in entry.attacks:
-		_add_description(contents, line[0], line[1])
+		_add_description(stats_content, line[0], line[1])
+
+func _select_creature(index: int) -> void:
+	if index == 1:
+		if not _load_creature(FIRE_BEETLE.asset, "Walk"):
+			creature_picker.select(0)
+			return
+		active_creature = "Fire Beetle"
+		preview_title.text = FIRE_BEETLE.name
+		preview_subtitle.text = FIRE_BEETLE.subtitle
+		variant_picker.hide()
+		comparison_button.hide()
+		preview_controls.visible = false
+		_render_stats(FIRE_BEETLE)
+	else:
+		var variant: Dictionary = GOBLINS.ENTRIES[variant_index]
+		if not _load_creature(variant.asset):
+			creature_picker.select(1)
+			return
+		active_creature = "Goblin"
+		preview_title.text = variant.name
+		preview_subtitle.text = variant.get("credit", ENTRIES[0].subtitle)
+		variant_picker.show()
+		comparison_button.visible = variant_index == 0
+		preview_controls.visible = preview_animator != null
+		_render_stats(ENTRIES[0])
 
 func _add_stat(parent: VBoxContainer, name: String, value: String) -> void:
 	var line := HBoxContainer.new()
@@ -211,6 +272,8 @@ func _add_description(parent: VBoxContainer, name: String, description: String) 
 	parent.add_child(_label(description, 20))
 
 func _select_goblin_variant(index: int) -> void:
+	if active_creature != "Goblin":
+		return
 	var variant: Dictionary = GOBLINS.ENTRIES[index]
 	if not _load_creature(variant.asset):
 		variant_picker.select(variant_index)
