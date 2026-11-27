@@ -140,7 +140,7 @@ func _ready() -> void:
     layout.add_child(_text("Drag to rotate • Scroll or pinch to zoom • Human uses original motion", 18))
     _load_target(0)
     if clip_picker.item_count > 0:
-        var initial := _index_of_clip("Walking")
+        var initial := _index_of_clip("Movement_WalkFemale_01_Standard")
         clip_picker.select(initial)
         _play_clip(initial)
 
@@ -150,7 +150,9 @@ func _all_clips() -> PackedStringArray:
     var originals := animator.get_animation_list() if animator else PackedStringArray()
     var names := PackedStringArray()
     for original in originals:
-        names.append(SHARED.canonical_clip_name(original))
+        for alias_name in SHARED.canonical_clip_names(original):
+            names.append(alias_name)
+    names.sort()
     source.free()
     return names
 

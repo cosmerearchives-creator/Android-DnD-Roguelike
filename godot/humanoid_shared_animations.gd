@@ -13,17 +13,43 @@ const CANONICAL_NAMES := {
     "Attack": "Attack_MeleeTwoHanded_01_OverheadSmash",
     "Cowboy_Quick_Draw_Shooting": "Unused_Attack_FirearmOneHanded_01_QuickDraw",
     "Crossbow": "Attack_CrossbowTwoHanded_01_Standard",
+    "LAy_Down": "Action_Sleep_01_Standard",
+    "Left_Jab_from_Guard": "Attack_Unarmed_01_LeftJab",
+    "Regular_Jump": "Movement_Jump_01_Standard",
+    "Right_Hand_Sword_Slash": "Attack_MeleeOneHanded_01_Standard",
+    "Self_Cast": "Cast_Self_01_Standard",
+    "Sneaky_Walk": "Movement_Sneak_01_Standard",
+    "Step_in_High_Kick": "Attack_Unarmed_02_HighKick",
+    "Talk_with_Left_Hand_on_Hip": "Pending_Action_Talk_01_HandOnHip",
+    "Throw": "Pending_Attack_Throw_01_Heavy",
+    "Walking": "Movement_WalkMale_01_Standard",
+    "Walking_Woman": "Movement_WalkFemale_01_Standard",
+    "_1_hand_cast": "Cast_RangedWeakOneHanded_01_Standard",
+    "pick_up": "Pending_Action_PickUp_01_Standard",
 }
 
 static func canonical_clip_name(original: String) -> String:
     return CANONICAL_NAMES.get(original, original)
 
+static func canonical_clip_names(original: String) -> PackedStringArray:
+    if original == "Left_Jab_from_Guard":
+        # One original clip intentionally serves both unarmed and claw attacks.
+        return PackedStringArray(["Attack_Unarmed_01_LeftJab", "Attack_Claw_02_Stab"])
+    return PackedStringArray([canonical_clip_name(original)])
+
+static func gameplay_walk_clip(model: String) -> String:
+    return "Movement_WalkFemale_01_Standard" if model == "human_adventurer" else "Movement_WalkMale_01_Standard"
+
 static func _add_canonical_names(library: AnimationLibrary) -> void:
     for original in CANONICAL_NAMES:
-        if library.has_animation(original) and not library.has_animation(CANONICAL_NAMES[original]):
-            # Copies only animation resources, never modifies native source tracks.
-            library.add_animation(CANONICAL_NAMES[original],
-                library.get_animation(original).duplicate(true) as Animation)
+        if not library.has_animation(original):
+            continue
+        for alias_name in canonical_clip_names(original):
+            if not library.has_animation(alias_name):
+                # Preserve original source names and tracks; separate aliases
+                # may intentionally reference the same authored motion.
+                library.add_animation(alias_name,
+                    library.get_animation(original).duplicate(true) as Animation)
 const ALIASES := {
     "Hips": ["Hips"], "Spine": ["Spine"], "Spine1": ["Chest", "Spine1"],
     "Spine2": ["UpperChest", "Spine2"], "Neck": ["Neck"], "Head": ["Head"],

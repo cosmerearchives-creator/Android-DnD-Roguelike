@@ -126,7 +126,7 @@ func _run() -> void:
     var lab: Control = load("res://humanoid_animation_lab.tscn").instantiate()
     get_root().add_child(lab)
     await process_frame
-    if lab.shared_player == null or lab.clip_picker.item_count != 20:
+    if lab.shared_player == null or lab.clip_picker.item_count != 21:
         _fail("Human animation lab missing shared library")
         return
     lab._load_target(1)
@@ -135,6 +135,30 @@ func _run() -> void:
         return
     if lab._index_of_clip("Attack_CrossbowTwoHanded_01_Standard") == 0:
         _fail("Canonical crossbow animation missing from humanoid lab")
+        return
+    # Alphabetical order; Left Jab is deliberately listed twice.
+    var labels: Array[String] = []
+    for index in lab.clip_picker.item_count:
+        labels.append(str(lab.clip_picker.get_item_metadata(index)))
+    var sorted_labels := labels.duplicate()
+    sorted_labels.sort()
+    if labels != sorted_labels:
+        _fail("Humanoid animation picker not alphabetized")
+        return
+    for required_clip in [
+            "Action_Sleep_01_Standard", "Attack_Claw_02_Stab",
+            "Attack_Unarmed_01_LeftJab", "Movement_Jump_01_Standard",
+            "Movement_Sneak_01_Standard", "Attack_Unarmed_02_HighKick",
+            "Attack_MeleeOneHanded_01_Standard", "Cast_Self_01_Standard",
+            "Cast_RangedWeakOneHanded_01_Standard",
+            "Pending_Action_Talk_01_HandOnHip", "Pending_Attack_Throw_01_Heavy",
+            "Pending_Action_PickUp_01_Standard",
+            "Movement_WalkMale_01_Standard", "Movement_WalkFemale_01_Standard"]:
+        if required_clip not in labels or not lab.shared_player.has_animation(required_clip):
+            _fail("Renamed animation missing: " + required_clip)
+            return
+    if Shared.gameplay_walk_clip("human_adventurer") != "Movement_WalkFemale_01_Standard" or Shared.gameplay_walk_clip("male_human") != "Movement_WalkMale_01_Standard":
+        _fail("Walk animation model selection broken")
         return
     lab._play_clip(lab._index_of_clip("Attack_CrossbowTwoHanded_01_Standard"))
     lab.queue_free()
@@ -189,6 +213,41 @@ func _run() -> void:
         return
     for state in ["idle","walk","run","attack"]:
         world.play_imported_animation(state)
+    if world.TEST_JUMP_COOLDOWN_SECONDS != 1.0 or world.RUN_STICK_THRESHOLD <= 0.85:
+        _fail("Jump or running stick threshold missing")
+        return
+    if world.enemies.MAX_ENEMIES < 16 or world.enemies.SPAWN_INTERVAL > 5.0:
+        _fail("Increased spawn frequency not applied")
+        return
+    world.hud_action("Crouch")
+    if not world.sneaking or not world.hud.toggles.get("Crouch", false):
+        _fail("Sneak toggle does not engage")
+        return
+    world.hud_action("Crouch")
+    if world.sneaking:
+        _fail("Sneak toggle does not disengage")
+        return
+    # Confirm real ground contact and jump action; failing to find the floor
+    # is a test setup error, not permission to skip the jump regression.
+    world.player.global_position = Vector3(0, 0.95, 0)
+    world.player.velocity = Vector3(0, -0.1, 0)
+    for tick in 20:
+        world.player.velocity.y -= 9.8 / 60.0
+        world.player.move_and_slide()
+        if world.player.is_on_floor():
+            break
+    if not world.player.is_on_floor():
+        _fail("Jump test could not establish ground contact")
+        return
+    world.hud_action("Jump")
+    if absf(world.jump_cooldown - 1.0) > 0.0001 or world.player.velocity.y <= 0.0:
+        _fail("Jump input missing upward impulse/cooldown")
+        return
+    var jump_y: float = world.player.velocity.y
+    world.hud_action("Jump")
+    if absf(jump_y - world.player.velocity.y) > 0.0001:
+        _fail("Jump cooldown bypassed")
+        return
     world.action("Attack")
     if absf(world.attack - 1.0) > 0.0001:
         _fail("Attack cooldown must be exactly 1 second during testing")
@@ -204,6 +263,21 @@ func _run() -> void:
             found = mob.animator.has_animation("Walking")
     if not found:
         _fail("Enemy goblin not using shared walk")
+        return
+    var goblin_offset_ok := false
+    for mob in world.enemies.mobs:
+        if mob.kind == "Goblin Warrior":
+            var goblin_visual := mob.body.get_node_or_null("CharacterVisual") as Node3D
+            goblin_offset_ok = goblin_visual != null and absf(absf(goblin_visual.rotation.y) - PI) < 0.001
+            if goblin_visual != null:
+                for direction in [Vector3.FORWARD, Vector3.BACK, Vector3.LEFT, Vector3.RIGHT]:
+                    mob.body.rotation.y = atan2(-direction.x,-direction.z)
+                    var facing := -goblin_visual.global_transform.basis.z
+                    if facing.normalized().dot(direction) > -0.99:
+                        goblin_offset_ok = false
+            break
+    if not goblin_offset_ok:
+        _fail("Goblin imported mesh still facing backward during movement")
         return
     world.enemies._spawn("res://assets/twig_blight.glb", "Twig Blight")
     var twig_found := false

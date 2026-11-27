@@ -8,8 +8,16 @@ var camera: Camera3D
 var stick := Vector2.ZERO
 var touch_id := -1
 const TEST_ATTACK_COOLDOWN_SECONDS := 1.0
+const TEST_JUMP_COOLDOWN_SECONDS := 1.0
+const JUMP_VELOCITY := 4.8
+const SNEAK_SPEED_FACTOR := 0.5
+const RUN_STICK_THRESHOLD := 0.92
+const WALK_SPEED := 30.0 * FOOT / 6.0
 var attack := 0.0
+var jump_cooldown := 0.0
+var jump_animation_left := 0.0
 var running := false
+var sneaking := false
 var yaw := 0.0
 var camera_angle := 60.0
 var angle_button: Button
@@ -235,6 +243,11 @@ func hud_action(name: String):
 		menu_panel.visible = not menu_panel.visible
 		stick = Vector2.ZERO
 	elif name == "Attack": action("Attack")
+	elif name == "Jump": action("Jump")
+	elif name == "Crouch":
+		sneaking = not sneaking
+		hud.toggles["Crouch"] = sneaking
+		hud.queue_redraw()
 	elif name == "Inventory": toggle_inventory()
 	elif name == "Pause":
 		menu_panel.show()
@@ -253,10 +266,10 @@ func play_imported_animation(state: String) -> void:
 	var animator := visual.get_node_or_null("SharedHumanoidAnimations") as AnimationPlayer
 	if animator == null: animator = SHARED.attach(visual)
 	if animator == null: return
-	var clip := "Running" if state == "run" else "Walking" if state == "walk" else "Attack_MeleeTwoHanded_01_OverheadSmash" if state == "attack" else "Idle"
+	var clip := "Running" if state == "run" else SHARED.gameplay_walk_clip(MODELS[model_index]) if state == "walk" else "Movement_Sneak_01_Standard" if state == "sneak" else "Movement_Jump_01_Standard" if state == "jump" else "Attack_MeleeTwoHanded_01_OverheadSmash" if state == "attack" else "Idle"
 	if not animator.has_animation(clip): return
 	var resource := animator.get_animation(clip)
-	animator.speed_scale = resource.length / 0.5 if state == "attack" else 1.0
+	animator.speed_scale = resource.length / 0.5 if state == "attack" else resource.length / 0.65 if state == "jump" else 1.0
 	if animator.assigned_animation == clip and animator.is_playing(): return
 	animator.play(clip)
 func toggle_angle():
@@ -265,23 +278,36 @@ func toggle_angle():
 func action(title: String):
 	if title == "Run": running = not running
 	elif title == "Turn": yaw += PI/4
-	elif attack <= 0:
+	elif title == "Jump":
+		if jump_cooldown <= 0.0 and player.is_on_floor():
+			jump_cooldown = TEST_JUMP_COOLDOWN_SECONDS
+			jump_animation_left = 0.65
+			player.velocity.y = JUMP_VELOCITY
+	elif title == "Attack" and attack <= 0:
 		attack = TEST_ATTACK_COOLDOWN_SECONDS
 		punch_left = 0.5
 		if is_instance_valid(enemies):
 			enemies.defeat_nearest(5*FOOT)
 func _physics_process(dt):
 	var direction := Vector3(stick.x,0,stick.y).rotated(Vector3.UP,yaw)
+	var stick_running := stick.length() >= RUN_STICK_THRESHOLD
+	var is_running := (running or stick_running) and not sneaking
 	var vertical := player.velocity.y
-	player.velocity = direction * (30*FOOT/6) * (2 if running else 1)
-	player.velocity.y = -0.5 if player.is_on_floor() else vertical - 9.8*dt
+	var speed_multiplier := SNEAK_SPEED_FACTOR if sneaking else 2.0 if is_running else 1.0
+	player.velocity.x = direction.x * WALK_SPEED * speed_multiplier
+	player.velocity.z = direction.z * WALK_SPEED * speed_multiplier
+	player.velocity.y = -0.5 if player.is_on_floor() and vertical <= 0.0 else vertical - 9.8*dt
 	player.move_and_slide()
-	if direction.length() > 0.1: player.rotation.y = atan2(direction.x,direction.z)
-	if punch_left > 0.0:
+	if direction.length() > 0.1:
+		player.rotation.y = atan2(direction.x,direction.z)
+	if jump_animation_left > 0.0:
+		play_imported_animation("jump")
+		jump_animation_left = maxf(0.0, jump_animation_left - dt)
+	elif punch_left > 0.0:
 		play_imported_animation("attack")
 		punch_left = maxf(0.0, punch_left - dt)
 	else:
-		play_imported_animation("run" if running and direction.length() > 0.1 else "walk" if direction.length() > 0.1 else "idle")
+		play_imported_animation("sneak" if sneaking else "run" if is_running and direction.length() > 0.1 else "walk" if direction.length() > 0.1 else "idle")
 	var pitch := deg_to_rad(camera_angle)
 	camera.position = player.position + Vector3(0,20*sin(pitch),20*cos(pitch)).rotated(Vector3.UP,yaw)
 	camera.rotation = Vector3(-pitch, yaw, 0)
@@ -294,5 +320,6 @@ func _physics_process(dt):
 		camera.v_offset = 0.0
 		var projected_y := camera.unproject_position(player.position + Vector3.UP * 0.85).y
 		camera.v_offset = (target_y - projected_y) * camera.size / view_height
-	attack = maxf(0,attack-dt)
+	attack = maxf(0.0, attack-dt)
+	jump_cooldown = maxf(0.0, jump_cooldown-dt)
 

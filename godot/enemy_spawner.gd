@@ -7,8 +7,15 @@ const SHARED = preload("res://humanoid_shared_animations.gd")
 const BEETLE = "res://assets/fire_beetle.glb"
 const TWIG_BLIGHT = "res://assets/twig_blight.glb"
 const SPAWNTEST_KINDS := ["Fire Beetle"]
-const MAX_ENEMIES := 8
-const SPAWN_INTERVAL := 11.0
+const MAX_ENEMIES := 18
+const SPAWN_INTERVAL := 4.0
+const STARTING_POPULATION := 9
+# Native GLBs face their mesh's +Z axis, whereas the world movement
+# code used to turn them as though their forward axis were -Z.
+# Apply the correction only to their *visuals*, not collision bodies.
+const VISUAL_FORWARD_OFFSETS := {
+    "Goblin Warrior": PI
+}
 const MAX_RANGE := 37.0
 const SPAWN_MIN := 14.0
 const SPAWN_MAX := 30.0
@@ -36,9 +43,10 @@ func _initial_spawn() -> void:
 	# Guarantee a visible population to test both imports on every fresh map.
 	_spawn(BEETLE, "Fire Beetle")
 	_spawn(TWIG_BLIGHT, "Twig Blight")
-	_spawn_random()
+	for index in STARTING_POPULATION - 2:
+		_spawn_random()
 	initial_population = true
-	spawn_clock = -5.0
+	spawn_clock = 0.0
 
 func _spawn_random() -> void:
 	var kinds: Array = GOBLINS.ENTRIES
@@ -128,6 +136,7 @@ func _spawn(path: String, kind: String) -> void:
 	var mesh := scene.instantiate() as Node3D
 	mesh.name = "CharacterVisual"
 	body.add_child(mesh)
+	mesh.rotation.y = VISUAL_FORWARD_OFFSETS.get(kind, 0.0)
 	var bounds := _skeletal_bounds(mesh,Transform3D.IDENTITY) if kind == "Fire Beetle" else _bounds(mesh,Transform3D.IDENTITY)
 	var desired_height := 0.52 if kind == "Fire Beetle" else 1.15 if kind == "Twig Blight" else 1.22
 	var minimum_span := 0.0000001 if kind == "Fire Beetle" else 0.01
