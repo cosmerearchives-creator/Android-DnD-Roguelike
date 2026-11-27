@@ -21,26 +21,37 @@ func _run() -> void:
 	for entry in list:
 		spawner.scenes[str(entry.asset)]=packed
 	spawner.scenes[spawner.BEETLE]=packed
+	spawner.scenes[spawner.TWIG_BLIGHT]=packed
 	spawner.setup(hero)
 	await process_frame
 	await process_frame
-	if spawner.mobs.size()!=1:
-		printerr("Initial spawn count expected 1, got ",spawner.mobs.size())
+	if spawner.mobs.size()!=0 or spawner.initial_remaining!=spawner.STARTING_POPULATION:
+		printerr("Spawn queue should be scheduled, not created in one frame.")
 		quit(3);return
-	var target_count:=5
-	while spawner.mobs.size()<target_count:
-		spawner._spawn_random()
-		if spawner.mobs.size()==target_count:break
-	for i in range(spawner.mobs.size()):
-		var position:Vector3=spawner.mobs[i].body.global_position
+	var previous := 0
+	var spawn_points: Array[Vector3] = []
+	for step in range(spawner.STARTING_POPULATION):
+		spawner._physics_process(spawner.INITIAL_SPAWN_INTERVAL + 0.01)
+		if spawner.mobs.size()-previous > 1:
+			printerr("Startup creates multiple creatures in one frame")
+			quit(3);return
+		if spawner.mobs.size() > previous:
+			spawn_points.append(spawner.mobs.back().body.global_position)
+		previous=spawner.mobs.size()
+	if spawner.initial_remaining!=0 or spawner.mobs.size()<5:
+		printerr("Startup queue did not finish",spawner.initial_remaining,spawner.mobs.size())
+		quit(3);return
+	# Validate the creation points, not current positions after AI movement.
+	for i in range(spawn_points.size()):
+		var position:Vector3=spawn_points[i]
 		var distance:float=position.distance_to(hero.global_position)
 		if distance<spawner.SPAWN_MIN-.1 or distance>spawner.SPAWN_MAX+.1:
 			printerr("Enemy spawned in unsafe distance ",distance)
 			quit(4);return
 		for j in range(i):
-			var other:Vector3=spawner.mobs[j].body.global_position
+			var other:Vector3=spawn_points[j]
 			if other.distance_to(position)<7.4:
 				printerr("Enemies are clustered at spawn ",other,position)
 				quit(5);return
-	print("ENEMY_SPAWN_SMOKE_OK initial=1 count=",spawner.mobs.size(),"range=",spawner.SPAWN_MIN,"-",spawner.SPAWN_MAX)
+	print("ENEMY_SPAWN_SMOKE_OK staggered count=",spawner.mobs.size(),"range=",spawner.SPAWN_MIN,"-",spawner.SPAWN_MAX)
 	quit(0)

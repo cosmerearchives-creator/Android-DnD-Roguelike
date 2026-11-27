@@ -77,6 +77,7 @@ jobs:
         run: |
           godot --headless --path godot --editor --import
           godot --headless --path godot --script res://tests/lean_cast_smoke.gd
+          godot --headless --path godot --script res://tests/enemy_spawn_smoke.gd
           godot --headless --path godot --script res://tests/inventory_smoke.gd
           godot --headless --path godot --script res://tests/inventory_tabs_smoke.gd
           FOH_TEST_PC=1 godot --headless --path godot --script res://tests/pc_platform_smoke.gd

@@ -68,25 +68,31 @@ func _run() -> void:
 		_fail("Third-person toggle failed to restore original mesh")
 		return
 	print("PC_FIRST_PERSON_VISIBLE_BODY_OK")
-	var right := InputEventMouseButton.new()
-	right.button_index = MOUSE_BUTTON_RIGHT
-	right.pressed = true
-	world._unhandled_input(right)
+	if not world.mouse_looking:
+		_fail("PC camera should capture mouse immediately, without right-click")
+		return
 	var motion := InputEventMouseMotion.new()
 	motion.relative = Vector2(30,25)
 	var old_yaw: float = world.camera_yaw
 	var old_pitch: float = world.camera_pitch
 	world._unhandled_input(motion)
 	if is_equal_approx(world.camera_yaw,old_yaw) or is_equal_approx(world.camera_pitch,old_pitch):
-		_fail("Right mouse drag did not rotate yaw and camera pitch")
+		_fail("Free mouse motion did not rotate yaw and pitch")
 		return
+	var right := InputEventMouseButton.new()
+	right.button_index = MOUSE_BUTTON_RIGHT
+	right.pressed = true
+	world._unhandled_input(right)
 	right.pressed = false
 	world._unhandled_input(right)
-	if world.mouse_looking:
-		_fail("Right mouse release failed to release camera")
+	if not world.mouse_looking:
+		_fail("Right-click should no longer toggle mouse-look")
 		return
-	print("PC_MOUSE_ORBIT_OK")
+	print("PC_FREE_MOUSE_LOOK_OK")
 	world._unhandled_key(_key(KEY_Q))
+	if world.mouse_looking:
+		_fail("Inventory must release the mouse for UI interaction")
+		return
 	if not is_instance_valid(world.inventory_panel) or world.inventory_panel.active_tab != "Quest":
 		_fail("Q did not open inventory directly to Quest")
 		return
@@ -106,6 +112,9 @@ func _run() -> void:
 	if is_instance_valid(world.inventory_panel):
 		_fail("I failed to close inventory")
 		return
+	if not world.mouse_looking:
+		_fail("Closing inventory should recapture mouse")
+		return
 	await process_frame
 	world._unhandled_key(_key(KEY_I))
 	if not is_instance_valid(world.inventory_panel) or world.inventory_panel.active_tab != "Equipment":
@@ -118,6 +127,21 @@ func _run() -> void:
 	world._unhandled_key(_key(KEY_ESCAPE))
 	if is_instance_valid(world.inventory_panel):
 		_fail("Esc did not close inventory")
+		return
+	if not world.mouse_looking:
+		_fail("Esc should recapture mouse after closing inventory")
+		return
+	world._unhandled_key(_key(KEY_ESCAPE))
+	if not world.menu_panel.visible or world.mouse_looking:
+		_fail("Esc menu must show mouse pointer")
+		return
+	world._unhandled_input(motion)
+	if not is_equal_approx(world.camera_yaw,old_yaw-30*world.MOUSE_SENSITIVITY):
+		_fail("Camera should not rotate while menu is open")
+		return
+	world._unhandled_key(_key(KEY_ESCAPE))
+	if world.menu_panel.visible or not world.mouse_looking:
+		_fail("Closing menu should restore free mouse-look")
 		return
 	await process_frame
 	print("PC_LANDSCAPE_INVENTORY_AND_KEYS_OK")

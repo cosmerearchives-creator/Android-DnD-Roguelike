@@ -5,6 +5,9 @@ var chosen := 0
 const MODELS = ["human_adventurer", "male_human"]
 const NAMES = ["Human Adventurer", "Male Human"]
 var profile := ConfigFile.new()
+const WORLD_SCENE := "res://world.tscn"
+var world_prefetch_active := false
+var awaiting_world := false
 func _ready():
 	preload("res://platform_layout.gd").configure_window()
 	var bg := TextureRect.new()
@@ -26,6 +29,10 @@ func _ready():
 	content.theme = theme_ui
 	profile.load("user://hero.cfg")
 	main_menu()
+	# Prepare the heavy world scene in the background while the user is in
+	# the menu instead of blocking the first Continue/New Game transition.
+	if not OS.has_feature("headless"):
+		call_deferred("_begin_world_prefetch")
 func clear():
 	for child in content.get_children():
 		content.remove_child(child)
@@ -84,5 +91,28 @@ func creator():
 		profile.save("user://hero.cfg")
 		enter_world())
 	button("Back",main_menu)
+func _begin_world_prefetch() -> void:
+	if not is_inside_tree(): return
+	world_prefetch_active = ResourceLoader.load_threaded_request(WORLD_SCENE,"PackedScene",true) == OK
+
+func _process(_delta: float) -> void:
+	if awaiting_world and ResourceLoader.load_threaded_get_status(WORLD_SCENE) != ResourceLoader.THREAD_LOAD_IN_PROGRESS:
+		awaiting_world = false
+		_open_prepared_world()
+
+func _open_prepared_world() -> void:
+	if world_prefetch_active and ResourceLoader.load_threaded_get_status(WORLD_SCENE) == ResourceLoader.THREAD_LOAD_LOADED:
+		var packed := ResourceLoader.load_threaded_get(WORLD_SCENE) as PackedScene
+		if packed != null:
+			get_tree().change_scene_to_packed(packed)
+			return
+	# Graceful fallback for unavailable platform threading.
+	get_tree().change_scene_to_file(WORLD_SCENE)
+
 func enter_world():
-	get_tree().change_scene_to_file("res://world.tscn")
+	if world_prefetch_active and ResourceLoader.load_threaded_get_status(WORLD_SCENE) == ResourceLoader.THREAD_LOAD_IN_PROGRESS:
+		awaiting_world = true
+		clear()
+		heading("Preparing the forest...",40)
+		return
+	_open_prepared_world()

@@ -50,6 +50,16 @@ var menu_panel: PanelContainer
 var inventory_panel: Control
 var quest_goblin_kills := 0
 var rng := RandomNumberGenerator.new()
+# Building hundreds of imported scenes and collision shapes in _ready
+# caused a long frame stall. Queue deterministic specifications first,
+# then instantiate a few per frame with a bounded main-thread budget.
+const SCENERY_FRAME_BUDGET_USEC := 2500
+const SCENERY_MAX_PER_FRAME := 8
+var scenery_jobs: Array[Dictionary] = []
+var scenery_next := 0
+var scenery_scene_cache: Dictionary = {}
+var scenery_placed := 0
+var scenery_finished := false
 func mesh_at(parent: Node3D, mesh: Mesh, pos: Vector3, color: Color) -> MeshInstance3D:
 	var m := MeshInstance3D.new()
 	m.mesh = mesh
@@ -143,34 +153,25 @@ void fragment() {
 	terrain_material.shader = terrain_shader
 	terrain_material.set_shader_parameter("grass_texture",preload("res://grass_seamless.png"))
 	floor_visual.material_override = terrain_material
+	# Generate the same positions, scales, rotations and proportions as before
+	# without creating/rendering/colliding 400+ objects in a single frame.
 	for i in range(260):
 		var p := Vector3(rng.randf_range(-95,95),0,rng.randf_range(-95,95))
 		if p.length() < 8: continue
-		var tree := StaticBody3D.new()
-		add_child(tree)
-		tree.position = p
 		var scale_factor := rng.randf_range(1.6,3.6)
 		if rng.randf() < 0.08: scale_factor *= 1.7
 		var path := "res://assets/pine.glb" if rng.randf() < 0.55 else "res://assets/broadleaf.glb"
-		var model := (load(path) as PackedScene).instantiate() as Node3D
-		tree.add_child(model)
-		model.scale = Vector3.ONE * scale_factor
-		model.rotation.y = rng.randf_range(0,TAU)
-		var col := CollisionShape3D.new()
-		var cylinder := CylinderShape3D.new()
-		cylinder.radius = 0.095 * scale_factor
-		cylinder.height = 1.1 * scale_factor
-		col.shape = cylinder
-		col.position.y = cylinder.height / 2
-		tree.add_child(col)
+		scenery_jobs.append({"kind":"tree","position":p,"scale":scale_factor,
+			"path":path,"rotation":rng.randf_range(0,TAU)})
 	for i in range(160):
 		var p := Vector3(rng.randf_range(-95,95),0,rng.randf_range(-95,95))
 		if p.length() < 3: continue
-		var rock := (preload("res://assets/boulder.glb") as PackedScene).instantiate() as Node3D
-		add_child(rock)
-		rock.position = p
-		rock.scale = Vector3.ONE * rng.randf_range(0.5,2.0)
-		rock.rotation.y = rng.randf_range(0,TAU)
+		scenery_jobs.append({"kind":"rock","position":p,
+			"scale":rng.randf_range(0.5,2.0),"rotation":rng.randf_range(0,TAU)})
+	# Build nearby scenery first so the immediate play area does not pop in
+	# after distant trees. This changes only build order, not placement.
+	scenery_jobs.sort_custom(func(a: Dictionary,b: Dictionary) -> bool:
+		return (a.position as Vector3).length_squared() < (b.position as Vector3).length_squared())
 	var profile := ConfigFile.new()
 	profile.load("user://hero.cfg")
 	model_index = clampi(int(profile.get_value("hero","model",0)),0,MODELS.size()-1)
@@ -241,7 +242,7 @@ void fragment() {
 	var releases := preload("res://release_updates.gd").new()
 	menu.add_child(releases)
 	angle_button = Button.new()
-	angle_button.text = "RMB: Rotate / Tilt" if pc_mode else "Camera: 60°"
+	angle_button.text = "Mouse: Look Around" if pc_mode else "Camera: 60°"
 	angle_button.disabled = pc_mode
 	menu.add_child(angle_button)
 	angle_button.pressed.connect(toggle_angle)
@@ -250,10 +251,76 @@ void fragment() {
 		button.text = title
 		menu.add_child(button)
 		button.pressed.connect(func():
-			if title == "Close": menu_panel.hide()
-			elif title == "Main Menu": get_tree().change_scene_to_file("res://front_menu.tscn")
+			if title == "Close": hud_action("Menu")
+			elif title == "Main Menu": _leave_world()
 			else: action(title))
 	menu_panel.hide()
+	_sync_pc_mouse_mode()
+func _place_scenery(job: Dictionary) -> void:
+	if str(job.kind) == "tree":
+		var tree := StaticBody3D.new()
+		add_child(tree)
+		tree.position = job.position
+		var path: String = job.path
+		if not scenery_scene_cache.has(path):
+			scenery_scene_cache[path] = load(path)
+		var model := (scenery_scene_cache[path] as PackedScene).instantiate() as Node3D
+		tree.add_child(model)
+		var scale_factor: float = job.scale
+		model.scale = Vector3.ONE * scale_factor
+		model.rotation.y = job.rotation
+		var col := CollisionShape3D.new()
+		var cylinder := CylinderShape3D.new()
+		cylinder.radius = 0.095 * scale_factor
+		cylinder.height = 1.1 * scale_factor
+		col.shape = cylinder
+		col.position.y = cylinder.height / 2.0
+		tree.add_child(col)
+	else:
+		if not scenery_scene_cache.has("rock"):
+			scenery_scene_cache["rock"] = preload("res://assets/boulder.glb")
+		var rock := (scenery_scene_cache["rock"] as PackedScene).instantiate() as Node3D
+		add_child(rock)
+		rock.position = job.position
+		rock.scale = Vector3.ONE * float(job.scale)
+		rock.rotation.y = job.rotation
+
+func _process(_delta: float) -> void:
+	if scenery_finished: return
+	var deadline: int = Time.get_ticks_usec() + SCENERY_FRAME_BUDGET_USEC
+	var placed_this_frame := 0
+	while scenery_next < scenery_jobs.size() and placed_this_frame < SCENERY_MAX_PER_FRAME:
+		_place_scenery(scenery_jobs[scenery_next])
+		scenery_next += 1
+		scenery_placed += 1
+		placed_this_frame += 1
+		if Time.get_ticks_usec() >= deadline: break
+	if scenery_next >= scenery_jobs.size():
+		scenery_finished = true
+		scenery_jobs.clear()
+		scenery_scene_cache.clear()
+		set_process(false)
+
+func _sync_pc_mouse_mode() -> void:
+	if not pc_mode: return
+	var ui_open := is_instance_valid(inventory_panel) or (is_instance_valid(menu_panel) and menu_panel.visible)
+	mouse_looking = not ui_open
+	if DisplayServer.get_name() != "headless":
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE if ui_open else Input.MOUSE_MODE_CAPTURED
+
+func _leave_world() -> void:
+	if pc_mode:
+		mouse_looking = false
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	get_tree().change_scene_to_file("res://front_menu.tscn")
+
+func _notification(what: int) -> void:
+	if not pc_mode: return
+	if what == NOTIFICATION_WM_WINDOW_FOCUS_OUT:
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	elif what == NOTIFICATION_WM_WINDOW_FOCUS_IN and is_inside_tree():
+		_sync_pc_mouse_mode()
+
 func toggle_inventory(tab: String = "") -> void:
 	if is_instance_valid(inventory_panel) and tab != "":
 		inventory_panel._select_tab(tab)
@@ -262,6 +329,7 @@ func toggle_inventory(tab: String = "") -> void:
 		inventory_panel.queue_free()
 		inventory_panel=null
 		hud.set_process_input(true)
+		_sync_pc_mouse_mode()
 		return
 	if is_instance_valid(menu_panel): menu_panel.hide()
 	stick=Vector2.ZERO
@@ -272,11 +340,13 @@ func toggle_inventory(tab: String = "") -> void:
 	overlay.set_model(MODELS[model_index])
 	overlay.set_goblin_kills(quest_goblin_kills)
 	if tab != "": overlay._select_tab(tab)
+	_sync_pc_mouse_mode()
 	overlay.closed.connect(func():
 		if is_instance_valid(inventory_panel):
 			inventory_panel.queue_free()
 			inventory_panel=null
-			hud.set_process_input(true))
+			hud.set_process_input(true)
+			_sync_pc_mouse_mode())
 
 func _unhandled_key(event: InputEvent) -> void:
 	if not pc_mode or not (event is InputEventKey): return
@@ -311,10 +381,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if event is InputEventMouseButton:
 		var mouse := event as InputEventMouseButton
-		if mouse.button_index == MOUSE_BUTTON_RIGHT:
-			mouse_looking = mouse.pressed and not is_instance_valid(inventory_panel) and not menu_panel.visible
-			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED if mouse_looking else Input.MOUSE_MODE_VISIBLE
-		elif mouse.button_index == MOUSE_BUTTON_LEFT and mouse.pressed and not menu_panel.visible and not is_instance_valid(inventory_panel):
+		if mouse.button_index == MOUSE_BUTTON_LEFT and mouse.pressed and not menu_panel.visible and not is_instance_valid(inventory_panel):
 			action("Attack")
 	elif event is InputEventMouseMotion and mouse_looking:
 		camera_yaw -= event.relative.x * MOUSE_SENSITIVITY
@@ -375,8 +442,7 @@ func hud_action(name: String):
 	if name == "Menu":
 		menu_panel.visible = not menu_panel.visible
 		stick = Vector2.ZERO
-		mouse_looking = false
-		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+		_sync_pc_mouse_mode()
 	elif name == "Attack": action("Attack")
 	elif name == "Lock":
 		lock_enabled = not lock_enabled
@@ -399,6 +465,7 @@ func hud_action(name: String):
 	elif name == "Pause":
 		menu_panel.show()
 		stick = Vector2.ZERO
+		_sync_pc_mouse_mode()
 	else:
 		var notice := AcceptDialog.new()
 		notice.dialog_text = name + " is not yet migrated."

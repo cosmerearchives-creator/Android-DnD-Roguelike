@@ -11,6 +11,7 @@ const SPAWNTEST_KINDS := ["Fire Beetle"]
 const MAX_ENEMIES := 18
 const SPAWN_INTERVAL := 4.0
 const STARTING_POPULATION := 9
+const INITIAL_SPAWN_INTERVAL := 0.18
 # Native GLBs face their mesh's +Z axis, whereas the world movement
 # code used to turn them as though their forward axis were -Z.
 # Apply the correction only to their *visuals*, not collision bodies.
@@ -28,6 +29,10 @@ var scenes: Dictionary = {}
 var spawn_clock := 0.0
 var ai_clock := 0.0
 var initial_population := false
+var initial_remaining := 0
+var initial_index := 0
+var initial_timer := 0.0
+var starting_scenes: Array[String] = []
 var cleared_goblins := 0
 var on_kill: Callable
 var on_player_hit: Callable
@@ -42,15 +47,34 @@ func setup(hero: CharacterBody3D) -> void:
 
 func _initial_spawn() -> void:
 	if not is_instance_valid(player): return
-	# Populate the forest progressively, rather than packing every enemy
-	# around the starting location at scene load.
-	# Guarantee a visible population to test both imports on every fresh map.
-	_spawn(BEETLE, "Fire Beetle")
-	_spawn(TWIG_BLIGHT, "Twig Blight")
-	for index in STARTING_POPULATION - 2:
-		_spawn_random()
+	# The previous startup instantiated all nine skinned enemies in one
+	# deferred frame. Thread-load the three distinct source scenes, then
+	# introduce one mob every few frames without changing total population.
+	starting_scenes = [BEETLE,TWIG_BLIGHT,str(GOBLINS.ENTRIES[0].asset)]
+	for path in starting_scenes:
+		if scenes.has(path) or not ResourceLoader.exists(path): continue
+		var error: Error = ResourceLoader.load_threaded_request(path,"PackedScene",true)
+		if error != OK:
+			push_warning("Could not background-load enemy %s (code %d)" % [path,error])
+	initial_remaining = STARTING_POPULATION
+	initial_index = 0
+	initial_timer = INITIAL_SPAWN_INTERVAL
 	initial_population = true
 	spawn_clock = 0.0
+
+func _startup_assets_ready() -> bool:
+	var ready := true
+	for path in starting_scenes:
+		if scenes.has(path): continue
+		var state: ResourceLoader.ThreadLoadStatus = ResourceLoader.load_threaded_get_status(path)
+		if state == ResourceLoader.THREAD_LOAD_IN_PROGRESS:
+			ready = false
+		elif state == ResourceLoader.THREAD_LOAD_LOADED:
+			scenes[path] = ResourceLoader.load_threaded_get(path)
+		else:
+			# On an unsupported device, retain the existing load behavior.
+			scenes[path] = load(path)
+	return ready
 
 func _spawn_random() -> void:
 	var kinds: Array = GOBLINS.ENTRIES
@@ -298,12 +322,27 @@ func _enemy_attack(mob: Dictionary) -> void:
 
 func _physics_process(delta: float) -> void:
 	if not initial_population or not is_instance_valid(player): return
-	spawn_clock += delta
 	ai_clock += delta
-	if spawn_clock >= SPAWN_INTERVAL:
-		spawn_clock = 0.0
-		if mobs.size() < MAX_ENEMIES:
-			_spawn_random()
+	if initial_remaining > 0:
+		initial_timer -= delta
+		if initial_timer <= 0.0 and _startup_assets_ready():
+			if initial_index == 0:
+				_spawn(BEETLE,"Fire Beetle")
+			elif initial_index == 1:
+				_spawn(TWIG_BLIGHT,"Twig Blight")
+			else:
+				_spawn_random()
+			initial_index += 1
+			initial_remaining -= 1
+			initial_timer = INITIAL_SPAWN_INTERVAL
+			if initial_remaining == 0:
+				spawn_clock = 0.0
+	else:
+		spawn_clock += delta
+		if spawn_clock >= SPAWN_INTERVAL:
+			spawn_clock = 0.0
+			if mobs.size() < MAX_ENEMIES:
+				_spawn_random()
 	for index in range(mobs.size()-1,-1,-1):
 		var mob: Dictionary = mobs[index]
 		var body: CharacterBody3D = mob.body
