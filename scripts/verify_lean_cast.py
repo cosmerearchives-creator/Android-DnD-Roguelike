@@ -40,7 +40,7 @@ assert len(beetle.get("skins", [])) == 1
 asset_total = sum(p.stat().st_size for p in assets.iterdir() if p.is_file())
 import hashlib
 assert hashlib.sha256((assets/"human_adventurer.glb").read_bytes()).hexdigest() == "119496a7536e41fca167b8f1ce6162883cc37bf8d4db775b4322eb59362aac68"
-assert hashlib.sha256((assets/"goblin_warrior.glb").read_bytes()).hexdigest() == "2080e255abfac5d7a87b9f3a8cba31d5e9d83c4ebd58a0f28a2845b26ac039a2"
+assert hashlib.sha256((assets/"goblin_warrior.glb").read_bytes()).hexdigest() == "29c21a1c5e1e3bdcd49e99e7cafaf63c466dbfec8b029570e8a13d2e06d2bdcc"
 print(f"LEAN_ASSET_CHECK_OK files={len(existing)} assets_bytes={asset_total}",
       "human", (assets/"human_adventurer.glb").stat().st_size,
       "goblin", (assets/"goblin_warrior.glb").stat().st_size)

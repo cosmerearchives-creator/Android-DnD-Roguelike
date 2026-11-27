@@ -183,6 +183,25 @@ static func attach(model: Node3D, in_place: bool = true) -> AnimationPlayer:
                 clip.track_insert_key(converted_idx, time, value,
                     original.track_get_key_transition(track_idx, key_idx))
         library.add_animation(clip_name, clip)
+    # Model-specific native reference clips override unvalidated retargets.
+    # Preserve all native tracks and remap only the skeleton node path.
+    var reference := find_animator(model)
+    if reference != null and reference.has_animation("Axe_Spin_Attack"):
+        for name in reference.get_animation_list():
+            var exact := reference.get_animation(name).duplicate(true) as Animation
+            var reference_root := reference.get_node(reference.root_node)
+            for track in exact.get_track_count():
+                var path := exact.track_get_path(track)
+                var target := reference_root.get_node_or_null(NodePath(String(path.get_concatenated_names())))
+                if target != null:
+                    var new_path := String(model.get_path_to(target))
+                    if path.get_subname_count() > 0:
+                        new_path += ":" + String(path.get_concatenated_subnames())
+                    exact.track_set_path(track, NodePath(new_path))
+            if library.has_animation(name):
+                library.remove_animation(name)
+            library.add_animation(name, exact)
+        player.set_meta("native_reference_clips", reference.get_animation_list())
     # Standing pose derived once from the first Walking frame. This ensures
     # that every compatible rig has an Idle state without another large asset.
     if library.has_animation("Walking") and not library.has_animation("Idle"):
