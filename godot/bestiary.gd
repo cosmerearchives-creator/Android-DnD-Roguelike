@@ -135,6 +135,15 @@ func _ready() -> void:
 	preview_subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	layout.add_child(preview_subtitle)
 
+	# Dedicated creature buttons remain visible on narrow portrait screens.
+	var creature_tabs := HBoxContainer.new()
+	creature_tabs.add_theme_constant_override("separation",12)
+	layout.add_child(creature_tabs)
+	for item in [["Goblins",0],["Fire Beetle",1]]:
+		var selector := _button(item[0],_select_creature.bind(item[1]))
+		selector.custom_minimum_size.y=58
+		selector.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+		creature_tabs.add_child(selector)
 	var preview_panel := PanelContainer.new()
 	preview_panel.add_theme_stylebox_override("panel", _panel())
 	preview_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -232,6 +241,7 @@ func _render_stats(entry: Dictionary) -> void:
 		_add_description(stats_content, line[0], line[1])
 
 func _select_creature(index: int) -> void:
+	if is_instance_valid(creature_picker): creature_picker.select(index)
 	if index == 1:
 		if not _load_creature(FIRE_BEETLE.asset, "Walk"):
 			creature_picker.select(0)
@@ -241,7 +251,7 @@ func _select_creature(index: int) -> void:
 		preview_subtitle.text = FIRE_BEETLE.subtitle
 		variant_picker.hide()
 		comparison_button.hide()
-		preview_controls.visible = false
+		preview_controls.visible = preview_animator != null
 		_render_stats(FIRE_BEETLE)
 	else:
 		var variant: Dictionary = GOBLINS.ENTRIES[variant_index]

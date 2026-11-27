@@ -2,7 +2,7 @@ extends Node3D
 const FOOT = 0.3048
 const GOBLINS = preload("res://goblin_variants.gd")
 var player: CharacterBody3D
-var goblin: CharacterBody3D
+var enemies
 var camera: Camera3D
 var stick := Vector2.ZERO
 var touch_id := -1
@@ -168,17 +168,9 @@ void fragment() {
 	model_index = clampi(int(profile.get_value("hero","model",1)),0,MODELS.size()-1)
 	if not ResourceLoader.exists("res://assets/%s.glb" % MODELS[model_index]): model_index = 1
 	player = body(Vector3.ZERO,"res://assets/%s.glb" % MODELS[model_index],Color.BEIGE)
-	var variant: Dictionary = GOBLINS.ENTRIES.pick_random()
-	goblin = body(Vector3(0,0,-12), variant.asset, Color("#708238"), true)
-	var goblin_visual := goblin.get_node_or_null("CharacterVisual")
-	if goblin_visual != null:
-		var goblin_animator := find_imported_animator(goblin_visual)
-		if goblin_animator != null:
-			for clip in goblin_animator.get_animation_list():
-				if clip.to_lower().contains("idle"):
-					goblin_animator.get_animation(clip).loop_mode = Animation.LOOP_LINEAR
-					goblin_animator.play(clip)
-					break
+	enemies = preload("res://enemy_spawner.gd").new()
+	add_child(enemies)
+	enemies.setup(player)
 	var sun := DirectionalLight3D.new()
 	add_child(sun)
 	sun.rotation_degrees = Vector3(-55,-35,0)
@@ -357,17 +349,14 @@ func action(title: String):
 	elif attack <= 0:
 		attack = 6
 		punch_left = 0.5
-		if is_instance_valid(goblin) and player.position.distance_to(goblin.position) <= 5*FOOT:
-			goblin.queue_free()
+		if is_instance_valid(enemies):
+			enemies.defeat_nearest(5*FOOT)
 func _physics_process(dt):
 	var direction := Vector3(stick.x,0,stick.y).rotated(Vector3.UP,yaw)
 	var vertical := player.velocity.y
 	player.velocity = direction * (30*FOOT/6) * (2 if running else 1)
 	player.velocity.y = -0.5 if player.is_on_floor() else vertical - 9.8*dt
 	player.move_and_slide()
-	if is_instance_valid(goblin):
-		goblin.velocity.y = -0.5 if goblin.is_on_floor() else goblin.velocity.y - 9.8*dt
-		goblin.move_and_slide()
 	if direction.length() > 0.1: player.rotation.y = atan2(direction.x,direction.z)
 	var base: String = MODELS[model_index]
 	if base == "female_base":
@@ -399,4 +388,4 @@ func _physics_process(dt):
 		var projected_y := camera.unproject_position(player.position + Vector3.UP * 0.85).y
 		camera.v_offset = (target_y - projected_y) * camera.size / view_height
 	attack = maxf(0,attack-dt)
-	var distance := player.position.distance_to(goblin.position)/FOOT if is_instance_valid(goblin) else 0.0
+
