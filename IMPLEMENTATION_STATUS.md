@@ -26,3 +26,8 @@ End-to-end Android and Windows build, model/skeleton/bone-map completeness, orig
 ## v0.3.191 — ground asset layer and tavern
 Implemented locally: six authentic imported material families, one 5ft/1.524m ground grid, six MultiMesh draw batches covering 530 visible cells near spawn/tavern, runtime perimeter feathering (internal edges not yet biome-blended), retained base walkable terrain and procedural scenery, and a full-resolution open-roof tavern room with aligned floor, wall/hearth collision and accessible doorway. Existing character rigs/models unchanged.
 Verified: original five ground + tavern GLB SHA256 and 23 source image bytes; full PBR channel retention; graphical Windows OpenGL compatibility launch and live 1280×720 screenshot `G:\ChatGPT Projects\Forests of Hell\Tavern Review\godot-tavern-and-ground.png`; 9 smoke tests PASS including 8ft capsule passage. No Android device render/frame-time test. No publication claim until CI + signed APK and Windows ZIP verification.
+
+
+## v0.3.192 combined publishing milestone (2026-11-27)
+- Implemented new user-provided grass source and reviewed original, terrain underlay and edge-only shader with saved 0-30in live slider, display/camera preferences, 15-slot inventory, ornate SVG four-tab desktop UI, and real inventory pause.
+- Local Godot 4.5.1 headless tests and Windows OpenGL previews passed; CI signed Android/Windows publishing and device-side FPS remain subject to release verification. Details and known limits: docs/inventory-terrain-settings-v0.3.192.md.

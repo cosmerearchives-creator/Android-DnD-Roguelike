@@ -9,7 +9,7 @@ func _run() -> void:
 		root.add_child(screen)
 		await process_frame
 		await process_frame
-		if screen.tab_controls.size()!=4 or screen.slot_cells.size()!=17:
+		if screen.tab_controls.size()!=4 or screen.slot_cells.size()!=15:
 			printerr("Inventory controls missing",screen.tab_controls.size(),screen.slot_cells.size())
 			quit(1);return
 		if screen.data.catalog.size()<100 or screen.data.icon("ration")==null:

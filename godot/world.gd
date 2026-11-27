@@ -17,6 +17,9 @@ var camera_yaw := 0.0
 var camera_pitch := deg_to_rad(25.0)
 const MOUSE_SENSITIVITY := 0.0035
 const PC_CAMERA_DISTANCE := 5.0
+var pc_camera_distance := PC_CAMERA_DISTANCE
+var camera_ortho_size := 15.0
+var camera_fov := 72.0
 var first_person_meshes: Array[Dictionary] = []
 const TEST_ATTACK_COOLDOWN_SECONDS := 1.0
 const TEST_JUMP_COOLDOWN_SECONDS := 1.0
@@ -79,6 +82,8 @@ var status: Label
 var hud: Control
 var menu_panel: PanelContainer
 var inventory_panel: Control
+var terrain_layer: Node3D
+var terrain_blend_label: Label
 var quest_goblin_kills := 0
 var rng := RandomNumberGenerator.new()
 # Building hundreds of imported scenes and collision shapes in _ready
@@ -139,6 +144,13 @@ func body(pos: Vector3, asset: String, color: Color, is_goblin := false) -> Char
 func _ready():
 	PLATFORM.configure_window()
 	pc_mode = PLATFORM.is_pc()
+	var preferences := get_node_or_null("/root/DesktopFullscreen")
+	if preferences != null:
+		camera_angle = preferences.camera_angle
+		camera_ortho_size = preferences.camera_size
+		pc_camera_distance = preferences.camera_distance
+		camera_fov = preferences.camera_fov
+		first_person = preferences.camera_first_person if pc_mode else false
 	if ForestLoading.visible:
 		ForestLoading.report(0.5, "Initializing character, lighting and world...")
 	rng.seed = 812
@@ -178,8 +190,9 @@ void fragment() {
 	float mix_factor=0.20+0.17*noise2(p*0.14);
 	vec3 blades=mix(primary,secondary,mix_factor);
 	float soil=smoothstep(0.70,0.91,noise2(p*0.26));
-	ALBEDO=blades*(0.86+0.19*meadow+0.035*micro);
-	ALBEDO=mix(ALBEDO,vec3(0.27,0.23,0.14),soil*0.16);
+	// Dark forest earth beneath original material tiles; no bright neon seams.
+	ALBEDO=mix(blades*(0.55+0.10*meadow+0.025*micro),vec3(0.29,0.27,0.20),0.34);
+	ALBEDO=mix(ALBEDO,vec3(0.22,0.20,0.15),soil*0.22);
 	ROUGHNESS=0.95;
 }"""
 	var terrain_material := ShaderMaterial.new()
@@ -188,7 +201,8 @@ void fragment() {
 	floor_visual.material_override = terrain_material
 	# Layer imported 5ft terrain above the existing continuous, collidable grass floor.
 	# Terrain is generated in six MultiMesh batches, one asset per frame.
-	add_child(preload("res://terrain_layer.gd").new())
+	terrain_layer = preload("res://terrain_layer.gd").new()
+	add_child(terrain_layer)
 	# Generate the same positions, scales, rotations and proportions as before
 	# without creating/rendering/colliding 400+ objects in a single frame.
 	for i in range(260):
@@ -248,10 +262,11 @@ void fragment() {
 	add_child(camera)
 	camera.current = true
 	camera.projection = Camera3D.PROJECTION_PERSPECTIVE if pc_mode else Camera3D.PROJECTION_ORTHOGONAL
-	camera.fov = 72.0
-	camera.size = 15.0
+	camera.fov = camera_fov
+	camera.size = camera_ortho_size
 	camera.rotation = Vector3(-deg_to_rad(camera_angle), yaw, 0)
 	camera.far = 300 * FOOT
+	if first_person: set_first_person(true)
 	var ui := CanvasLayer.new()
 	add_child(ui)
 	hud = preload("res://hud.gd").new()
@@ -286,6 +301,25 @@ void fragment() {
 	angle_button.disabled = pc_mode
 	menu.add_child(angle_button)
 	angle_button.pressed.connect(toggle_angle)
+	# Live, saved edge-only terrain blending: 0-30 inches per neighboring edge.
+	var blending_row := HBoxContainer.new()
+	menu.add_child(blending_row)
+	terrain_blend_label = Label.new()
+	terrain_blend_label.text = "Terrain edges: %d in" % roundi(terrain_layer.blend_inches)
+	terrain_blend_label.custom_minimum_size.x = 170
+	blending_row.add_child(terrain_blend_label)
+	var blending_slider := HSlider.new()
+	blending_slider.name = "TerrainBlendSlider"
+	blending_slider.min_value = 0.0
+	blending_slider.max_value = 30.0
+	blending_slider.step = 1.0
+	blending_slider.custom_minimum_size.x = 175
+	blending_slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	blending_slider.value = terrain_layer.blend_inches
+	blending_slider.value_changed.connect(func(value: float):
+		terrain_layer.set_blend_inches(value)
+		terrain_blend_label.text = "Terrain edges: %d in" % roundi(value))
+	blending_row.add_child(blending_slider)
 	for title in ["Run","Turn","Main Menu","Close"]:
 		var button := Button.new()
 		button.text = title
@@ -360,6 +394,7 @@ func _sync_pc_mouse_mode() -> void:
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE if ui_open else Input.MOUSE_MODE_CAPTURED
 
 func _leave_world() -> void:
+	get_tree().paused = false
 	if pc_mode:
 		mouse_looking = false
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
@@ -372,33 +407,39 @@ func _notification(what: int) -> void:
 	elif what == NOTIFICATION_WM_WINDOW_FOCUS_IN and is_inside_tree():
 		_sync_pc_mouse_mode()
 
+func _inventory_closed() -> void:
+	get_tree().paused = false
+	if is_instance_valid(inventory_panel):
+		inventory_panel.queue_free()
+		inventory_panel = null
+	if is_instance_valid(hud): hud.set_process_input(true)
+	_sync_pc_mouse_mode()
+
+func _exit_tree() -> void:
+	if get_tree() != null: get_tree().paused = false
+
 func toggle_inventory(tab: String = "") -> void:
 	if is_instance_valid(inventory_panel) and tab != "":
 		inventory_panel._select_tab(tab)
 		return
 	if is_instance_valid(inventory_panel):
-		inventory_panel.queue_free()
-		inventory_panel=null
-		hud.set_process_input(true)
-		_sync_pc_mouse_mode()
+		_inventory_closed()
 		return
 	if is_instance_valid(menu_panel): menu_panel.hide()
-	stick=Vector2.ZERO
+	stick = Vector2.ZERO
 	hud.set_process_input(false)
-	var overlay:=preload("res://inventory_screen.tscn").instantiate() as Control
-	inventory_panel=overlay
+	var overlay := preload("res://inventory_screen.tscn").instantiate() as Control
+	overlay.process_mode = Node.PROCESS_MODE_ALWAYS
+	inventory_panel = overlay
 	hud.get_parent().add_child(overlay)
 	overlay.equipment_changed.connect(_on_equipment_changed)
 	overlay.set_model(MODELS[model_index])
 	overlay.set_goblin_kills(quest_goblin_kills)
+	overlay.set_character_summary({"HP":player_hp,"MaxHP":int(COMBAT.TEST_PLAYER.hp),"AC":int(COMBAT.TEST_PLAYER.ac)})
 	if tab != "": overlay._select_tab(tab)
+	overlay.closed.connect(_inventory_closed)
 	_sync_pc_mouse_mode()
-	overlay.closed.connect(func():
-		if is_instance_valid(inventory_panel):
-			inventory_panel.queue_free()
-			inventory_panel=null
-			hud.set_process_input(true)
-			_sync_pc_mouse_mode())
+	get_tree().paused = true
 
 func _unhandled_key(event: InputEvent) -> void:
 	if not pc_mode or not (event is InputEventKey): return
@@ -433,6 +474,16 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if event is InputEventMouseButton:
 		var mouse := event as InputEventMouseButton
+		if mouse.pressed and not menu_panel.visible and not is_instance_valid(inventory_panel) and mouse.button_index in [MOUSE_BUTTON_WHEEL_UP,MOUSE_BUTTON_WHEEL_DOWN]:
+			var increment := -0.5 if mouse.button_index==MOUSE_BUTTON_WHEEL_UP else 0.5
+			if first_person:
+				camera_fov = clampf(camera_fov + increment*4.0,55.0,95.0)
+				camera.fov = camera_fov
+			else:
+				pc_camera_distance = clampf(pc_camera_distance+increment,2.0,15.0)
+			_save_camera_preferences()
+			get_viewport().set_input_as_handled()
+			return
 		if mouse.button_index == MOUSE_BUTTON_LEFT and mouse.pressed and not menu_panel.visible and not is_instance_valid(inventory_panel):
 			action("Attack")
 	elif event is InputEventMouseMotion and mouse_looking:
@@ -440,8 +491,14 @@ func _unhandled_input(event: InputEvent) -> void:
 		camera_pitch = clampf(camera_pitch+event.relative.y*MOUSE_SENSITIVITY,deg_to_rad(-75),deg_to_rad(85))
 		get_viewport().set_input_as_handled()
 
+func _save_camera_preferences() -> void:
+	var preferences := get_node_or_null("/root/DesktopFullscreen")
+	if preferences != null:
+		preferences.save_camera(first_person,camera_angle,camera_ortho_size,pc_camera_distance,camera_fov)
+
 func set_first_person(enabled: bool) -> void:
 	first_person = enabled
+	_save_camera_preferences()
 	camera.projection = Camera3D.PROJECTION_PERSPECTIVE if enabled or pc_mode else Camera3D.PROJECTION_ORTHOGONAL
 	# Originals are restored when returning to third person. Character rigs,
 	# textures and animation resources are never altered on disk.
@@ -540,6 +597,7 @@ func play_imported_animation(state: String) -> void:
 	animator.play(clip)
 func toggle_angle():
 	camera_angle = 75.0 if camera_angle == 60.0 else 60.0
+	_save_camera_preferences()
 	angle_button.text = "Camera: %d°" % int(camera_angle)
 func action(title: String):
 	if title == "Run": running = not running
@@ -664,7 +722,7 @@ func _physics_process(dt):
 		camera.v_offset = 0.0
 		camera.h_offset = 0.0
 		var cam_eye := player.position+Vector3.UP*1.57
-		var orbit := Vector3(0,0,PC_CAMERA_DISTANCE).rotated(Vector3.RIGHT,-camera_pitch).rotated(Vector3.UP,camera_yaw)
+		var orbit := Vector3(0,0,pc_camera_distance).rotated(Vector3.RIGHT,-camera_pitch).rotated(Vector3.UP,camera_yaw)
 		# Offset first-person eye slightly forward of the face. Look-down
 		# reveals the original skinned torso/legs/feet (head triangles omitted).
 		camera.position = cam_eye - Vector3(0,0,0.30).rotated(Vector3.UP,camera_yaw) if first_person else cam_eye + orbit

@@ -24,3 +24,8 @@ Original female leather set recovered; male fitted armor now assembled on the ex
 ## Ground terrain and tavern milestone — v0.3.191
 BASE LAYER TESTED LOCALLY: six 5ft ground assets (grass/dirt/leaves/moss/mud/rocky), deterministic region around starting hub, six MultiMesh batches, full original PBR sources. Tavern open-roof room placed in cleared approach, floor at grade, wide navigable entry, simplified walls/hearth collision.
 NEXT: refine biome transitions and reduce visible square patch boundaries; then independent detail overlays (twigs, pebbles, roots), small vegetation, bushes/trees, lighting and future weather. Full-building roof and interior NPCs/services are future tavern steps; verify Android FPS/memory and visuals before expanding terrain area. Avoid geometry/texture downscale without permission.
+
+
+## Implemented v0.3.192 (release target)
+- Approved single milestone: replace grass, light 0-30in edge blending slider, close gaps with square earth underlays, window/fullscreen + camera persistence, true inventory pause, handcrafted ornate Equipment/Items/Materials/Quests UI, 15 approved equipment slots with Secondary. All are integrated and locally tested; verify published release artifacts. See docs/inventory-terrain-settings-v0.3.192.md.
+- Future: complete item usage/drop/stat/proficiency rules, expand actual material and quest data, improve biome UV tile seamlessness and shader mobile performance; these are separate from the completed UI rendering.

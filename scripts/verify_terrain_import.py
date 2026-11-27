@@ -16,7 +16,7 @@ DIGESTS = {
  "rocky": "65d415aaf702ad1db21cd7053f135cd8131405b9206641de418ef05ff53fe03d",
  "tavern_room": "fa9f590598c1a33b4805b560be5ae2da32727a20909994f20121616f62bf295f",
 }
-GRASS_ORIGINAL_SHA = "fa184ea0afd6814f8eb323d6e278f73c74898ae49a1665d5573c04480c1d201e"
+GRASS_ORIGINAL_SHA = "ebe40701ac73d59c264f6d8c22c7ed4223f4520039de6be9b93749066126c0d2"
 
 def inspect(key):
     path=ASSETS/(key+".glb")
@@ -30,12 +30,14 @@ def inspect(key):
     if key in DIGESTS:
         assert hashlib.sha256(blob).hexdigest()==DIGESTS[key],key+" source GLB altered"
     else:
-        assert info.get("extras",{}).get("original_source_sha256")==GRASS_ORIGINAL_SHA
+        # New grass is the exact unmodified imported source (3028 vertices).
+        assert hashlib.sha256(blob).hexdigest()==GRASS_ORIGINAL_SHA,"grass source GLB altered"
         positions=info["accessors"][0]
-        assert positions["max"][0]-positions["min"][0]==1.524
-        assert positions["max"][2]-positions["min"][2]==1.524
+        assert positions["count"]==3028
+        assert 0.94 < positions["max"][0]-positions["min"][0] < 1.0
+        assert 0.94 < positions["max"][2]-positions["min"][2] < 1.0
     images=info["images"]
-    assert len(images)==(4 if key in ("grass","tavern_room") else 3),key
+    assert len(images)==(4 if key=="tavern_room" else 3),key
     for index,image in enumerate(images):
         view=info["bufferViews"][image["bufferView"]]
         begin=bbase+view.get("byteOffset",0)

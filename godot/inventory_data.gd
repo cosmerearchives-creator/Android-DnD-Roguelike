@@ -7,8 +7,8 @@ const STARTER := [
 	{"id":"mess_kit","count":1},{"id":"tinderbox","count":1},{"id":"torch","count":10},
 	{"id":"ration","count":10},{"id":"waterskin","count":1},{"id":"rope_hemp","count":1}
 ]
-const SLOT_NAMES := ["Head","Eyes","Ears","Neck","Cloak","Body","Wrists","Hands","Waist","Legs","Feet","Left Ring","Right Ring","Main Hand","Off Hand","Ranged","Accessory"]
-const SLOT_SIGNS := ["\u265c","\u25c7","\u25c8","\u2667","\u2726","\u25a4","\u25c8","\u270b","\u25ac","\u25a5","\u265f","\u25cb","\u25cb","\u2694","\u25c6","\u279a","\u2726"]
+const SLOT_NAMES := ["Head","Eyes","Main Hand","Off Hand","Secondary","Hands","Wrists","Body","Neck","Cloak","Left Ring","Right Ring","Accessory","Waist","Feet"]
+const SLOT_SIGNS := ["\u265c","\u25c7","\u2694","\u25c6","\u279a","\u270b","\u25c8","\u25a4","\u2667","\u2726","\u25cb","\u25cb","\u2726","\u25ac","\u265f"]
 const ITEM_DATA = preload("res://item_catalog.gd")
 const QUEST_IDS := ["artifact_fragment","guild_letter","guild_id","employer_insignia","enemy_trophy"]
 const STORAGE := "user://inventory_v1.json"
@@ -45,6 +45,10 @@ func _load_saved() -> bool:
 			items.append({"id":str(stack.id),"count":maxi(1,int(stack.get("count",1)))})
 	equipped=parsed.get("equipped",{})
 	if not equipped is Dictionary:equipped={}
+	# Preserve saves from the prior 17-slot inventory.
+	if equipped.has("Ranged") and not equipped.has("Secondary"):
+		equipped["Secondary"]=equipped["Ranged"]
+	for legacy in ["Ranged","Ears","Legs"]: equipped.erase(legacy)
 	strength=clampi(int(parsed.get("strength",10)),1,30)
 	gold=maxi(0,int(parsed.get("gold",10)))
 	return true
@@ -95,8 +99,8 @@ func compatible(id:String,slot:String) -> bool:
 		"Body":return kind=="Armor"
 		"Main Hand":return kind=="Weapon"
 		"Off Hand":return kind=="Shield" or kind=="Weapon"
-		"Ranged":return kind=="Weapon"
-		"Head","Eyes","Ears","Neck","Cloak","Wrists","Hands","Waist","Legs","Feet","Left Ring","Right Ring","Accessory":return false
+		"Secondary":return kind=="Weapon"
+		"Head","Eyes","Neck","Cloak","Wrists","Hands","Waist","Feet","Left Ring","Right Ring","Accessory":return false
 	return false
 func set_slot(slot:String,id:String) -> bool:
 	if not compatible(id,slot):return false

@@ -81,6 +81,8 @@ jobs:
           godot --headless --path godot --script res://tests/enemy_spawn_smoke.gd
           godot --headless --path godot --script res://tests/inventory_smoke.gd
           godot --headless --path godot --script res://tests/inventory_tabs_smoke.gd
+          godot --headless --path godot --script res://tests/inventory_pause_and_blend_smoke.gd
+          godot --headless --path godot --script res://tests/display_camera_persistence_smoke.gd
           godot --headless --path godot --script res://tests/male_leather_armor_smoke.gd
           godot --headless --path godot --script res://tests/terrain_tavern_smoke.gd
           godot --headless --path godot --script res://tests/terrain_tavern_physics.gd

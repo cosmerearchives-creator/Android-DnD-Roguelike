@@ -43,3 +43,10 @@ PASS `python scripts/verify_terrain_import.py`: all 7 terrain/tavern GLBs valida
 PASS Blender 5.3 import/measure and original tavern arch cross-section probe. PASS Godot 4.5.1 editor import, actual PC OpenGL 3.3 NVIDIA GTX1080Ti graphical scene screenshot at 1280×720 (see `Tavern Review\godot-tavern-and-ground.png`).
 PASS nine headless scripted tests with exit=0: terrain_tavern_smoke, terrain_tavern_physics, lean_cast_smoke, enemy_spawn_smoke, inventory_smoke, inventory_tabs_smoke, male_leather_armor_smoke, pc_update_smoke, pc_platform_smoke (with FOH_TEST_PC=1). Physics test sampled ten doorway approach locations using an 8-foot tall capsule and 2.1m entrance gap. 530 terrain cells in 6 batches.
 NOT RUN: on-device Android render and sustained FPS/memory, signed release install and auto-update, full biome seamless transitions, NPC tavern interactions. LIMITATION: Godot4.5.1 normal headless main-scene boot logged dummy renderer/resource preload errors; graphical main menu launch was successful. Verify GitHub 4.4.1 CI separately.
+
+
+## v0.3.192 acceptance/regression tests
+- Run 2014 5e and equipment UI suites, terrain source hash/texture gate and tavern entry with tall capsule; original character rigs/skeletons unchanged.
+- inventory_pause_and_blend_smoke.gd: 15 slots, 6 full terrains+underlays, 0-30in slider saved to disk, modal pausing and resume, Materials tab interaction while paused.
+- display_camera_persistence_smoke.gd: saved fullscreen/window geometry and camera perspective/zoom to user config; check F11 and gameplay perspective live.
+- PC visual review: actual Godot screenshot exports of all four tabs and tavern/ground; live source GLBs render without shader error. Android real-device FPS/scale check still outstanding.

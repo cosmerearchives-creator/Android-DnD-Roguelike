@@ -32,3 +32,11 @@ See `docs/inventory-tabs-and-spawn.md`, `docs/forest-bestiary-roaming.md`, `docs
 
 ## Earlier Android and sprite history
 `README.md` records the long version history starting with v0.3.53 and prior builds. Preserve it as historical record; do not rewrite or replace that history with this index.
+
+
+## v0.3.192 — 2026-11-27
+- Replaced grass with 3,028-vertex user source + original PBR; moved original to asset review.
+- Added terrain hole underlays, nearby-material edge-only feather shader and in-game 0–30in live saved blend slider.
+- Saved fullscreen/window position/size and first-/third-person camera perspective and zoom/FOV.
+- Inventory now truly pauses world/AI/clock; resumes on close.
+- Added ornate 4-tab equipment/item/material/quest UI with actual player model, actual quest progress, 15 equipment slots and save migration for Secondary, new tests and documentation.
