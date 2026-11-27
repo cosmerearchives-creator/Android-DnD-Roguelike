@@ -66,3 +66,7 @@ No independent skeletal crouch, sneak, bow, jump, shove or magic clip surfaced i
 ## v0.3.165 two-model Walk preview
 
 Bestiary now switches between Goblin Warrior and Classic Study. Classic Study keeps its own proportions and uses a 16-bone review rig with humanoid profile bone names. The Blender bake transfers rest-relative rotations from the existing Goblin Warrior Walk, preserving clip timing. This is a preview of the mapped subset. The full 56-slot rig, shared runtime AnimationLibrary, equipment sockets and Android performance measurement remain later milestones. See scripts/bake_shared_walk_preview.py for regeneration. Device testing should compare stride, foot contact, bends, armor gaps, loop seam and touch rotation/zoom.
+
+## v0.3.167 imported Female Base
+
+New characters default to Female Base. Existing model indices are preserved for saved profiles. The user-supplied GLB has 231,098 triangles and keeps its source geometry and textures. The derivative adds a 22-bone review rig and baked Idle, Walk and Attack clips. Godot 4.4.1 desktop smoke tests verify model selection and playback. Android frame time and deformation in motion still need device review before reducing quality. Source SHA-256 is 5918341f8661534c9df8a320d05f3e1a9c70910aaaeab104ce2c603409bb1cad. The user confirmed permission to redistribute the model and textures.

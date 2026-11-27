@@ -16,8 +16,8 @@ var punch_left := 0.0
 var current_pose := ""
 var pose_cache := {}
 var model_button: Button
-const MODELS = ["classic_study", "petite_pale", "classic_male", "petite_male", "katie"]
-const MODEL_NAMES = ["Classic Ranger", "Petite Scout", "Classic Male", "Petite Male", "Katie"]
+const MODELS = ["classic_study", "petite_pale", "classic_male", "petite_male", "katie", "female_base"]
+const MODEL_NAMES = ["Classic Ranger", "Petite Scout", "Classic Male", "Petite Male", "Katie", "Female Base"]
 var status: Label
 var hud: Control
 var menu_panel: PanelContainer
@@ -282,7 +282,12 @@ func play_imported_animation(state: String):
 				break
 	if clip.is_empty():
 		if animator.is_playing(): animator.stop()
-	elif not animator.is_playing() or animator.current_animation != clip:
+	else:
+		var animation := animator.get_animation(clip)
+		animation.loop_mode = Animation.LOOP_NONE if state == "attack" else Animation.LOOP_LINEAR
+		animator.speed_scale = animation.length / 0.5 if state == "attack" else (2.0 if state == "walk" and running else 1.0)
+		if animator.assigned_animation == clip:
+			return
 		animator.play(clip)
 func cycle_model():
 	var next_index := (model_index + 1) % MODELS.size()
@@ -325,7 +330,13 @@ func _physics_process(dt):
 		goblin.move_and_slide()
 	if direction.length() > 0.1: player.rotation.y = atan2(direction.x,direction.z)
 	var base: String = MODELS[model_index]
-	if punch_left > 0.0:
+	if base == "female_base":
+		if punch_left > 0.0:
+			play_imported_animation("attack")
+			punch_left = maxf(0.0, punch_left - dt)
+		else:
+			play_imported_animation("walk" if direction.length() > 0.1 else "idle")
+	elif punch_left > 0.0:
 		var frame := clampi(int((0.5-punch_left)*10.0),0,4)
 		show_pose("%s_punch_%d" % [base,frame])
 		punch_left = maxf(0.0,punch_left-dt)
