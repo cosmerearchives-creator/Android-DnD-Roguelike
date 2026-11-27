@@ -6,6 +6,7 @@ const GOBLINS = preload("res://goblin_variants.gd")
 const SHARED = preload("res://humanoid_shared_animations.gd")
 const BEETLE = "res://assets/fire_beetle.glb"
 const TWIG_BLIGHT = "res://assets/twig_blight.glb"
+const SPAWNTEST_KINDS := ["Fire Beetle"]
 const MAX_ENEMIES := 8
 const SPAWN_INTERVAL := 11.0
 const MAX_RANGE := 37.0
@@ -32,6 +33,9 @@ func _initial_spawn() -> void:
 	if not is_instance_valid(player): return
 	# Populate the forest progressively, rather than packing every enemy
 	# around the starting location at scene load.
+	# Guarantee a visible population to test both imports on every fresh map.
+	_spawn(BEETLE, "Fire Beetle")
+	_spawn(TWIG_BLIGHT, "Twig Blight")
 	_spawn_random()
 	initial_population = true
 	spawn_clock = -5.0
@@ -63,6 +67,25 @@ func _bounds(node: Node3D, parent_transform: Transform3D) -> Vector2:
 			low = minf(low,b.x)
 			high = maxf(high,b.y)
 	return Vector2(low,high)
+
+# Animated rest-pose bone extents are authoritative for models with
+# unrealistically tiny mesh AABBs, such as the imported Fire Beetle.
+func _skeletal_bounds(node: Node3D, relative: Transform3D) -> Vector2:
+	var transformed := relative * node.transform
+	var low := INF
+	var high := -INF
+	if node is Skeleton3D:
+		var skeleton := node as Skeleton3D
+		for index in skeleton.get_bone_count():
+			var point: Vector3 = transformed * skeleton.get_bone_global_rest(index).origin
+			low = minf(low, point.y)
+			high = maxf(high, point.y)
+	for child in node.get_children():
+		if child is Node3D:
+			var result := _skeletal_bounds(child, transformed)
+			low = minf(low, result.x)
+			high = maxf(high, result.y)
+	return Vector2(low, high)
 
 func _spawn(path: String, kind: String) -> void:
 	if mobs.size() >= MAX_ENEMIES or not is_instance_valid(player): return
@@ -105,9 +128,10 @@ func _spawn(path: String, kind: String) -> void:
 	var mesh := scene.instantiate() as Node3D
 	mesh.name = "CharacterVisual"
 	body.add_child(mesh)
-	var bounds := _bounds(mesh,Transform3D.IDENTITY)
+	var bounds := _skeletal_bounds(mesh,Transform3D.IDENTITY) if kind == "Fire Beetle" else _bounds(mesh,Transform3D.IDENTITY)
 	var desired_height := 0.52 if kind == "Fire Beetle" else 1.15 if kind == "Twig Blight" else 1.22
-	if is_finite(bounds.x) and is_finite(bounds.y) and bounds.y > bounds.x + 0.01:
+	var minimum_span := 0.0000001 if kind == "Fire Beetle" else 0.01
+	if is_finite(bounds.x) and is_finite(bounds.y) and bounds.y > bounds.x + minimum_span:
 		mesh.scale *= desired_height/(bounds.y-bounds.x)
 		mesh.position.y = -bounds.x*mesh.scale.y
 	var shape := CollisionShape3D.new()
@@ -125,9 +149,23 @@ func _spawn(path: String, kind: String) -> void:
 		glow.shadow_enabled = false
 		glow.position.y = 0.3
 		body.add_child(glow)
+	if kind in SPAWNTEST_KINDS:
+		body.add_to_group("spawntest")
+		var tag := Label3D.new()
+		tag.name = "SpawnTestTag"
+		tag.text = "SPAWNTEST"
+		tag.font_size = 44
+		tag.pixel_size = 0.004
+		tag.outline_size = 8
+		tag.modulate = Color("#ffe27a")
+		tag.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		tag.no_depth_test = true
+		tag.position.y = desired_height + 0.22
+		body.add_child(tag)
 	var animator: AnimationPlayer = _animator(mesh) if kind == "Fire Beetle" else SHARED.attach(mesh)
 	mobs.append({
 		"body":body, "animator":animator, "kind":kind,
+		"spawntest":kind in SPAWNTEST_KINDS,
 		"direction":Vector3.ZERO,"timer":rng.randf_range(0.2,2.0),
 		"speed":rng.randf_range(0.65,1.0) if kind != "Fire Beetle" else 0.75,
 	})

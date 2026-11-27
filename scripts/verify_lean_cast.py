@@ -7,7 +7,7 @@ root = Path(__file__).resolve().parents[1]
 assets = root/"godot"/"assets"
 allowed = {
     "human_adventurer.glb", "goblin_warrior.glb", "fire_beetle.glb",
-    "male_human.glb", "twig_blight.glb",
+    "male_human.glb", "twig_blight.glb", "wolf_quadruped.glb",
     "humanoid_mixamo_animation_library.glb", "pine.glb", "broadleaf.glb",
     "boulder.glb",
 }
@@ -43,6 +43,9 @@ assert len(gltf_info("twig_blight.glb")["skins"][0]["joints"]) == 28
 assert len(gltf_info("male_human.glb")["skins"][0]["joints"]) == 84
 assert "Shield_Push_Left" in [a["name"] for a in gltf_info("twig_blight.glb")["animations"]]
 assert len(beetle.get("skins", [])) == 1
+wolf = gltf_info("wolf_quadruped.glb")
+assert len(wolf.get("skins", [])) == 1 and len(wolf["skins"][0]["joints"]) == 46
+assert {a["name"] for a in wolf["animations"]} == {"dog_dog_over","dog_idle1","dog_run","leopard_skill_feipu"}
 asset_total = sum(p.stat().st_size for p in assets.iterdir() if p.is_file())
 import hashlib
 assert hashlib.sha256((assets/"human_adventurer.glb").read_bytes()).hexdigest() == "119496a7536e41fca167b8f1ce6162883cc37bf8d4db775b4322eb59362aac68"

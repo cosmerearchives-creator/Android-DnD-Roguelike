@@ -7,6 +7,7 @@ var enemies
 var camera: Camera3D
 var stick := Vector2.ZERO
 var touch_id := -1
+const TEST_ATTACK_COOLDOWN_SECONDS := 1.0
 var attack := 0.0
 var running := false
 var yaw := 0.0
@@ -252,7 +253,7 @@ func play_imported_animation(state: String) -> void:
 	var animator := visual.get_node_or_null("SharedHumanoidAnimations") as AnimationPlayer
 	if animator == null: animator = SHARED.attach(visual)
 	if animator == null: return
-	var clip := "Running" if state == "run" else "Walking" if state == "walk" else "Attack" if state == "attack" else "Idle"
+	var clip := "Running" if state == "run" else "Walking" if state == "walk" else "Attack_MeleeTwoHanded_01_OverheadSmash" if state == "attack" else "Idle"
 	if not animator.has_animation(clip): return
 	var resource := animator.get_animation(clip)
 	animator.speed_scale = resource.length / 0.5 if state == "attack" else 1.0
@@ -265,7 +266,7 @@ func action(title: String):
 	if title == "Run": running = not running
 	elif title == "Turn": yaw += PI/4
 	elif attack <= 0:
-		attack = 6
+		attack = TEST_ATTACK_COOLDOWN_SECONDS
 		punch_left = 0.5
 		if is_instance_valid(enemies):
 			enemies.defeat_nearest(5*FOOT)

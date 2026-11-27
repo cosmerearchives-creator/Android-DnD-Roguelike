@@ -2,6 +2,7 @@ extends SceneTree
 ## Lightweight integration check for the single-human/single-goblin cast.
 const Shared = preload("res://humanoid_shared_animations.gd")
 const Goblins = preload("res://goblin_variants.gd")
+const Quad = preload("res://quadruped_shared_animations.gd")
 
 func _initialize() -> void:
     call_deferred("_run")
@@ -55,7 +56,12 @@ func _run() -> void:
                     _fail("Twig Blight 28-bone skeleton was modified or lost its coverage")
                     return
             source_scene.free()
-        for clip in ["Idle","Walking","Running","Attack","Push","Crossbow","Attack_Claw_01_BackSwipe"]:
+        for clip in ["Idle","Walking","Running","Attack","Push","Crossbow",
+                "Attack_BowTwoHanded_01_Standard",
+                "Attack_MeleeTwoHanded_01_OverheadSmash",
+                "Unused_Attack_FirearmOneHanded_01_QuickDraw",
+                "Attack_CrossbowTwoHanded_01_Standard",
+                "Attack_Claw_01_BackSwipe"]:
             if not player.has_animation(clip):
                 _fail(str(item.label) + " lacks " + clip)
                 return
@@ -82,6 +88,29 @@ func _run() -> void:
     if bestiary.active_creature != "Fire Beetle":
         _fail("Fire Beetle inaccessible in Bestiary")
         return
+    # Beetle was previously normalized from a 0.00007-unit mesh AABB,
+    # making a single leg fill the entire preview viewport.
+    var beetle_preview_bounds: AABB = bestiary._skeleton_bounds_for(bestiary.preview_model, Transform3D.IDENTITY)
+    if absf(beetle_preview_bounds.size.y - 0.65) > 0.08:
+        _fail("Fire Beetle preview still scales from tiny mesh AABB")
+        return
+    if bestiary.camera.position.z < 0.8 or bestiary.camera.position.z > 10.0:
+        _fail("Fire Beetle initial framing is off-screen")
+        return
+    print("BEETLE_PREVIEW_SCALE_OK ", bestiary.preview_model.scale.y,
+        " camera_distance=", bestiary.camera.position.z)
+    bestiary._select_creature(2)
+    if bestiary.active_creature != "Twig Blight":
+        _fail("Twig Blight inaccessible in Bestiary")
+        return
+    bestiary._select_creature(3)
+    if bestiary.active_creature != "Wolf" or bestiary.preview_animator == null:
+        _fail("Wolf missing from Bestiary")
+        return
+    if not bestiary.preview_animator.has_animation("Attack_Pounce_01_Standard"):
+        _fail("Wolf lacks canonical quadruped preview")
+        return
+    bestiary._play_preview_animation("Movement_Run_01_Standard")
     bestiary._select_creature(0)
     if bestiary.active_creature != "Goblin":
         _fail("Goblin inaccessible after switching from beetle")
@@ -104,9 +133,53 @@ func _run() -> void:
     if lab.shared_player == null or not lab.shared_player.has_animation("Idle"):
         _fail("Goblin animation lab missing shared Idle")
         return
-    lab._play_clip(lab._index_of_clip("Crossbow"))
+    if lab._index_of_clip("Attack_CrossbowTwoHanded_01_Standard") == 0:
+        _fail("Canonical crossbow animation missing from humanoid lab")
+        return
+    lab._play_clip(lab._index_of_clip("Attack_CrossbowTwoHanded_01_Standard"))
     lab.queue_free()
     print("LEAN_ANIMATION_LAB_OK")
+
+    var wolf_scene: Node3D = load("res://assets/wolf_quadruped.glb").instantiate()
+    get_root().add_child(wolf_scene)
+    var wolf_skeleton := Quad.find_skeleton(wolf_scene)
+    var wolf_native := Quad.find_animator(wolf_scene)
+    var wolf_check := Quad.validate(wolf_scene)
+    var wolf_animator := Quad.attach(wolf_scene)
+    if wolf_skeleton == null or wolf_skeleton.get_bone_count() != 46 or not wolf_check.valid:
+        _fail("Wolf 46-bone quadruped foundation rejected")
+        return
+    if wolf_native == null or wolf_animator == null or int(wolf_animator.get_meta("mapped_bones")) != 46:
+        _fail("Wolf lost native quadruped animations")
+        return
+    for name in ["dog_idle1", "dog_run", "dog_dog_over", "leopard_skill_feipu"]:
+        if not wolf_animator.has_animation(name):
+            _fail("Wolf original clip was dropped: " + name)
+            return
+    for name in ["Idle_Standing_01_Standard","Movement_Run_01_Standard",
+            "Action_RollOver_01_Standard","Attack_Pounce_01_Standard"]:
+        if not wolf_animator.has_animation(name):
+            _fail("Wolf canonical animation missing: " + name)
+            return
+        wolf_native.stop()
+        wolf_animator.play(name)
+        wolf_animator.advance(0.15)
+    var beetle_scene: Node3D = load("res://assets/fire_beetle.glb").instantiate()
+    get_root().add_child(beetle_scene)
+    if Quad.validate(beetle_scene).valid:
+        _fail("Beetle was incorrectly accepted as 46-bone quadruped")
+        return
+    beetle_scene.queue_free()
+    wolf_scene.queue_free()
+    var wolf_lab: Control = load("res://quadruped_animation_lab.tscn").instantiate()
+    get_root().add_child(wolf_lab)
+    await process_frame
+    if wolf_lab.shared_player == null or wolf_lab.clip_picker.item_count != 4:
+        _fail("Separate quadruped animation lab failed")
+        return
+    wolf_lab._play_clip(wolf_lab._index_of_clip("Movement_Run_01_Standard"))
+    wolf_lab.queue_free()
+    print("QUADRUPED_REFERENCE_OK bones=46 clips=4")
 
     var world: Node3D = load("res://world.tscn").instantiate()
     get_root().add_child(world)
@@ -116,6 +189,14 @@ func _run() -> void:
         return
     for state in ["idle","walk","run","attack"]:
         world.play_imported_animation(state)
+    world.action("Attack")
+    if absf(world.attack - 1.0) > 0.0001:
+        _fail("Attack cooldown must be exactly 1 second during testing")
+        return
+    world.action("Attack")
+    if absf(world.attack - 1.0) > 0.0001:
+        _fail("Repeated attack bypasses testing cooldown")
+        return
     world.enemies._spawn("res://assets/goblin_warrior.glb", "Goblin Warrior")
     var found := false
     for mob in world.enemies.mobs:
@@ -139,6 +220,22 @@ func _run() -> void:
         _fail("Male character missing from creator selection")
         return
     front.queue_free()
+    world.enemies._spawn("res://assets/fire_beetle.glb", "Fire Beetle")
+    var beetle_found := false
+    for mob in world.enemies.mobs:
+        if mob.kind == "Fire Beetle":
+            var marker := mob.body.get_node_or_null("SpawnTestTag") as Label3D
+            var visual := mob.body.get_node_or_null("CharacterVisual") as Node3D
+            var beetle_world_bounds: Vector2 = world.enemies._skeletal_bounds(visual, Transform3D.IDENTITY) if visual else Vector2.ZERO
+            beetle_found = marker != null and marker.text == "SPAWNTEST" and (
+                visual != null and absf(beetle_world_bounds.y - beetle_world_bounds.x - 0.52) < 0.08)
+        elif mob.kind == "Twig Blight":
+            if mob.body.get_node_or_null("SpawnTestTag") != null:
+                _fail("Forest-native Twig Blight should not be tagged SPAWNTEST")
+                return
+    if not beetle_found:
+        _fail("Fire Beetle did not spawn with SPAWNTEST marker and corrected scale")
+        return
     world.toggle_inventory()
     if world.inventory_panel == null or world.inventory_panel.hero_model not in ["human_adventurer", "male_human"]:
         _fail("Inventory portrait is not using a registered playable human")

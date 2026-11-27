@@ -1,0 +1,957 @@
+{
+  "family": "Quadruped",
+  "reference": "Wolf",
+  "source_name": "Wolf - Complete With Quadraped Animation Library.glb",
+  "sha256": "137525d12db941491ba5b7b254ffc0920ce3adbaff15f9d2a2a6dc4e873481c4",
+  "bones": 46,
+  "vertex_count": 12305,
+  "skin": [
+    {
+      "name": "root",
+      "parent": null,
+      "translation": [
+        0.002852776733120256,
+        0.3833839434898787,
+        -0.5362835179314166
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "hips",
+      "parent": "root",
+      "translation": [
+        -3.0734741010909894e-10,
+        -0.031158227646022607,
+        -0.07789555571625273
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "tail_07",
+      "parent": "tail_06",
+      "translation": [
+        0.0,
+        -0.046737348135873824,
+        0.0077895589864451775
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "tail_06",
+      "parent": "tail4",
+      "translation": [
+        0.0,
+        -0.13242241737162908,
+        2.4970961409742642e-08
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "tail4",
+      "parent": "tail2",
+      "translation": [
+        -3.0734741010909894e-10,
+        -0.132422464609821,
+        -0.0077896354484312536
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "tail2",
+      "parent": "tail1",
+      "translation": [
+        -3.0734740967541807e-10,
+        -0.10905380262861775,
+        -0.0467372305248005
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "tail1",
+      "parent": "tail_02",
+      "translation": [
+        3.0734740967541807e-10,
+        -0.07789555253360425,
+        -0.1012642314539215
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "tail_02",
+      "parent": "tail_01",
+      "translation": [
+        3.0734741010909894e-10,
+        -0.023368620814605667,
+        -0.10126429551237748
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "tail_01",
+      "parent": "hips",
+      "translation": [
+        0.0,
+        0.031158223634104476,
+        -0.04673727107528458
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "rearToe.R",
+      "parent": "rearFoot.R",
+      "translation": [
+        -0.023368689691183206,
+        -1.2420348860509023e-08,
+        0.05452684853057843
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "rearFoot.R",
+      "parent": "rearHorselink.R",
+      "translation": [
+        -9.835117109613378e-09,
+        -0.25705529141847605,
+        0.01557907762952715
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "rearHorselink.R",
+      "parent": "rearLwr.R",
+      "translation": [
+        9.835117109613378e-09,
+        -0.24147618233335688,
+        -0.19473885812875813
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "rearLwr.R",
+      "parent": "rearUpr.R",
+      "translation": [
+        0.0,
+        -0.30379259496543876,
+        0.05452688472172107
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "rearUpr.R",
+      "parent": "hips",
+      "translation": [
+        -0.11684332555753257,
+        -0.07010593636451601,
+        0.023368639244978562
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "rearToe.L",
+      "parent": "rearFoot.L",
+      "translation": [
+        0.023368673187730546,
+        -0.00778954846361779,
+        0.054526918089927934
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "rearFoot.L",
+      "parent": "rearHorselink.L",
+      "translation": [
+        0.0,
+        -0.25705529141847605,
+        0.01557907762952715
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "rearHorselink.L",
+      "parent": "rearLwr.L",
+      "translation": [
+        0.0,
+        -0.24147618233335688,
+        -0.19473885812875813
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "rearLwr.L",
+      "parent": "rearUpr.L",
+      "translation": [
+        9.835117109613378e-09,
+        -0.30379259496543876,
+        0.05452688472172107
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "rearUpr.L",
+      "parent": "hips",
+      "translation": [
+        0.11684332555753257,
+        -0.07010593636451601,
+        0.023368639244978562
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "chest",
+      "parent": "spine_05",
+      "translation": [
+        -2.8089322968299912e-11,
+        -0.08568508909568151,
+        0.11684326228139538
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "spine_05",
+      "parent": "spine_04",
+      "translation": [
+        6.165533621843577e-11,
+        4.563507494115271e-08,
+        0.14800155751727603
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "spine_04",
+      "parent": "spine2",
+      "translation": [
+        6.158927144325754e-11,
+        4.085743798842856e-08,
+        0.1324224032357238
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "spine2",
+      "parent": "spine_02",
+      "translation": [
+        -3.23891702087159e-10,
+        2.3592032327712786e-08,
+        0.16358067228845596
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "spine_02",
+      "parent": "hips",
+      "translation": [
+        0.0,
+        0.031158232511873774,
+        0.15579107365769573
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "head",
+      "parent": "neck2",
+      "translation": [
+        -3.554033022740155e-11,
+        -0.07010591554640144,
+        0.17137028713915736
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "neck2",
+      "parent": "neck_04",
+      "translation": [
+        -3.947106964191649e-11,
+        2.614296834568819e-08,
+        0.09347458848766899
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "neck_04",
+      "parent": "neck1",
+      "translation": [
+        1.2732399032669428e-10,
+        0.007789537462744245,
+        0.08568512266220285
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "neck1",
+      "parent": "neck_02",
+      "translation": [
+        -6.842362570633198e-11,
+        0.007789547093246529,
+        0.10126416840278807
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "neck_02",
+      "parent": "neck_01",
+      "translation": [
+        1.8538281413432722e-10,
+        0.03894786931437322,
+        0.1480014987284268
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "neck_01",
+      "parent": "chest",
+      "translation": [
+        7.50881826334926e-11,
+        0.03115833538807944,
+        0.08568508920405007
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "frontToe.R",
+      "parent": "frontFoot.R",
+      "translation": [
+        -0.015579120066569738,
+        -0.031158223176893485,
+        0.07010604175654361
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "frontFoot.R",
+      "parent": "frontHorselink.R",
+      "translation": [
+        1.189699665171684e-08,
+        -0.12463288903308678,
+        0.062316375971027044
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "frontHorselink.R",
+      "parent": "frontLwr.R",
+      "translation": [
+        0.02336868071070665,
+        -0.30379260287681814,
+        0.05452679503247543
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "frontLwr.R",
+      "parent": "frontUpr.R",
+      "translation": [
+        0.015579148329933956,
+        -0.2570554657148303,
+        -0.09347481668336874
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "frontUpr.R",
+      "parent": "clavicle.R",
+      "translation": [
+        -0.054526858745489064,
+        -0.1791596975824834,
+        0.0934746705936513
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "clavicle.R",
+      "parent": "chest",
+      "translation": [
+        -0.054526884195067384,
+        0.07789559465941542,
+        0.08568510693944467
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "frontToe.L",
+      "parent": "frontFoot.L",
+      "translation": [
+        0.015579124371335504,
+        -0.031158224614615093,
+        0.07010603183501757
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "frontFoot.L",
+      "parent": "frontHorselink.L",
+      "translation": [
+        -1.6685863121757016e-08,
+        -0.12463288614796503,
+        0.06231640434063704
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "frontHorselink.L",
+      "parent": "frontLwr.L",
+      "translation": [
+        -0.02336867799402649,
+        -0.30379266805717764,
+        0.0545268489469618
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "frontLwr.L",
+      "parent": "frontUpr.L",
+      "translation": [
+        -0.015579118016432122,
+        -0.25705537107452126,
+        -0.09347473560739519
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "frontUpr.L",
+      "parent": "clavicle.L",
+      "translation": [
+        0.05452690283229674,
+        -0.17915975899270842,
+        0.09347472079880131
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "clavicle.L",
+      "parent": "chest",
+      "translation": [
+        0.054526880567457296,
+        0.07789559666032053,
+        0.08568510621184561
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "jaw",
+      "parent": "jaw_01",
+      "translation": [
+        1.1625235496470765e-11,
+        -0.038947763492229504,
+        0.04673726593541183
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "jaw_01",
+      "parent": "head",
+      "translation": [
+        4.858849173700053e-11,
+        -0.07789552166467795,
+        0.10126417410409527
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "head_01",
+      "parent": "head_02",
+      "translation": [
+        -1.796858911662369e-10,
+        0.0467373860387954,
+        -0.062316278481105436
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "head_02",
+      "parent": "head",
+      "translation": [
+        4.859350899097392e-11,
+        0.1246329237412348,
+        -2.8691790054935495e-08
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    }
+  ],
+  "animations": [
+    {
+      "original": "dog_dog_over",
+      "canonical": "Action_RollOver_01_Standard",
+      "channels": 138,
+      "duration_seconds": 3.0
+    },
+    {
+      "original": "dog_idle1",
+      "canonical": "Idle_Standing_01_Standard",
+      "channels": 138,
+      "duration_seconds": 7.0
+    },
+    {
+      "original": "dog_run",
+      "canonical": "Movement_Run_01_Standard",
+      "channels": 138,
+      "duration_seconds": 0.366667
+    },
+    {
+      "original": "leopard_skill_feipu",
+      "canonical": "Attack_Pounce_01_Standard",
+      "channels": 138,
+      "duration_seconds": 1.1
+    }
+  ],
+  "note": "Reference is exact original; distinct rest rigs require verified retargeting before admission."
+}

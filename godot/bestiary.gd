@@ -56,7 +56,27 @@ const TWIG_BLIGHT = {
     "abilities": [["False Appearance", "While motionless, indistinguishable from a dead shrub."]],
     "attacks": [["Claws", "Melee Weapon Attack: +3 to hit, reach 5 ft., one target. Hit: 3 (1d4 + 1) piercing damage. Animation: Attack_Claw_01_BackSwipe."]]
 }
+const WOLF = {
+    "name": "Wolf",
+    "asset": "res://assets/wolf_quadruped.glb",
+    "subtitle": "Medium beast, unaligned | Quadruped reference (46 bones)",
+    "details": [
+        ["Size", "Medium"], ["Creature type", "Beast"], ["Alignment", "Unaligned"],
+        ["Armor class", "13 (natural armor)"], ["Hit points", "11 (2d8 + 2)"],
+        ["Speed", "40 ft."], ["STR / DEX / CON", "12 (+1) / 15 (+2) / 12 (+1)"],
+        ["INT / WIS / CHA", "3 (-4) / 12 (+1) / 6 (-2)"],
+        ["Skills", "Perception +3, Stealth +4"],
+        ["Senses", "Passive Perception 13"], ["Languages", "None"],
+        ["Challenge rating", "1/4 (50 XP)"]
+    ],
+    "abilities": [
+        ["Keen Hearing and Smell", "Advantage on Wisdom (Perception) checks relying on hearing or smell."],
+        ["Pack Tactics", "Advantage on an attack roll if an ally is within 5 ft. of the target."]
+    ],
+    "attacks": [["Bite", "Melee Weapon Attack: +4 to hit, reach 5 ft., one target. Hit: 7 (2d4 + 2) piercing damage; DC 11 Strength saving throw or knocked prone."]]
+}
 const SHARED = preload("res://humanoid_shared_animations.gd")
+const QUADRUPED = preload("res://quadruped_shared_animations.gd")
 const GOLD := Color("#cfb576")
 const PALE := Color("#f3dfb8")
 const DARK := Color("#0b292e")
@@ -68,6 +88,8 @@ var camera: Camera3D
 var preview_animator: AnimationPlayer
 var preview_model: Node3D
 var preview_controls: HBoxContainer
+var preview_buttons: Array[Button] = []
+var preview_clips: Array[String] = []
 var preview_title: Label
 var preview_subtitle: Label
 var variant_index := 0
@@ -148,10 +170,12 @@ func _ready() -> void:
 	layout.add_child(preview_subtitle)
 
 	# Dedicated creature buttons remain visible on narrow portrait screens.
-	var creature_tabs := HBoxContainer.new()
-	creature_tabs.add_theme_constant_override("separation",12)
+	var creature_tabs := GridContainer.new()
+	creature_tabs.columns = 2
+	creature_tabs.add_theme_constant_override("h_separation",8)
+	creature_tabs.add_theme_constant_override("v_separation",8)
 	layout.add_child(creature_tabs)
-	for item in [["Goblins",0],["Fire Beetle",1],["Twig Blight",2]]:
+	for item in [["Goblin",0],["Fire Beetle",1],["Twig Blight",2],["Wolf",3]]:
 		var selector := _button(item[0],_select_creature.bind(item[1]))
 		selector.custom_minimum_size.y=58
 		selector.size_flags_horizontal=Control.SIZE_EXPAND_FILL
@@ -199,11 +223,14 @@ func _ready() -> void:
 	preview_controls = HBoxContainer.new()
 	preview_controls.add_theme_constant_override("separation", 8)
 	preview_stack.add_child(preview_controls)
-	for clip in ["Walk", "Attack", "Axe Spin", "Claw"]:
-		var preview_button := _button(clip, _play_preview_animation.bind(clip))
+	for slot in 4:
+		var preview_button := _button("", _play_preview_slot.bind(slot))
 		preview_button.custom_minimum_size.y = 44
 		preview_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		preview_controls.add_child(preview_button)
+		preview_buttons.append(preview_button)
+	_set_preview_controls(["Walk", "Attack", "Axe Spin"],
+		["Walk", "Attack", "Axe Spin"])
 	creature_picker = OptionButton.new()
 	creature_picker.custom_minimum_size.y = 48
 	creature_picker.add_theme_font_override("font", SERIF)
@@ -211,6 +238,7 @@ func _ready() -> void:
 	creature_picker.add_item("Goblin")
 	creature_picker.add_item("Fire Beetle")
 	creature_picker.add_item("Twig Blight")
+	creature_picker.add_item("Wolf")
 	creature_picker.item_selected.connect(_select_creature)
 	layout.add_child(creature_picker)
 	layout.move_child(creature_picker, 3)
@@ -242,6 +270,17 @@ func _render_stats(entry: Dictionary) -> void:
 	for line in entry.attacks:
 		_add_description(stats_content, line[0], line[1])
 
+func _set_preview_controls(clips: Array[String], labels: Array[String]) -> void:
+	preview_clips = clips
+	for slot in preview_buttons.size():
+		preview_buttons[slot].visible = slot < clips.size()
+		if slot < labels.size():
+			preview_buttons[slot].text = labels[slot]
+
+func _play_preview_slot(slot: int) -> void:
+	if slot >= 0 and slot < preview_clips.size():
+		_play_preview_animation(preview_clips[slot])
+
 func _select_creature(index: int) -> void:
 	if is_instance_valid(creature_picker): creature_picker.select(index)
 	if index == 1:
@@ -252,6 +291,7 @@ func _select_creature(index: int) -> void:
 		preview_title.text = FIRE_BEETLE.name
 		preview_subtitle.text = FIRE_BEETLE.subtitle
 		preview_controls.visible = false
+		_set_preview_controls([], [])
 		_render_stats(FIRE_BEETLE)
 	elif index == 2:
 		if not _load_creature(TWIG_BLIGHT.asset, "Attack_Claw_01_BackSwipe"):
@@ -261,7 +301,21 @@ func _select_creature(index: int) -> void:
 		preview_title.text = TWIG_BLIGHT.name
 		preview_subtitle.text = TWIG_BLIGHT.subtitle
 		preview_controls.visible = preview_animator != null
+		_set_preview_controls(["Walk", "Claw"], ["Walk", "Claw"])
 		_render_stats(TWIG_BLIGHT)
+	elif index == 3:
+		if not _load_creature(WOLF.asset, "Idle_Standing_01_Standard"):
+			creature_picker.select(0)
+			return
+		active_creature = "Wolf"
+		preview_title.text = WOLF.name
+		preview_subtitle.text = WOLF.subtitle
+		preview_controls.visible = preview_animator != null
+		_set_preview_controls(
+			["Idle_Standing_01_Standard","Movement_Run_01_Standard",
+			"Attack_Pounce_01_Standard","Action_RollOver_01_Standard"],
+			["Idle","Run","Pounce","Roll"])
+		_render_stats(WOLF)
 	else:
 		var variant: Dictionary = GOBLINS.ENTRIES[variant_index]
 		if not _load_creature(variant.asset):
@@ -271,6 +325,8 @@ func _select_creature(index: int) -> void:
 		preview_title.text = variant.name
 		preview_subtitle.text = variant.get("credit", ENTRIES[0].subtitle)
 		preview_controls.visible = preview_animator != null
+		_set_preview_controls(["Walk", "Attack", "Axe Spin"],
+			["Walk", "Attack", "Axe Spin"])
 		_render_stats(ENTRIES[0])
 
 func _add_stat(parent: VBoxContainer, name: String, value: String) -> void:
@@ -292,7 +348,10 @@ func _load_creature(path: String, state := "Idle") -> bool:
 	if not ResourceLoader.exists(path):
 		return false
 	var instance: Node3D = load(path).instantiate()
-	var bounds := _bounds_for(instance, Transform3D.IDENTITY)
+	# Beetle mesh AABB is ~0.00007 units while its animated rig is ~0.5.
+	# Scale and frame it from the actual skeletal rest bounds, not the tiny
+	# skinned mesh's un-deformed local vertex box.
+	var bounds := _skeleton_bounds_for(instance, Transform3D.IDENTITY) if path == FIRE_BEETLE.asset else _bounds_for(instance, Transform3D.IDENTITY)
 	if bounds.size.length() < 0.00000001 or bounds.size.y < 0.00000001:
 		instance.free()
 		return false
@@ -301,21 +360,41 @@ func _load_creature(path: String, state := "Idle") -> bool:
 		preview_model.queue_free()
 	preview_model = instance
 	creature_root.add_child(instance)
-	preview_animator = _find_animator(instance) if path == FIRE_BEETLE.asset else SHARED.attach(instance)
+	# The wolf is much easier to review from a three-quarter angle.
+	creature_root.rotation.y = 0.60 if path == WOLF.asset else 0.0
+	preview_animator = _find_animator(instance) if path == FIRE_BEETLE.asset else QUADRUPED.attach(instance) if path == WOLF.asset else SHARED.attach(instance)
 	_play_preview_animation(state)
 	# Some imported GLBs (notably the fire beetle) use sub-centimeter scale.
 	# Normalize the preview independently of world collision/physical height.
-	var target_height := 0.65 if path == FIRE_BEETLE.asset else 1.4
+	var target_height := 0.65 if path == FIRE_BEETLE.asset else 1.05 if path == WOLF.asset else 1.4
 	var preview_scale := target_height / bounds.size.y
 	instance.scale *= preview_scale
 	instance.position = -bounds.get_center() * preview_scale
 	var diameter := maxf(maxf(bounds.size.x, bounds.size.z) * preview_scale, target_height)
-	var distance := diameter * 1.65
+	var distance := maxf(diameter * 2.3, 1.65) if path == FIRE_BEETLE.asset else diameter * 1.65
 	camera.position = Vector3(0, 0, distance)
 	camera.look_at(Vector3.ZERO)
 	camera.near = 0.02
 	camera.far = 500.0
 	return true
+
+func _skeleton_bounds_for(node: Node3D, parent_transform: Transform3D) -> AABB:
+	var transform := parent_transform * node.transform
+	var result := AABB()
+	var found := false
+	if node is Skeleton3D:
+		var skeleton := node as Skeleton3D
+		for index in skeleton.get_bone_count():
+			var point: Vector3 = transform * skeleton.get_bone_global_rest(index).origin
+			result = result.expand(point) if found else AABB(point, Vector3.ZERO)
+			found = true
+	for child in node.get_children():
+		if child is Node3D:
+			var other := _skeleton_bounds_for(child, transform)
+			if other.size.length() > 0.00000001:
+				result = result.merge(other) if found else other
+				found = true
+	return result
 
 func _bounds_for(node: Node3D, parent_transform: Transform3D) -> AABB:
 	var local := parent_transform * node.transform
@@ -362,7 +441,8 @@ func _play_preview_animation(state: String) -> void:
 	for clip in preview_animator.get_animation_list():
 		if clip.to_lower().contains(wanted.to_lower()):
 			var animation := preview_animator.get_animation(clip)
-			animation.loop_mode = Animation.LOOP_NONE if state in ["Attack", "Axe Spin"] else Animation.LOOP_LINEAR
+			var is_loop := state in ["Walk", "Run", "Idle", "Walking"] or state.begins_with("Movement_") or state.begins_with("Idle_")
+			animation.loop_mode = Animation.LOOP_LINEAR if is_loop else Animation.LOOP_NONE
 			preview_animator.play(clip)
 			return
 

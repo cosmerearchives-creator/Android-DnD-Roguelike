@@ -147,7 +147,10 @@ func _ready() -> void:
 func _all_clips() -> PackedStringArray:
     var source: Node3D = (load("res://assets/humanoid_mixamo_animation_library.glb") as PackedScene).instantiate()
     var animator: AnimationPlayer = SHARED.find_animator(source)
-    var names := animator.get_animation_list() if animator else PackedStringArray()
+    var originals := animator.get_animation_list() if animator else PackedStringArray()
+    var names := PackedStringArray()
+    for original in originals:
+        names.append(SHARED.canonical_clip_name(original))
     source.free()
     return names
 

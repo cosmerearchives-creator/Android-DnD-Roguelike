@@ -7,6 +7,23 @@ const CLAW_NAME := "Attack_Claw_01_BackSwipe"
 # Cached once per rig/rest pose so crowds can share immutable clip resources.
 static var _library_cache: Dictionary = {}
 const LOOPING := ["Running", "Walking", "Walking_Woman", "Sneaky_Walk", "Concentrate_Idle"]
+# Category_Action_Variant_Descriptor; Unused_ preserves future-only clips.
+const CANONICAL_NAMES := {
+    "Archery_Shot": "Attack_BowTwoHanded_01_Standard",
+    "Attack": "Attack_MeleeTwoHanded_01_OverheadSmash",
+    "Cowboy_Quick_Draw_Shooting": "Unused_Attack_FirearmOneHanded_01_QuickDraw",
+    "Crossbow": "Attack_CrossbowTwoHanded_01_Standard",
+}
+
+static func canonical_clip_name(original: String) -> String:
+    return CANONICAL_NAMES.get(original, original)
+
+static func _add_canonical_names(library: AnimationLibrary) -> void:
+    for original in CANONICAL_NAMES:
+        if library.has_animation(original) and not library.has_animation(CANONICAL_NAMES[original]):
+            # Copies only animation resources, never modifies native source tracks.
+            library.add_animation(CANONICAL_NAMES[original],
+                library.get_animation(original).duplicate(true) as Animation)
 const ALIASES := {
     "Hips": ["Hips"], "Spine": ["Spine"], "Spine1": ["Chest", "Spine1"],
     "Spine2": ["UpperChest", "Spine2"], "Neck": ["Neck"], "Head": ["Head"],
@@ -259,6 +276,7 @@ static func attach(model: Node3D, in_place: bool = true) -> AnimationPlayer:
         # Keep native library untouched by adding the synthetic idle to a copy.
         var base := direct.get_animation_library("").duplicate() as AnimationLibrary
         base.add_animation("Idle", idle)
+        _add_canonical_names(base)
         direct.remove_animation_library("")
         direct.add_animation_library("", base)
         var direct_claw := _create_claw_attack(destination, model.get_path_to(destination), in_place)
@@ -385,6 +403,7 @@ static func attach(model: Node3D, in_place: bool = true) -> AnimationPlayer:
             idle_clip.track_insert_key(hold_track, 0.0, hold_pose)
             idle_clip.track_insert_key(hold_track, 1.5, hold_pose)
         library.add_animation("Idle", idle_clip)
+    _add_canonical_names(library)
     player.add_animation_library("", library)
     _library_cache[cache_key] = library
     player.set_meta("mapped_bones", mappings.size())

@@ -58,6 +58,7 @@ func main_menu():
 	button("New Game",creator)
 	button("Bestiary",func(): get_tree().change_scene_to_file("res://bestiary.tscn"))
 	button("Animation Lab",func(): get_tree().change_scene_to_file("res://humanoid_animation_lab.tscn"))
+	button("Quadruped Animation Lab",func(): get_tree().change_scene_to_file("res://quadruped_animation_lab.tscn"))
 	button("Settings & Updates",settings)
 func settings():
 	clear()
