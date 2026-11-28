@@ -13,6 +13,9 @@ const CATEGORIES:=["Body","Skin Tone","Makeup","Hair","Beard","Ears","Eye Color"
 var tab_tex: Texture2D
 var panel_tex: Texture2D
 var button_tex: Texture2D
+var compact_tex: Texture2D
+var compact_active_tex: Texture2D
+var arrow_tex: Texture2D
 var stone_tex: Texture2D
 var model: Node3D
 var appearance: Dictionary={}
@@ -38,7 +41,10 @@ func _ready() -> void:
 	tab_tex=_load_image("res://creator_ui/creator_button_clean.png")
 	panel_tex=_load_image("res://creator_ui/creator_panel_clean.png")
 	button_tex=_load_image("res://creator_ui/creator_button_clean.png")
-	stone_tex=_load_image("res://creator_ui/creator_stone_pedestal.png")
+	stone_tex=_load_image("res://creator_ui/creator_stone_oval.png")
+	compact_tex=_load_image("res://creator_ui/creator_button_compact.png")
+	compact_active_tex=_load_image("res://creator_ui/creator_button_compact_active.png")
+	arrow_tex=_load_image("res://creator_ui/creator_arrow_compact.png")
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_profile.load("user://hero.cfg")
 	_hero_name=str(_profile.get_value("hero","name","Avatar"))
@@ -110,18 +116,32 @@ func _nine_slice(path:Texture2D,position:Vector2,extent:Vector2,margin:float=22.
 	under.add_child(panel)
 	return panel
 
-func _style(active:bool=false) -> StyleBoxTexture:
+func _style(active:bool=false, family:String="compact") -> StyleBoxTexture:
 	var s:=StyleBoxTexture.new()
-	s.texture=button_tex
-	s.texture_margin_left=54.0
-	s.texture_margin_right=54.0
-	s.texture_margin_top=33.0
-	s.texture_margin_bottom=33.0
-	s.content_margin_left=9.0
-	s.content_margin_right=9.0
-	s.content_margin_top=5.0
-	s.content_margin_bottom=5.0
-	s.modulate_color=Color(1.0,0.74,0.48) if active else Color(1,1,1)
+	match family:
+		"action":
+			s.texture=button_tex
+			s.texture_margin_left=38
+			s.texture_margin_right=38
+			s.texture_margin_top=29
+			s.texture_margin_bottom=29
+		"arrow":
+			s.texture=arrow_tex
+			s.texture_margin_left=15
+			s.texture_margin_right=15
+			s.texture_margin_top=15
+			s.texture_margin_bottom=15
+		_:
+			s.texture=compact_active_tex if active else compact_tex
+			s.texture_margin_left=22
+			s.texture_margin_right=22
+			s.texture_margin_top=20
+			s.texture_margin_bottom=20
+	s.content_margin_left=8
+	s.content_margin_right=8
+	s.content_margin_top=4
+	s.content_margin_bottom=4
+	s.modulate_color=Color.WHITE
 	return s
 
 func _button(text:String,position:Vector2,extent:Vector2,pressed:Callable,active:bool=false) -> Button:
@@ -153,7 +173,7 @@ func _build() -> void:
 	_nine_slice(panel_tex,Vector2(28,106),Vector2(382,689),42)
 	for pair in [[106.0,154.0],[274.0,148.0],[436.0,154.0],[610.0,154.0]]:
 		_nine_slice(panel_tex,Vector2(926,float(pair[0])),Vector2(704,float(pair[1])),35)
-	_tex(stone_tex,Vector2(482,741),Vector2(375,96))
+	_tex(stone_tex,Vector2(485,699),Vector2(360,136))
 	_nine_slice(button_tex,Vector2(18,8),Vector2(377,82),34)
 	_font_label("FORESTS OF HELL",Vector2(52,8),Vector2(318,40),33,true)
 	_font_label("Character Creation",Vector2(63,47),Vector2(300,37),27,true)
@@ -209,12 +229,22 @@ func _build() -> void:
 	camera.look_at(Vector3(0,1.08,0))
 	_refresh_model()
 	_preview.gui_input.connect(_handle_preview)
-	_button("◀",Vector2(472,841),Vector2(75,49),func():_rotate(-PI/8.0))
-	_button("−",Vector2(578,841),Vector2(75,49),func():_zoom(1.2))
-	_button("+",Vector2(687,841),Vector2(75,49),func():_zoom(1.0/1.2))
-	_button("▶",Vector2(797,841),Vector2(75,49),func():_rotate(PI/8.0))
-	_button("Back",Vector2(1000,824),Vector2(233,64),func():cancelled.emit())
-	_button("Next",Vector2(1261,824),Vector2(353,64),_finish)
+	for spec in [
+		["◀",472.0,func():_rotate(-PI/8.0)],
+		["−",578.0,func():_zoom(1.2)],
+		["+",687.0,func():_zoom(1.0/1.2)],
+		["▶",797.0,func():_rotate(PI/8.0)]
+	]:
+		var button:=_button(str(spec[0]),Vector2(float(spec[1]),841),Vector2(75,49),spec[2])
+		button.add_theme_stylebox_override("normal",_style(false,"arrow"))
+		button.add_theme_stylebox_override("hover",_style(true,"arrow"))
+		button.add_theme_stylebox_override("pressed",_style(true,"arrow"))
+	var back:=_button("Back",Vector2(1000,824),Vector2(233,64),func():cancelled.emit())
+	var next:=_button("Next",Vector2(1261,824),Vector2(353,64),_finish)
+	for action in [back,next]:
+		action.add_theme_stylebox_override("normal",_style(false,"action"))
+		action.add_theme_stylebox_override("hover",_style(true,"action"))
+		action.add_theme_stylebox_override("pressed",_style(true,"action"))
 	controls=Control.new()
 	controls.position=Vector2(948,115)
 	controls.size=Vector2(659,649)
@@ -253,29 +283,39 @@ func _control_button(title:String,pos:Vector2,extent:Vector2,callback:Callable,a
 
 func _slider(label:String,key:String,at_y:float,min_value:float,max_value:float,value:float,subtitle:String) -> void:
 	_control_label(label,at_y)
+	# Physical gold rails are drawn independently of Godot's HSlider theme:
+	# the previous asset was hidden by the engine's slot background.
+	for detail in [
+		[Color(0.23,0.09,0.015,1),Vector2(107,at_y+61),Vector2(347,9)],
+		[Color(0.82,0.40,0.07,1),Vector2(109,at_y+63),Vector2(343,5)],
+		[Color(1.0,0.79,0.37,1),Vector2(110,at_y+64),Vector2(341,2)]
+	]:
+		var rail:=ColorRect.new()
+		rail.color=detail[0]
+		rail.position=detail[1]
+		rail.size=detail[2]
+		rail.mouse_filter=Control.MOUSE_FILTER_IGNORE
+		controls.add_child(rail)
 	var slider:=HSlider.new()
-	slider.position=Vector2(109,at_y+65)
-	slider.size=Vector2(356,30)
+	slider.position=Vector2(107,at_y+51)
+	slider.size=Vector2(347,30)
 	slider.min_value=min_value
 	slider.max_value=max_value
 	slider.step=0.01
 	slider.value=value
-	var track:=StyleBoxTexture.new()
-	track.texture=_load_image("res://creator_ui/creator_slider_track.png")
-	track.texture_margin_left=20
-	track.texture_margin_right=20
-	track.texture_margin_top=5
-	track.texture_margin_bottom=5
-	slider.add_theme_stylebox_override("slider",track)
-	slider.add_theme_stylebox_override("grabber_area",track)
-	slider.add_theme_stylebox_override("grabber_area_highlight",track)
-	var grip:=_load_image("res://creator_ui/creator_slider_diamond.png")
+	var invisible:=StyleBoxEmpty.new()
+	slider.add_theme_stylebox_override("slider",invisible)
+	slider.add_theme_stylebox_override("grabber_area",invisible)
+	slider.add_theme_stylebox_override("grabber_area_highlight",invisible)
+	var grip:=_load_image("res://creator_ui/creator_slider_diamond_compact.png")
 	slider.add_theme_icon_override("grabber",grip)
 	slider.add_theme_icon_override("grabber_highlight",grip)
 	controls.add_child(slider)
+	var value_frame:=_nine_slice(compact_tex,Vector2(529,at_y+58),Vector2(105,45),14,controls)
+	value_frame.name=key.capitalize()+"ValueFrame"
 	var reading:=Label.new()
-	reading.position=Vector2(511,at_y+54)
-	reading.size=Vector2(110,43)
+	reading.position=Vector2(529,at_y+58)
+	reading.size=Vector2(105,45)
 	reading.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	reading.add_theme_font_override("font",FONT)
 	reading.add_theme_font_size_override("font_size",25)
@@ -283,7 +323,7 @@ func _slider(label:String,key:String,at_y:float,min_value:float,max_value:float,
 	controls.add_child(reading)
 	var lower:=Label.new()
 	lower.text=subtitle
-	lower.position=Vector2(92,at_y+100)
+	lower.position=Vector2(92,at_y+97)
 	lower.size=Vector2(445,33)
 	lower.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	lower.add_theme_font_override("font",FONT)
@@ -307,8 +347,10 @@ func _slider(label:String,key:String,at_y:float,min_value:float,max_value:float,
 	slider.value_changed.connect(update)
 	update.call(value)
 	for side in [-1,1]:
-		var x:=25 if side<0 else 475
-		_control_button("◀" if side<0 else "▶",Vector2(x,at_y+53),Vector2(70,56),func():slider.value=clampf(slider.value+side*(max_value-min_value)/20.0,min_value,max_value))
+		var x:=30 if side<0 else 462
+		var arrow:=_control_button("◀" if side<0 else "▶",Vector2(x,at_y+55),Vector2(59,53),func():slider.value=clampf(slider.value+side*(max_value-min_value)/20.0,min_value,max_value))
+		arrow.add_theme_stylebox_override("normal",_style(false,"arrow"))
+		arrow.add_theme_stylebox_override("hover",_style(true,"arrow"))
 
 func _hair_size_slider() -> void:
 	_control_label("Hair Size",390)
@@ -331,12 +373,12 @@ func _show_category(category:String) -> void:
 	_clear_controls()
 	_warning_label.text=""
 	if category=="Body":
-		_control_label("Gender",2,32)
+		_control_label("Gender",13,30)
 		_control_button("♀   Female",Vector2(36,57),Vector2(270,57),func():gender_selection="Female";_show_category("Body"),gender_selection=="Female")
 		_control_button("♂   Male",Vector2(345,57),Vector2(268,57),func():gender_selection="Male";_show_category("Body"),gender_selection=="Male")
-		_slider("Height","height",148,54,84,selected_height_inches,"Range: 4' 6\" — 7' 0\"")
-		_slider("Frame","frame",320,0.5,1.6,float(appearance.get("frame_scale",1.0)),"Slender                       Large")
-		_slider("Weight","weight",492,90,260,selected_weight_lb,"Range: 90 – 260 lb")
+		_slider("Height","height",169,54,84,selected_height_inches,"Range: 4' 6\" — 7' 0\"")
+		_slider("Frame","frame",338,0.5,1.6,float(appearance.get("frame_scale",1.0)),"Slender                       Large")
+		_slider("Weight","weight",510,90,260,selected_weight_lb,"Range: 90 – 260 lb")
 		_warning_label.text="Body changes use the existing model; only the provided female rig is available."
 	elif category=="Hair" or category=="Beard":
 		var kind: String=category.to_lower()

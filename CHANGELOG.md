@@ -67,3 +67,6 @@ The user-supplied Female No Race Base is the only playable character. Height, fr
 
 ## v0.3.204 creator scale correction candidate
 - Replaced contaminated cropped UI composites with clean source-derived nine-slice panels/buttons and slider textures. Original 1900x1900 and 1673x940 source images unchanged. Local Godot4.5.1 tests creator_workshop_smoke and creator_v204_scale_smoke pass. Release and physical screenshot QA pending. See docs/creator-scale-v0.3.204.md.
+
+## v0.3.205 — Creator UI compact styling and pedestal
+Actual desktop render validated smaller navigation and arrow borders, stronger active selection, bright slider rails, caption spacing and clean isolated stone stage beneath existing character feet. Original source art, original female 66-joint rig and game mechanics unchanged. Updated stale legacy creator preview regression to dedicated scene. Publication verification separate.

@@ -49,3 +49,6 @@ The supplied tavern is an open-roof room, not a complete roofed exterior. Keep t
 
 ## v0.3.204 creator scale correction candidate
 - Replaced contaminated cropped UI composites with clean source-derived nine-slice panels/buttons and slider textures. Original 1900x1900 and 1673x940 source images unchanged. Local Godot4.5.1 tests creator_workshop_smoke and creator_v204_scale_smoke pass. Release and physical screenshot QA pending. See docs/creator-scale-v0.3.204.md.
+
+## v0.3.205 Workshop frame hierarchy
+Use separate ornate large-panel/action buttons, subdued compact navigation/category frames and plain thin-corner control arrows. Keep orange glow only for current selection. Native engine sliders retain callbacks with independent, visible gold rails. Show source-exact isolated oval stage behind real GLB, never another screenshot fragment.

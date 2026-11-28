@@ -51,3 +51,6 @@ Godot 4.5.1 on Stormfather: `--headless --path ... --quit-after` main-scene boot
 
 ## v0.3.204 creator scale correction candidate
 - Replaced contaminated cropped UI composites with clean source-derived nine-slice panels/buttons and slider textures. Original 1900x1900 and 1673x940 source images unchanged. Local Godot4.5.1 tests creator_workshop_smoke and creator_v204_scale_smoke pass. Release and physical screenshot QA pending. See docs/creator-scale-v0.3.204.md.
+
+## v0.3.205 creator remaining visual and feature limits
+Source-art derived compact UI better matches approved reference but remains a first-pass approximation (not pixel-perfect). The desktop composition is scaled into portrait mobile viewport; verify legibility/device UI. Gender choice does not replace female base, and non-Body/Hair/Beard appearance tabs plus Race/Class/Background navigation are not fully implemented without compatible assets/rules. Weight remains visual depth scaling only. Android and Windows release confirmation pending.
