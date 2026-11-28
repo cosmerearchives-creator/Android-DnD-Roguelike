@@ -23,6 +23,8 @@ func _run() -> void:
 		quit(1)
 		return
 	workshop.appearance["hair"]=1
+	workshop.appearance["beard"]=0
+	workshop.appearance["hair_scale"]=1.0
 	workshop._update_appearance()
 	await process_frame
 	var attachment:Node=workshop.model.find_child("ModularAppearance",true,false)

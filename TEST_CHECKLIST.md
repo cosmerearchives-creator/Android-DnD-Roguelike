@@ -82,3 +82,8 @@ PASS (Godot4.5.1 local): creator_workshop_smoke, creator_v204_scale_smoke, chara
 
 ## v0.3.205 publication verification — 2026-11-28
 GitHub Actions run 46163037849 completed SUCCESS, including production signing and stable release publication. Release v0.3.205 targets d5a5f4043a08780214c12c885a50cfda55f87ef2. Verified public Android APK (540573185 bytes), Windows x64 ZIP (544121874 bytes), and both live updater manifests at /releases/latest/download/{update.json,windows-update.json}: versionCode 226, versionName 0.3.205, matching release download URLs and SHA-256 digests. Android manifest SHA d5d78ce51abc587981918c7027f62631e94d3a1f3b6341ebd72ce34607d83acf; Windows manifest SHA bd64bd7de555672e09fa9a176f71138e7d184f6c528310ebaec7024ef83039ea. On-device visual/UI operation remains unverified.
+
+## v0.3.206 creator accessory gates
+- PASS: Godot 4.5.1 creator_workshop_smoke, creator_v204_scale_smoke (now seven frames for dedicated category panel), creator_v205_ui_smoke, creator_preview_smoke (explicit 1.0 baseline hair size / no beard), character_appearance_smoke, appearance_head_fit_smoke (all supplied variants, 66 original bone names/parents, bone rotation lock, AABB top fit, offsets), appearance_xyz_ui_smoke (Hair/Beard panels, nudge, save/reload, reset), inventory_desktop_layout_smoke (FOH_TEST_PC=1), inventory_pause_and_blend_smoke, display_camera_persistence_smoke: 10/10 passed.
+- PASS: actual Godot OpenGL screenshots for Wavy, Short, Braid, Full Beard reviewed in Creator Review. Original playable model, hair/beard GLBs, original source UI assets and textures unchanged.
+- Required remaining: stable signed Android/Windows release and both public update manifests; physical phone/PC UI/animation validation.

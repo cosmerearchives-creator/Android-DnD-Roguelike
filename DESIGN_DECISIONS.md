@@ -52,3 +52,7 @@ The supplied tavern is an open-roof room, not a complete roofed exterior. Keep t
 
 ## v0.3.205 Workshop frame hierarchy
 Use separate ornate large-panel/action buttons, subdued compact navigation/category frames and plain thin-corner control arrows. Keep orange glow only for current selection. Native engine sliders retain callbacks with independent, visible gold rails. Show source-exact isolated oval stage behind real GLB, never another screenshot fragment.
+
+## v0.3.206 Head accessory fitting
+- Always attach supplied unrigged hair/beard meshes rigidly to the original compatible player skeleton's real head bone (female index 5); never fabricate a substitute rig. Match actual per-mesh Godot AABB Y upper bound to head-relative scalp/chin fitting, using original +Z face direction. Use a +Z jaw offset for beard; allow saved XYZ nudge/reset within ±0.25m. Preserve original rig/bone maps/textures, and keep appearance offsets shared across creator, gameplay and inventory.
+- Hair/Beard categories use one appropriate right-hand panel with native controls and should not display unused Body card frames. Native slider visual system matches existing gold UI.

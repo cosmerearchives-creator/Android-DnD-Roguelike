@@ -33,6 +33,8 @@ var page_controls: Dictionary={}
 var category_controls: Dictionary={}
 var selected_widget: Control
 var _warning_label: Label
+var body_panels: Array[NinePatchRect]=[]
+var category_panel: NinePatchRect
 var _ui_root: Control
 var _preview: SubViewportContainer
 var _hero_name: String=""
@@ -172,7 +174,9 @@ func _build() -> void:
 	_ui_root.add_child(dim)
 	_nine_slice(panel_tex,Vector2(28,106),Vector2(382,689),42)
 	for pair in [[106.0,154.0],[274.0,148.0],[436.0,154.0],[610.0,154.0]]:
-		_nine_slice(panel_tex,Vector2(926,float(pair[0])),Vector2(704,float(pair[1])),35)
+		body_panels.append(_nine_slice(panel_tex,Vector2(926,float(pair[0])),Vector2(704,float(pair[1])),35))
+	category_panel=_nine_slice(panel_tex,Vector2(926,106),Vector2(704,671),35)
+	category_panel.visible=false
 	_tex(stone_tex,Vector2(485,699),Vector2(360,136))
 	_nine_slice(button_tex,Vector2(18,8),Vector2(377,82),34)
 	_font_label("FORESTS OF HELL",Vector2(52,8),Vector2(318,40),33,true)
@@ -206,11 +210,11 @@ func _build() -> void:
 	viewport.add_child(model_root)
 	var light:=DirectionalLight3D.new()
 	light.rotation_degrees=Vector3(-42,32,0)
-	light.light_energy=2.0
+	light.light_energy=1.45
 	model_root.add_child(light)
 	var fill:=DirectionalLight3D.new()
 	fill.rotation_degrees=Vector3(-18,-142,0)
-	fill.light_energy=.85
+	fill.light_energy=.60
 	model_root.add_child(fill)
 	var env:=WorldEnvironment.new()
 	env.environment=Environment.new()
@@ -218,7 +222,7 @@ func _build() -> void:
 	env.environment.background_color=Color(0.0,0.0,0.0,0.0)
 	env.environment.ambient_light_source=Environment.AMBIENT_SOURCE_COLOR
 	env.environment.ambient_light_color=Color("#c9c4b7")
-	env.environment.ambient_light_energy=.75
+	env.environment.ambient_light_energy=.65
 	model_root.add_child(env)
 	camera=Camera3D.new()
 	camera.projection=Camera3D.PROJECTION_ORTHOGONAL
@@ -249,7 +253,7 @@ func _build() -> void:
 	controls.position=Vector2(948,115)
 	controls.size=Vector2(659,649)
 	_ui_root.add_child(controls)
-	_warning_label=_font_label("",Vector2(963,776),Vector2(625,35),16)
+	_warning_label=_font_label("",Vector2(963,784),Vector2(625,33),16)
 	_warning_label.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 
 func _clear_controls() -> void:
@@ -257,7 +261,7 @@ func _clear_controls() -> void:
 		controls.remove_child(node)
 		node.queue_free()
 
-func _control_label(text:String,y:float,size:int=30) -> void:
+func _control_label(text:String,y:float,size:int=30) -> Label:
 	var l:=Label.new()
 	l.text=text
 	l.position=Vector2(45,y)
@@ -266,6 +270,7 @@ func _control_label(text:String,y:float,size:int=30) -> void:
 	l.add_theme_font_size_override("font_size",size)
 	l.add_theme_color_override("font_color",TEXT)
 	controls.add_child(l)
+	return l
 
 func _control_button(title:String,pos:Vector2,extent:Vector2,callback:Callable,active:bool=false) -> Button:
 	var b:=Button.new()
@@ -353,18 +358,88 @@ func _slider(label:String,key:String,at_y:float,min_value:float,max_value:float,
 		arrow.add_theme_stylebox_override("hover",_style(true,"arrow"))
 
 func _hair_size_slider() -> void:
-	_control_label("Hair Size",390)
+	_control_label("Hair Size",313,27)
+	for detail in [
+		[Color("#482208"),Vector2(112,363),Vector2(396,9)],
+		[Color("#d78b25"),Vector2(114,365),Vector2(392,5)],
+		[Color("#ffe59e"),Vector2(115,366),Vector2(390,2)]
+	]:
+		var rail:=ColorRect.new()
+		rail.color=detail[0]
+		rail.position=detail[1]
+		rail.size=detail[2]
+		rail.mouse_filter=Control.MOUSE_FILTER_IGNORE
+		controls.add_child(rail)
 	var slider:=HSlider.new()
-	slider.position=Vector2(105,453)
-	slider.size=Vector2(410,32)
+	slider.name="HairSizeSlider"
+	slider.position=Vector2(113,352)
+	slider.size=Vector2(395,31)
 	slider.min_value=0.5
 	slider.max_value=3.0
-	slider.step=.05
+	slider.step=0.05
 	slider.value=float(appearance.get("hair_scale",1.0))
+	var clear:=StyleBoxEmpty.new()
+	for key in ["slider","grabber_area","grabber_area_highlight"]:
+		slider.add_theme_stylebox_override(key,clear)
+	var diamond:=_load_image("res://creator_ui/creator_slider_diamond_compact.png")
+	slider.add_theme_icon_override("grabber",diamond)
+	slider.add_theme_icon_override("grabber_highlight",diamond)
 	controls.add_child(slider)
-	slider.value_changed.connect(func(value:float):
+	var number:=_control_label("Hair Size",313,27)
+	number.text=""
+	number.name="HairScaleValue"
+	number.position=Vector2(518,350)
+	number.size=Vector2(94,43)
+	number.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	number.add_theme_font_size_override("font_size",22)
+	var changed:Callable=func(value:float):
 		appearance["hair_scale"]=value
-		_update_appearance())
+		number.text="%.2f" % value
+		if is_instance_valid(model):APPEARANCE.update_placement(model,appearance)
+	slider.value_changed.connect(changed)
+	changed.call(slider.value)
+
+func _nudge_attachment(kind:String,axis:int,amount:float) -> void:
+	var key:String=kind+"_offset"
+	var value:Vector3=appearance.get(key,Vector3.ZERO)
+	value[axis]=clampf(value[axis]+amount,-APPEARANCE.OFFSET_LIMIT,APPEARANCE.OFFSET_LIMIT)
+	appearance[key]=value
+	if is_instance_valid(model):APPEARANCE.update_placement(model,appearance)
+	var reading:=controls.get_node_or_null("%sAxis%d" % [kind,axis]) as Label
+	if reading!=null:reading.text="%+.2f m" % value[axis]
+	APPEARANCE.save(appearance)
+
+func _reset_attachment(kind:String) -> void:
+	appearance[kind+"_offset"]=Vector3.ZERO
+	if is_instance_valid(model):APPEARANCE.update_placement(model,appearance)
+	for axis in range(3):
+		var reading:=controls.get_node_or_null("%sAxis%d" % [kind,axis]) as Label
+		if reading!=null:reading.text="+0.00 m"
+	APPEARANCE.save(appearance)
+
+func _attachment_position_controls(kind:String,start_y:float) -> void:
+	_control_label(kind.capitalize()+" Position",start_y,27)
+	var stored:Vector3=appearance.get(kind+"_offset",Vector3.ZERO)
+	for axis in range(3):
+		var current_axis:int=axis
+		var y:float=start_y+44.0+float(axis)*53.0
+		var axis_name:String=["X","Y","Z"][axis]
+		var title:=_control_label(axis_name,y+2.0,24)
+		title.position.x=76
+		title.size.x=46
+		var left:=_control_button("−",Vector2(153,y),Vector2(61,44),func():_nudge_attachment(kind,current_axis,-0.01))
+		var right:=_control_button("+",Vector2(442,y),Vector2(61,44),func():_nudge_attachment(kind,current_axis,0.01))
+		for arrow in [left,right]:
+			for state in ["normal","hover","pressed"]:
+				arrow.add_theme_stylebox_override(state,_style(state!="normal","arrow"))
+		var readout:=_control_label("%+.2f m" % stored[axis],y+2.0,22)
+		readout.name="%sAxis%d" % [kind,axis]
+		readout.position.x=254
+		readout.size.x=138
+		readout.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	var reset_y:float=start_y+210.0
+	var reset:=_control_button("Reset Position",Vector2(199,reset_y),Vector2(288,43),func():_reset_attachment(kind))
+	reset.add_theme_font_size_override("font_size",22)
 
 func _show_category(category:String) -> void:
 	active_category=category
@@ -372,6 +447,9 @@ func _show_category(category:String) -> void:
 		category_controls[name].add_theme_stylebox_override("normal",_style(name==category))
 	_clear_controls()
 	_warning_label.text=""
+	for panel in body_panels:
+		panel.visible=category=="Body"
+	category_panel.visible=category!="Body"
 	if category=="Body":
 		_control_label("Gender",13,30)
 		_control_button("♀   Female",Vector2(36,57),Vector2(270,57),func():gender_selection="Female";_show_category("Body"),gender_selection=="Female")
@@ -381,15 +459,24 @@ func _show_category(category:String) -> void:
 		_slider("Weight","weight",510,90,260,selected_weight_lb,"Range: 90 – 260 lb")
 		_warning_label.text="Body changes use the existing model; only the provided female rig is available."
 	elif category=="Hair" or category=="Beard":
-		var kind: String=category.to_lower()
-		_control_label(category+" Style",20)
-		var names: Array=APPEARANCE.HAIR if kind=="hair" else APPEARANCE.BEARDS
+		var kind:String=category.to_lower()
+		_control_label(category+" Style",20,31)
+		var names:Array=APPEARANCE.HAIR if kind=="hair" else APPEARANCE.BEARDS
+		var row_y:float=77.0
 		for i in range(names.size()):
 			var idx:int=i
-			_control_button(str(names[i]),Vector2(30,87+i*70),Vector2(585,58),func():appearance[kind]=idx;_update_appearance();_show_category(category),int(appearance.get(kind,0))==i)
+			var label:String=names[i]
+			var button:=_control_button(label,Vector2(30,row_y+float(i)*61.0),Vector2(585,52),func():
+				appearance[kind]=idx
+				_update_appearance()
+				_show_category(category),int(appearance.get(kind,0))==i)
+			button.add_theme_font_size_override("font_size",24)
 		if kind=="hair":
 			_hair_size_slider()
-		_warning_label.text="These selections use existing modular hair and beard assets."
+			_attachment_position_controls(kind,399.0)
+		else:
+			_attachment_position_controls(kind,259.0)
+		_warning_label.text="Offsets are measured in meters from the fitted head position and saved automatically."
 	else:
 		_control_label(category,28)
 		_warning_label.text=category+" controls need compatible supplied textures or morph targets; no unsupported changes are applied."

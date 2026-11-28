@@ -14,7 +14,7 @@ func _test():
 	ui._show_category("Body")
 	var tex=ui._ui_root.get_children().filter(func(n):return n is NinePatchRect)
 	print("NINEPATCH",tex.size(),"root",ui._ui_root.size,"scale",ui._ui_root.scale)
-	assert(tex.size()==6)
+	assert(tex.size()==7)
 	assert(ui.page_controls.size()==7 and ui.category_controls.size()==8)
 	assert(ui._preview.size.x==458)
 	var original: Vector2i=Vector2i(1673,940)

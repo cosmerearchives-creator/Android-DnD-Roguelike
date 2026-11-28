@@ -67,3 +67,8 @@ New compact/square source-art UI families replace oversized button corners; gold
 
 ## v0.3.205 publication verification — 2026-11-28
 GitHub Actions run 46163037849 completed SUCCESS, including production signing and stable release publication. Release v0.3.205 targets d5a5f4043a08780214c12c885a50cfda55f87ef2. Verified public Android APK (540573185 bytes), Windows x64 ZIP (544121874 bytes), and both live updater manifests at /releases/latest/download/{update.json,windows-update.json}: versionCode 226, versionName 0.3.205, matching release download URLs and SHA-256 digests. Android manifest SHA d5d78ce51abc587981918c7027f62631e94d3a1f3b6341ebd72ce34607d83acf; Windows manifest SHA bd64bd7de555672e09fa9a176f71138e7d184f6c528310ebaec7024ef83039ea. On-device visual/UI operation remains unverified.
+
+## v0.3.206 head-fitting and creator controls — local implementation complete
+- The next release branch is main, following published v0.3.205/code226. Hair/Beard Head attachment now uses Godot AABB measured scalp/chin positioning (head bone 5) on 66-bone supplied female base. All three hairstyle variants and Full Beard have been photographed on the head and are adjustable by saved XYZ 1cm nudges/reset, shared via APPEARANCE.apply in world and inventory; Hair/Beard occupy one clean panel. Source GLBs/textures/bone maps entirely untouched.
+- Verified 10/10 local Godot smokes plus four actual GPU screenshots, see docs/appearance-head-fit-v0.3.206.md. Release candidate versionCode=227 versionName=0.3.206. Verify CI signed APK, Windows ZIP and update manifests after push; phone checks unverified.
+- Preserve preexisting unrelated local edits to godot/project.godot and godot/front_menu.tscn and numerous untracked diagnostics; stage only files for this update.

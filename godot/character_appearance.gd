@@ -7,8 +7,8 @@ const FILES := {
     "beard": ["", "res://assets/appearance/beard_full.glb"]
 }
 const DIMENSIONS := {
-    "hair": [Vector3.ZERO, Vector3(0.9068,1.0322,1.8982), Vector3(1.5112,1.8989,1.5717), Vector3(1.4305,1.5976,1.8988)],
-    "beard": [Vector3.ZERO, Vector3(1.4741,0.6722,1.9026)]
+    "hair": [Vector3.ZERO, Vector3(0.903253,1.898732,1.034521), Vector3(1.501402,1.573253,1.903303), Vector3(1.437447,1.896282,1.600468)],
+    "beard": [Vector3.ZERO, Vector3(1.473436,1.906936,0.674502)]
 }
 const SAVE := "user://appearance.cfg"
 static func settings() -> Dictionary:
@@ -54,6 +54,48 @@ static func clear(character: Node3D) -> void:
     if existing!=null:
         existing.get_parent().remove_child(existing)
         existing.queue_free()
+## Mesh asset coordinates are centered at their own bounding boxes, not at
+## the player's scalp. These measured source-AABB Y maxima (meters) give us
+## a stable crown/jaw fit without changing a single vertex or skeleton bone.
+const MESH_TOP := {
+    "hair": [0.0,0.9471683,0.7889832,0.9483418],
+    "beard": [0.0,0.9541904]
+}
+## The head bone on the supplied 66-joint model is below the scalp crown.
+## Face-forward is +Z (verified by the original "headfront" bone).
+const SCALP_TOP := 0.19
+const BEARD_TOP := 0.03
+const OFFSET_LIMIT := 0.25
+
+static func base_position(kind: String,index: int,factor: float) -> Vector3:
+    var top_y:float=SCALP_TOP if kind=="hair" else BEARD_TOP
+    var forward:float=-0.055 if kind=="hair" else 0.120
+    return Vector3(0.0,top_y-float(MESH_TOP[kind][index])*factor,forward)
+
+static func mesh_factor(kind: String,index: int,data: Dictionary) -> float:
+    var dims:Vector3=DIMENSIONS[kind][index]
+    var width:float=0.27 if kind=="hair" else 0.18
+    var factor:float=width/maxf(dims.x,0.01)
+    if kind=="hair":factor*=clampf(float(data.get("hair_scale",1.0)),0.5,3.0)
+    return factor
+
+static func update_placement(character: Node3D,data: Dictionary) -> void:
+    var attach:=character.find_child("ModularAppearance",true,false) as BoneAttachment3D
+    if attach==null:return
+    for kind in ["hair","beard"]:
+        var instance:=attach.get_node_or_null(kind.capitalize()) as Node3D
+        if instance==null:continue
+        var index:=clampi(int(data.get(kind,0)),0,FILES[kind].size()-1)
+        if index==0:continue
+        var factor:=mesh_factor(kind,index,data)
+        var raw_offset:Variant=data.get(kind+"_offset",Vector3.ZERO)
+        var user_offset:Vector3=raw_offset if raw_offset is Vector3 else Vector3.ZERO
+        user_offset.x=clampf(user_offset.x,-OFFSET_LIMIT,OFFSET_LIMIT)
+        user_offset.y=clampf(user_offset.y,-OFFSET_LIMIT,OFFSET_LIMIT)
+        user_offset.z=clampf(user_offset.z,-OFFSET_LIMIT,OFFSET_LIMIT)
+        instance.scale=Vector3.ONE*factor
+        instance.position=base_position(kind,index,factor)+user_offset
+
 static func apply(character: Node3D,data: Dictionary={}) -> void:
     if data.is_empty():data=settings()
     clear(character)
@@ -73,12 +115,5 @@ static func apply(character: Node3D,data: Dictionary={}) -> void:
         var instance:Node3D=(load(path) as PackedScene).instantiate()
         instance.name=kind.capitalize()
         attachment.add_child(instance)
-        # Assets are normalized around their own mesh center; use physical dimensions
-        # to scale for a typical adult head. The slider offsets are measured in meters.
-        var dims:Vector3=DIMENSIONS[kind][index]
-        var target_width:=0.27 if kind=="hair" else 0.23
-        var factor:=target_width/maxf(dims.x,0.01)
-        if kind=="hair":factor*=float(data.get("hair_scale",1.0))
-        instance.scale=Vector3.ONE*factor
-        var default_pos:=Vector3(0,0.09,0) if kind=="hair" else Vector3(0,-0.105,-0.055)
-        instance.position=default_pos+Vector3(data.get(kind+"_offset",Vector3.ZERO))
+        # Position is applied from the verified source mesh bounds below.
+    update_placement(character,data)

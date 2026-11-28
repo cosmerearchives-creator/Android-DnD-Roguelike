@@ -49,3 +49,7 @@ NEXT: refine biome transitions and reduce visible square patch boundaries; then 
 
 ## Character creator visual milestone v0.3.205
 Completed locally: selected Body/Appearance highlight, smaller corner ornaments, warm visible slider track, isolated pedestal and portrait model alignment. Remaining: device visual approval, true supplied material/morph targets for disabled appearance categories, playable male rig only if supplied, and wider Race/Class/Background/Abilities UI restoration. Do not fabricate skeletons.
+
+## v0.3.206 Appearance head attachment and UI — implementation validated locally
+- Current: existing 66-joint female model's mixamorig_Head and headfront bone verified; source-exact static Wavy/Short/Braid/Full Beard mesh bounds used for distinct scalp/chin fitting, native XYZ ±25cm/1cm steps and Reset, saved to existing appearance.cfg. Hair Size has gold track, Hair/Beard use a single category panel, softer preview lighting. Local desktop 10/10 checks pass; Android/PC release and real-device approval separate.
+- Remaining: user-supplied compatible rigged hair if independently deforming locks/physics are wanted; first-party male playable asset/rig if gender change should be functional; unavailable appearance categories and remainder of creator tabs. Preserve all source maps.
