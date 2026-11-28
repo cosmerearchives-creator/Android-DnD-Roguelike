@@ -11,6 +11,12 @@ allowed = {
     "humanoid_mixamo_animation_library.glb", "pine.glb", "broadleaf.glb",
     "boulder.glb",
 }
+reviewed_players = {
+    "female_goblin.glb": "ae2049e737e170f6d354599fb7e524b6310feebf33dd6127a24d2b86c31738cf",
+    "female_leather_trial.glb": "61563c7fc1015902b1935fdd21fd7d1c13c417183d5ca9a8b9dc93d64c68d613",
+    "human_adventurer_modular.glb": "88b982e8333f053115be0f0f4f8def6ba275fc79e8407cd7c77fdff23b314cb9",
+}
+allowed.update(reviewed_players)
 existing = {file.name for file in assets.glob("*.glb")}
 unexpected = sorted(existing - allowed)
 missing = sorted(allowed - existing)
@@ -52,6 +58,10 @@ assert len(wolf.get("skins", [])) == 1 and len(wolf["skins"][0]["joints"]) == 46
 assert {a["name"] for a in wolf["animations"]} == {"dog_dog_over","dog_idle1","dog_run","leopard_skill_feipu"}
 asset_total = sum(p.stat().st_size for p in assets.iterdir() if p.is_file())
 import hashlib
+for name, expected in reviewed_players.items():
+    assert hashlib.sha256((assets/name).read_bytes()).hexdigest() == expected, name
+    info = gltf_info(name)
+    assert {"WearableLeather", "BootCoverage"} <= {n.get("name") for n in info["nodes"]}, name
 assert hashlib.sha256((assets/"human_adventurer.glb").read_bytes()).hexdigest() == "119496a7536e41fca167b8f1ce6162883cc37bf8d4db775b4322eb59362aac68"
 assert hashlib.sha256((assets/"goblin_warrior.glb").read_bytes()).hexdigest() == "29c21a1c5e1e3bdcd49e99e7cafaf63c466dbfec8b029570e8a13d2e06d2bdcc"
 print(f"LEAN_ASSET_CHECK_OK files={len(existing)} assets_bytes={asset_total}",
