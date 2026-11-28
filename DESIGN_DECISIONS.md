@@ -56,3 +56,7 @@ Use separate ornate large-panel/action buttons, subdued compact navigation/categ
 ## v0.3.206 Head accessory fitting
 - Always attach supplied unrigged hair/beard meshes rigidly to the original compatible player skeleton's real head bone (female index 5); never fabricate a substitute rig. Match actual per-mesh Godot AABB Y upper bound to head-relative scalp/chin fitting, using original +Z face direction. Use a +Z jaw offset for beard; allow saved XYZ nudge/reset within ±0.25m. Preserve original rig/bone maps/textures, and keep appearance offsets shared across creator, gameplay and inventory.
 - Hair/Beard categories use one appropriate right-hand panel with native controls and should not display unused Body card frames. Native slider visual system matches existing gold UI.
+
+## v0.3.207 — Each hairstyle has its own fit; preserve head attachment
+- Position and size are **per hairstyle**, stored in existing appearance.cfg, with the currently selected style reflected in the visible XYZ/size UI. Returning to a previous style restores its individual adjustments; selecting an unconfigured different style uses independently measured/default size and offset. Preserve legacy current hairstyle adjustments while migrating.
+- Reuse a compatible existing BoneAttachment3D when changing style; only replace the Hair mesh child. Keep correct original source mesh rotation (an attempted 90-degree rotation failed visual review). Never generate rigs or alter the user's original bones, bone maps or textures.

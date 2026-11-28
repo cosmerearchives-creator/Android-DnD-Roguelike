@@ -14,23 +14,66 @@ const SAVE := "user://appearance.cfg"
 static func settings() -> Dictionary:
     var cfg := ConfigFile.new()
     cfg.load(SAVE)
-    return {"hair":clampi(int(cfg.get_value("appearance","hair",0)),0,HAIR.size()-1),
+    var selected:=clampi(int(cfg.get_value("appearance","hair",0)),0,HAIR.size()-1)
+    var old_offset:=_read_offset(cfg,"hair_offset")
+    var old_size:=clampf(float(cfg.get_value("appearance","hair_scale",1.0)),0.5,3.0)
+    var offsets:Array=[]
+    var scales:Array=[]
+    for i in range(HAIR.size()):
+        var offset_key:="hair_offset_%d" % i
+        var scale_key:="hair_scale_%d" % i
+        offsets.append(_read_offset(cfg,offset_key) if cfg.has_section_key("appearance",offset_key) else (old_offset if i==selected else Vector3.ZERO))
+        scales.append(clampf(float(cfg.get_value("appearance",scale_key,old_size if i==selected else 1.0)),0.5,3.0))
+    return {"hair":selected,
         "beard":clampi(int(cfg.get_value("appearance","beard",0)),0,BEARDS.size()-1),
         "height_scale":clampf(float(cfg.get_value("appearance","height_scale",1.0)),0.7,1.3),
         "frame_scale":clampf(float(cfg.get_value("appearance","frame_scale",1.0)),0.5,1.6),
         "weight_scale":clampf(float(cfg.get_value("appearance","weight_scale",1.0)),0.5,1.3),
-        "hair_scale":clampf(float(cfg.get_value("appearance","hair_scale",1.0)),0.5,3.0),
-        "hair_offset":_read_offset(cfg,"hair_offset"),
+        "hair_offset":offsets[selected],
+        "hair_scale":scales[selected],
+        "hair_offsets":offsets,
+        "hair_scales":scales,
         "beard_offset":_read_offset(cfg,"beard_offset")}
+
 static func _read_offset(cfg: ConfigFile,key: String) -> Vector3:
     var raw: Variant=cfg.get_value("appearance",key,Vector3.ZERO)
     if raw is Vector3:return raw
     return Vector3.ZERO
+
+## Preserve each hairstyle's manual XYZ trim and size separately. Legacy saves
+## are assigned only to the hairstyle that was actually selected.
+static func remember_current_hair(data: Dictionary) -> void:
+    var selected:=clampi(int(data.get("hair",0)),0,HAIR.size()-1)
+    var offsets:Array=data.get("hair_offsets",[])
+    if offsets.size()!=HAIR.size():
+        offsets=[]
+        for i in range(HAIR.size()):offsets.append(Vector3.ZERO)
+    var sizes:Array=data.get("hair_scales",[])
+    if sizes.size()!=HAIR.size():
+        sizes=[]
+        for i in range(HAIR.size()):sizes.append(1.0)
+    var raw_offset:Variant=data.get("hair_offset",Vector3.ZERO)
+    offsets[selected]=raw_offset if raw_offset is Vector3 else Vector3.ZERO
+    sizes[selected]=clampf(float(data.get("hair_scale",1.0)),0.5,3.0)
+    data["hair_offsets"]=offsets
+    data["hair_scales"]=sizes
+
+static func select_hair(data: Dictionary,index: int) -> void:
+    remember_current_hair(data)
+    var next_index:=clampi(index,0,HAIR.size()-1)
+    data["hair"]=next_index
+    data["hair_offset"]=data["hair_offsets"][next_index]
+    data["hair_scale"]=data["hair_scales"][next_index]
+
 static func save(data: Dictionary) -> void:
+    remember_current_hair(data)
     var cfg := ConfigFile.new()
     for key in ["hair","beard","hair_offset","beard_offset"]:
         cfg.set_value("appearance",key,data.get(key,Vector3.ZERO if key.ends_with("offset") else 0))
     cfg.set_value("appearance","hair_scale",data.get("hair_scale",1.0))
+    for i in range(HAIR.size()):
+        cfg.set_value("appearance","hair_offset_%d" % i,data["hair_offsets"][i])
+        cfg.set_value("appearance","hair_scale_%d" % i,data["hair_scales"][i])
     for key in ["height_scale","frame_scale","weight_scale"]:
         cfg.set_value("appearance",key,data.get(key,1.0))
     cfg.save(SAVE)
@@ -66,11 +109,23 @@ const MESH_TOP := {
 const SCALP_TOP := 0.19
 const BEARD_TOP := 0.03
 const OFFSET_LIMIT := 0.25
-
+## Some source hairstyles use an entirely different mesh orientation and shape.
+## Keep each style's calibrated attachment independent from the user's XYZ trim.
+const HAIR_FIT_POSITION := [
+    Vector3.ZERO,
+    Vector3(0.0,0.0,-0.055),
+    Vector3(0.0,0.0,-0.090),
+    Vector3(0.0,0.0,-0.095),
+]
+## Manual offsets are applied after these mesh-specific defaults.
+## The supplied meshes and their original orientations remain unchanged.
 static func base_position(kind: String,index: int,factor: float) -> Vector3:
-    var top_y:float=SCALP_TOP if kind=="hair" else BEARD_TOP
-    var forward:float=-0.055 if kind=="hair" else 0.120
-    return Vector3(0.0,top_y-float(MESH_TOP[kind][index])*factor,forward)
+    var target_y:float=SCALP_TOP if kind=="hair" else BEARD_TOP
+    var forward:float=0.120 if kind=="beard" else 0.0
+    if kind=="hair":
+        var calibration:Vector3=HAIR_FIT_POSITION[index]
+        return Vector3(calibration.x,target_y-float(MESH_TOP[kind][index])*factor+calibration.y,calibration.z)
+    return Vector3(0,target_y-float(MESH_TOP[kind][index])*factor,forward)
 
 static func mesh_factor(kind: String,index: int,data: Dictionary) -> float:
     var dims:Vector3=DIMENSIONS[kind][index]
@@ -98,22 +153,34 @@ static func update_placement(character: Node3D,data: Dictionary) -> void:
 
 static func apply(character: Node3D,data: Dictionary={}) -> void:
     if data.is_empty():data=settings()
-    clear(character)
     var skeleton:=_skeleton(character)
     if skeleton==null:return
     var bone:=_head_bone(skeleton)
     if bone<0:return
-    var attachment:=BoneAttachment3D.new()
-    attachment.name="ModularAppearance"
-    skeleton.add_child(attachment)
-    attachment.bone_idx=bone
+    var attachment:=character.find_child("ModularAppearance",true,false) as BoneAttachment3D
+    if attachment==null or attachment.get_parent()!=skeleton or attachment.bone_idx!=bone:
+        clear(character)
+        attachment=BoneAttachment3D.new()
+        attachment.name="ModularAppearance"
+        skeleton.add_child(attachment)
+        attachment.bone_idx=bone
     for kind in ["hair","beard"]:
         var index:=clampi(int(data.get(kind,0)),0,FILES[kind].size()-1)
-        if index==0:continue
-        var path: String=FILES[kind][index]
-        if not ResourceLoader.exists(path):continue
+        var path:String=FILES[kind][index]
+        var name:String=kind.capitalize()
+        var existing:=attachment.get_node_or_null(name) as Node3D
+        if index==0 or not ResourceLoader.exists(path):
+            if existing!=null:
+                attachment.remove_child(existing)
+                existing.queue_free()
+            continue
+        if existing!=null and str(existing.get_meta("appearance_asset_path",""))==path:
+            continue
+        if existing!=null:
+            attachment.remove_child(existing)
+            existing.queue_free()
         var instance:Node3D=(load(path) as PackedScene).instantiate()
-        instance.name=kind.capitalize()
+        instance.name=name
+        instance.set_meta("appearance_asset_path",path)
         attachment.add_child(instance)
-        # Position is applied from the verified source mesh bounds below.
     update_placement(character,data)

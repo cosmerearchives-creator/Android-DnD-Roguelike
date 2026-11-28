@@ -1,0 +1,24 @@
+# Hair style switching and profile isolation — v0.3.207
+
+## User report
+In the 1673×940 character creator, Wavy Hair Size **1.90** and manual X/Y/Z **−0.03 m / +0.03 m / +0.01 m** appeared on the head. Selecting Short then showed an asset at the feet in the reported screenshot while retaining the old Wavy values. The reported issue was reproduced and diagnosed using real user-source GLBs and the existing creator scene, without modifying any skeleton, source mesh or texture.
+
+## Diagnosis
+- v0.3.206 persisted only **one** `hair_offset` and `hair_scale` for all three hairstyles. Selecting a new style left the old XYZ labels and size in place and applied that adjustment to an unrelated mesh with different dimensions.
+- `APPEARANCE.apply()` deleted the entire `BoneAttachment3D` and all accessory children for **every style change**; this destroyed the head mount before immediately recreating it, allowing a possible transient unmounted appearance at the model/pedestal origin.
+- Wavy/Short/Braid have distinct measured bounds and source geometry. The model's head bone remains `mixamorig_Head`, index 5, in the user's supplied original 66-joint skeleton. An attempted ±90° rotation adjustment produced visibly **worse** previews; it was rejected and original mesh orientations were kept.
+
+## Implementation
+1. `character_appearance.gd` now persists four hairstyle-specific `hair_offset_0..3` and `hair_scale_0..3` entries in the existing `user://appearance.cfg`; the selected `hair_offset` and `hair_scale` remain live aliases for world, inventory and existing code paths. The legacy pre-v0.3.207 single offset/scale is migrated **only to the hairstyle that was selected**, not copied to all others.
+2. `select_hair()` stores the departing hairstyle's current XYZ/scale profile and restores the next one; `remember_current_hair()` synchronizes edits when saving. Size slider changes are saved immediately, as XYZ nudge/reset already were. Returning to a hairstyle recovers its precise custom fit and UI labels.
+3. The existing `BoneAttachment3D` is reused across style changes; only the changed Hair mesh is replaced. Identical Hair and Beard meshes are reused. This avoids unnecessary 7–33 MB GLB reimports in every slider move or style change and keeps the rig anchored to the head during the transition.
+4. Independent source-AABB-based defaults for Wavy, Short and Braid remain attached to the **same existing head bone**. Subtle per-asset default Z calibration differs (−0.055, −0.090, −0.095 m); these adjustments are separate from the selected user's manual XYZ values. No new rig, source mesh, animation, materials or bone maps.
+
+## Test evidence
+- Full Godot 4.5.1 regression suite **11/11 passed**: `creator_workshop_smoke`, `creator_v204_scale_smoke`, `creator_v205_ui_smoke`, `creator_preview_smoke`, `character_appearance_smoke`, `appearance_head_fit_smoke`, `appearance_xyz_ui_smoke`, new `appearance_style_switch_smoke`, `inventory_desktop_layout_smoke` (with documented headless `FOH_TEST_PC=1`), `inventory_pause_and_blend_smoke`, `display_camera_persistence_smoke`.
+- The new smoke exercises real Hair button presses **Wavy → Short → Braid → Wavy**, asserts immediately **before the next frame** and after, verifies exact live XYZ readouts, separate Hair Size values, preserved same BoneAttachment node, correct head-level mesh world Y, per-style settings and save/reload persistence. Switching Short back and forth after custom X and Hair Size also restores its own settings.
+- Real desktop OpenGL 1673×940 screenshots reviewed: `G:/ChatGPT Projects/Forests of Hell/Creator Review/style_switch_v207_step_{0_Wavy,1_Short,2_Braid,3_Wavy}.png`. Verified Short/Braid visually fit around the head and their sliders show 1.00/XYZ 0.00 rather than Wavy's 1.90 and customized values; switching back restores Wavy's chosen size/XYZ. Four additional rotation probes per hairstyle are in the same local Review directory but not shipped.
+- Original supplied 66-joint skeleton, all supplied bone maps/animations, GLBs and full-resolution textures untouched. Preexisting unrelated changes to `godot/project.godot` and `godot/front_menu.tscn` not staged.
+
+## Limitations and release gates
+Short and Braid may require user-driven visual fine-tuning of position/size for different head proportions. Rigid static hair assets do not gain strand simulation or shoulder collision. This is a style-switching bugfix, not a character rig migration. Signed Android APK, Windows ZIP, release SHA manifests and on-device behavior require independent verification after publishing.

@@ -396,7 +396,9 @@ func _hair_size_slider() -> void:
 		appearance["hair_scale"]=value
 		number.text="%.2f" % value
 		if is_instance_valid(model):APPEARANCE.update_placement(model,appearance)
-	slider.value_changed.connect(changed)
+	slider.value_changed.connect(func(value:float):
+		changed.call(value)
+		APPEARANCE.save(appearance))
 	changed.call(slider.value)
 
 func _nudge_attachment(kind:String,axis:int,amount:float) -> void:
@@ -441,6 +443,12 @@ func _attachment_position_controls(kind:String,start_y:float) -> void:
 	var reset:=_control_button("Reset Position",Vector2(199,reset_y),Vector2(288,43),func():_reset_attachment(kind))
 	reset.add_theme_font_size_override("font_size",22)
 
+func _select_hair_style(index:int) -> void:
+	APPEARANCE.select_hair(appearance,index)
+	_update_appearance()
+	APPEARANCE.save(appearance)
+	_show_category("Hair")
+
 func _show_category(category:String) -> void:
 	active_category=category
 	for name in category_controls.keys():
@@ -467,16 +475,20 @@ func _show_category(category:String) -> void:
 			var idx:int=i
 			var label:String=names[i]
 			var button:=_control_button(label,Vector2(30,row_y+float(i)*61.0),Vector2(585,52),func():
-				appearance[kind]=idx
-				_update_appearance()
-				_show_category(category),int(appearance.get(kind,0))==i)
+				if kind=="hair":
+					_select_hair_style(idx)
+				else:
+					appearance[kind]=idx
+					_update_appearance()
+					APPEARANCE.save(appearance)
+					_show_category(category),int(appearance.get(kind,0))==i)
 			button.add_theme_font_size_override("font_size",24)
 		if kind=="hair":
 			_hair_size_slider()
 			_attachment_position_controls(kind,399.0)
 		else:
 			_attachment_position_controls(kind,259.0)
-		_warning_label.text="Offsets are measured in meters from the fitted head position and saved automatically."
+		_warning_label.text="Each hairstyle saves its own size and X/Y/Z position." if kind=="hair" else "Beard position is saved independently of hair."
 	else:
 		_control_label(category,28)
 		_warning_label.text=category+" controls need compatible supplied textures or morph targets; no unsupported changes are applied."
