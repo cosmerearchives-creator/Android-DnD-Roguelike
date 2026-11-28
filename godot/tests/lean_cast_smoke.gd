@@ -291,8 +291,8 @@ func _run() -> void:
     # Character selection must support both full-resolution humanoids.
     var front: Control = load("res://front_menu.tscn").instantiate()
     get_root().add_child(front)
-    if front.MODELS.size() != 2 or front.MODELS[1] != "male_human":
-        _fail("Male character missing from creator selection")
+    if front.MODELS != ["human_adventurer", "male_human", "female_leather_trial", "female_goblin"]:
+        _fail("Playable creator roster or saved model indices changed")
         return
     front.queue_free()
     world.enemies._spawn("res://assets/fire_beetle.glb", "Fire Beetle")
@@ -440,8 +440,8 @@ func _run() -> void:
     print("BEETLE_FACING_AND_ATTACK_OK")
 
     world.toggle_inventory()
-    if world.inventory_panel == null or world.inventory_panel.hero_model not in ["human_adventurer", "male_human"]:
-        _fail("Inventory portrait is not using a registered playable human")
+    if world.inventory_panel == null or world.inventory_panel.hero_model != world.MODELS[world.model_index]:
+        _fail("Inventory portrait is not using the selected playable model")
         return
     print("LEAN_WORLD_AND_INVENTORY_OK")
     world.queue_free()
