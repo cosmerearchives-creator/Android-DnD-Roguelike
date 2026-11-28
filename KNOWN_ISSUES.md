@@ -54,3 +54,6 @@ Godot 4.5.1 on Stormfather: `--headless --path ... --quit-after` main-scene boot
 
 ## v0.3.205 creator remaining visual and feature limits
 Source-art derived compact UI better matches approved reference but remains a first-pass approximation (not pixel-perfect). The desktop composition is scaled into portrait mobile viewport; verify legibility/device UI. Gender choice does not replace female base, and non-Body/Hair/Beard appearance tabs plus Race/Class/Background navigation are not fully implemented without compatible assets/rules. Weight remains visual depth scaling only. Android and Windows release confirmation pending.
+
+## v0.3.205 publication verification — 2026-11-28
+GitHub Actions run 46163037849 completed SUCCESS, including production signing and stable release publication. Release v0.3.205 targets d5a5f4043a08780214c12c885a50cfda55f87ef2. Verified public Android APK (540573185 bytes), Windows x64 ZIP (544121874 bytes), and both live updater manifests at /releases/latest/download/{update.json,windows-update.json}: versionCode 226, versionName 0.3.205, matching release download URLs and SHA-256 digests. Android manifest SHA d5d78ce51abc587981918c7027f62631e94d3a1f3b6341ebd72ce34607d83acf; Windows manifest SHA bd64bd7de555672e09fa9a176f71138e7d184f6c528310ebaec7024ef83039ea. On-device visual/UI operation remains unverified.

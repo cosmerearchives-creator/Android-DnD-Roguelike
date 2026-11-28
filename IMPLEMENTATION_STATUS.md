@@ -60,3 +60,6 @@ The user-supplied Female No Race Base is the only playable character. Height, fr
 
 ## v0.3.205 creator visual refinement — locally validated
 Implemented unique compact selection/arrow frame families, selected orange highlight, independent visible slider rails, aligned labels/diamond controls and isolated stone stage. Real OpenGL screenshot and five creator/appearance tests passed. Production binary and physical Android review remain independent gates. No gameplay or rig changes.
+
+## v0.3.205 publication verification — 2026-11-28
+GitHub Actions run 46163037849 completed SUCCESS, including production signing and stable release publication. Release v0.3.205 targets d5a5f4043a08780214c12c885a50cfda55f87ef2. Verified public Android APK (540573185 bytes), Windows x64 ZIP (544121874 bytes), and both live updater manifests at /releases/latest/download/{update.json,windows-update.json}: versionCode 226, versionName 0.3.205, matching release download URLs and SHA-256 digests. Android manifest SHA d5d78ce51abc587981918c7027f62631e94d3a1f3b6341ebd72ce34607d83acf; Windows manifest SHA bd64bd7de555672e09fa9a176f71138e7d184f6c528310ebaec7024ef83039ea. On-device visual/UI operation remains unverified.

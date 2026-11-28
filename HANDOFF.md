@@ -64,3 +64,6 @@ The user-supplied Female No Race Base is the only playable character. Height, fr
 
 ## v0.3.205 — Character creator polish (2026-11-28)
 New compact/square source-art UI families replace oversized button corners; gold slider rails/captions, selected orange accents and real standalone stone pedestal now align in actual 1673x940 Godot OpenGL render. Five local creator/appearance regressions pass, including updated dedicated-workshop preview test. Source/skeleton unchanged. Details docs/creator-polish-v0.3.205.md. Verify Android and Windows CI publication and phone rendering before claiming fully shipped.
+
+## v0.3.205 publication verification — 2026-11-28
+GitHub Actions run 46163037849 completed SUCCESS, including production signing and stable release publication. Release v0.3.205 targets d5a5f4043a08780214c12c885a50cfda55f87ef2. Verified public Android APK (540573185 bytes), Windows x64 ZIP (544121874 bytes), and both live updater manifests at /releases/latest/download/{update.json,windows-update.json}: versionCode 226, versionName 0.3.205, matching release download URLs and SHA-256 digests. Android manifest SHA d5d78ce51abc587981918c7027f62631e94d3a1f3b6341ebd72ce34607d83acf; Windows manifest SHA bd64bd7de555672e09fa9a176f71138e7d184f6c528310ebaec7024ef83039ea. On-device visual/UI operation remains unverified.
