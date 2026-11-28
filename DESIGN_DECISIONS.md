@@ -46,3 +46,6 @@ The supplied tavern is an open-roof room, not a complete roofed exterior. Keep t
 
 ## v0.3.196 user-provided UI source
 - Actual approved 1280×1229 user-supplied image becomes authoritative for the Equipment page's bronze/leather material, frame geometry, color and pedestal. Keep source PNG byte-identical and crop without re-rendering/AI approximation. Overlay fully functional Godot Buttons, Labels, item icon controls, stat data and existing player SubViewport rather than flattening working controls into static screenshot. Adapt source right seven frames into eight with source-derived texture while preserving 15 real Equipment slots. Do not propagate new visual treatment to other 3 tabs until individually reviewed. Keep paused gameplay HUD hidden; scenery visible around fully opaque source panels.
+
+## v0.3.204 creator scale correction candidate
+- Replaced contaminated cropped UI composites with clean source-derived nine-slice panels/buttons and slider textures. Original 1900x1900 and 1673x940 source images unchanged. Local Godot4.5.1 tests creator_workshop_smoke and creator_v204_scale_smoke pass. Release and physical screenshot QA pending. See docs/creator-scale-v0.3.204.md.

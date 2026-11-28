@@ -43,3 +43,6 @@ NEXT: refine biome transitions and reduce visible square patch boundaries; then 
 
 ## v0.3.196 Equipment source artwork integration
 - Implemented locally: replaced generated approximate Equipment art with real uploaded source, validated original PNG hash and exact section crops, 15-slot adapted right column, interactive native controls and live character. Source atlas fully preserved as reusable foundation. Equipment only; defer Items/Materials/Quests source-art adoption until Equipment review. Future: finish more legible fonts/stat hierarchy, supply individually isolated empty slots/hover variants, additional accessory/waist icons, verify Android device UI and performance. Full details docs/approved-equipment-ui-v0.3.196.md.
+
+## v0.3.204 creator scale correction candidate
+- Replaced contaminated cropped UI composites with clean source-derived nine-slice panels/buttons and slider textures. Original 1900x1900 and 1673x940 source images unchanged. Local Godot4.5.1 tests creator_workshop_smoke and creator_v204_scale_smoke pass. Release and physical screenshot QA pending. See docs/creator-scale-v0.3.204.md.

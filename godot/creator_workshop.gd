@@ -35,10 +35,10 @@ var _preview: SubViewportContainer
 var _hero_name: String=""
 var _profile: ConfigFile=ConfigFile.new()
 func _ready() -> void:
-	tab_tex=_load_image("res://creator_ui/wide_button.png")
-	panel_tex=_load_image("res://creator_ui/blank_tall_panel.png")
-	button_tex=_load_image("res://creator_ui/long_button.png")
-	stone_tex=_load_image("res://creator_ui/preview_stone.png")
+	tab_tex=_load_image("res://creator_ui/creator_button_clean.png")
+	panel_tex=_load_image("res://creator_ui/creator_panel_clean.png")
+	button_tex=_load_image("res://creator_ui/creator_button_clean.png")
+	stone_tex=_load_image("res://creator_ui/creator_stone_pedestal.png")
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_profile.load("user://hero.cfg")
 	_hero_name=str(_profile.get_value("hero","name","Avatar"))
@@ -97,15 +97,31 @@ func _tex(path:Texture2D,position:Vector2,extent:Vector2,under:Control=_ui_root)
 	under.add_child(sprite)
 	return sprite
 
-func _style(active:bool=false) -> StyleBoxFlat:
-	var s:=StyleBoxFlat.new()
-	s.bg_color=Color(0.25,0.075,0.019,0.3) if active else Color(0.08,0.032,0.014,0.28)
-	s.border_color=Color("#ff9a38") if active else Color("#b88942")
-	s.set_border_width_all(2 if active else 1)
-	s.set_corner_radius_all(6)
-	if active:
-		s.shadow_color=Color(1.0,0.31,0.04,0.65)
-		s.shadow_size=7
+func _nine_slice(path:Texture2D,position:Vector2,extent:Vector2,margin:float=22.0,under:Control=_ui_root) -> NinePatchRect:
+	var panel:=NinePatchRect.new()
+	panel.texture=path
+	panel.position=position
+	panel.size=extent
+	panel.patch_margin_left=int(margin)
+	panel.patch_margin_right=int(margin)
+	panel.patch_margin_top=int(margin)
+	panel.patch_margin_bottom=int(margin)
+	panel.mouse_filter=Control.MOUSE_FILTER_IGNORE
+	under.add_child(panel)
+	return panel
+
+func _style(active:bool=false) -> StyleBoxTexture:
+	var s:=StyleBoxTexture.new()
+	s.texture=button_tex
+	s.texture_margin_left=54.0
+	s.texture_margin_right=54.0
+	s.texture_margin_top=33.0
+	s.texture_margin_bottom=33.0
+	s.content_margin_left=9.0
+	s.content_margin_right=9.0
+	s.content_margin_top=5.0
+	s.content_margin_bottom=5.0
+	s.modulate_color=Color(1.0,0.74,0.48) if active else Color(1,1,1)
 	return s
 
 func _button(text:String,position:Vector2,extent:Vector2,pressed:Callable,active:bool=false) -> Button:
@@ -119,6 +135,7 @@ func _button(text:String,position:Vector2,extent:Vector2,pressed:Callable,active
 	b.add_theme_stylebox_override("normal",_style(active))
 	b.add_theme_stylebox_override("hover",_style(true))
 	b.add_theme_stylebox_override("pressed",_style(true))
+	b.add_theme_stylebox_override("disabled",_style(false))
 	_ui_root.add_child(b)
 	b.pressed.connect(pressed)
 	return b
@@ -133,11 +150,11 @@ func _build() -> void:
 	dim.size=Vector2(1673,940)
 	dim.mouse_filter=Control.MOUSE_FILTER_IGNORE
 	_ui_root.add_child(dim)
-	_tex(panel_tex,Vector2(28,106),Vector2(382,689))
+	_nine_slice(panel_tex,Vector2(28,106),Vector2(382,689),42)
 	for pair in [[106.0,154.0],[274.0,148.0],[436.0,154.0],[610.0,154.0]]:
-		_tex(panel_tex,Vector2(926,float(pair[0])),Vector2(704,float(pair[1])))
-	_tex(stone_tex,Vector2(430,711),Vector2(480,157))
-	_tex(tab_tex,Vector2(18,8),Vector2(377,82))
+		_nine_slice(panel_tex,Vector2(926,float(pair[0])),Vector2(704,float(pair[1])),35)
+	_tex(stone_tex,Vector2(482,741),Vector2(375,96))
+	_nine_slice(button_tex,Vector2(18,8),Vector2(377,82),34)
 	_font_label("FORESTS OF HELL",Vector2(52,8),Vector2(318,40),33,true)
 	_font_label("Character Creation",Vector2(63,47),Vector2(300,37),27,true)
 	_font_label("Appearance",Vector2(88,128),Vector2(258,56),31,true)
@@ -154,13 +171,13 @@ func _build() -> void:
 		category_controls[category]=b
 	_preview=SubViewportContainer.new()
 	_preview.name="CreatorModelPreview"
-	_preview.position=Vector2(425,88)
-	_preview.size=Vector2(474,683)
+	_preview.position=Vector2(435,97)
+	_preview.size=Vector2(458,645)
 	_preview.stretch=true
 	_preview.mouse_filter=Control.MOUSE_FILTER_STOP
 	_ui_root.add_child(_preview)
 	var viewport:=SubViewport.new()
-	viewport.size=Vector2i(474,683)
+	viewport.size=Vector2i(458,645)
 	viewport.transparent_bg=true
 	viewport.own_world_3d=true
 	viewport.render_target_update_mode=SubViewport.UPDATE_ALWAYS
@@ -185,7 +202,7 @@ func _build() -> void:
 	model_root.add_child(env)
 	camera=Camera3D.new()
 	camera.projection=Camera3D.PROJECTION_ORTHOGONAL
-	camera.size=2.35
+	camera.size=2.20
 	camera.position=Vector3(0,1.08,4.2)
 	model_root.add_child(camera)
 	camera.current=true
@@ -202,7 +219,7 @@ func _build() -> void:
 	controls.position=Vector2(948,115)
 	controls.size=Vector2(659,649)
 	_ui_root.add_child(controls)
-	_warning_label=_font_label("",Vector2(960,754),Vector2(630,52),17)
+	_warning_label=_font_label("",Vector2(963,776),Vector2(625,35),16)
 	_warning_label.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 
 func _clear_controls() -> void:
@@ -243,9 +260,21 @@ func _slider(label:String,key:String,at_y:float,min_value:float,max_value:float,
 	slider.max_value=max_value
 	slider.step=0.01
 	slider.value=value
+	var track:=StyleBoxTexture.new()
+	track.texture=_load_image("res://creator_ui/creator_slider_track.png")
+	track.texture_margin_left=20
+	track.texture_margin_right=20
+	track.texture_margin_top=5
+	track.texture_margin_bottom=5
+	slider.add_theme_stylebox_override("slider",track)
+	slider.add_theme_stylebox_override("grabber_area",track)
+	slider.add_theme_stylebox_override("grabber_area_highlight",track)
+	var grip:=_load_image("res://creator_ui/creator_slider_diamond.png")
+	slider.add_theme_icon_override("grabber",grip)
+	slider.add_theme_icon_override("grabber_highlight",grip)
 	controls.add_child(slider)
 	var reading:=Label.new()
-	reading.position=Vector2(510,at_y+58)
+	reading.position=Vector2(511,at_y+54)
 	reading.size=Vector2(110,43)
 	reading.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	reading.add_theme_font_override("font",FONT)
@@ -306,9 +335,9 @@ func _show_category(category:String) -> void:
 		_control_button("♀   Female",Vector2(36,57),Vector2(270,57),func():gender_selection="Female";_show_category("Body"),gender_selection=="Female")
 		_control_button("♂   Male",Vector2(345,57),Vector2(268,57),func():gender_selection="Male";_show_category("Body"),gender_selection=="Male")
 		_slider("Height","height",148,54,84,selected_height_inches,"Range: 4' 6\" — 7' 0\"")
-		_slider("Frame","frame",320,0.5,1.6,float(appearance.get("frame_scale",1.0)),"Slender                                         Large")
+		_slider("Frame","frame",320,0.5,1.6,float(appearance.get("frame_scale",1.0)),"Slender                       Large")
 		_slider("Weight","weight",492,90,260,selected_weight_lb,"Range: 90 – 260 lb")
-		_warning_label.text="Body proportions are visual scale controls. Gender selection does not replace the supplied female model."
+		_warning_label.text="Body changes use the existing model; only the provided female rig is available."
 	elif category=="Hair" or category=="Beard":
 		var kind: String=category.to_lower()
 		_control_label(category+" Style",20)

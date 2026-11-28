@@ -48,3 +48,6 @@ Godot 4.5.1 on Stormfather: `--headless --path ... --quit-after` main-scene boot
 
 ## v0.3.196 Equipment reference art limitations
 - The exact user-provided 1280×1229 sprite sheet has an equipment portrait panel with 14 placeholders, not 15. Extra Accessory uses a neutral blank source-derived bronze inset and is still a fully functional slot; no independently provided unique Accessory pictogram. Source art and equipment elements are raster strips rather than isolated nine-slice parts, so proportions/letter overlay cannot be pixel-perfect at every resolution. Some stat text is compact and actual missing D&D score/proficiency data remains unrecorded; do not fabricate scores from target mockup. Items/Materials/Quests visual art intentionally deferred. Android physical hardware UI/quality/FPS unverified.
+
+## v0.3.204 creator scale correction candidate
+- Replaced contaminated cropped UI composites with clean source-derived nine-slice panels/buttons and slider textures. Original 1900x1900 and 1673x940 source images unchanged. Local Godot4.5.1 tests creator_workshop_smoke and creator_v204_scale_smoke pass. Release and physical screenshot QA pending. See docs/creator-scale-v0.3.204.md.
