@@ -18,6 +18,8 @@ var preview_root: Node3D
 var face_zoom := false
 var preview_camera: Camera3D
 var desktop_creator := false
+var preview_base_scale := 1.0
+var preview_bottom := 0.0
 func _ready():
 	preload("res://platform_layout.gd").configure_window()
 	custom_minimum_size = Vector2.ZERO
@@ -129,10 +131,39 @@ func creator():
 	name_field.text = str(profile.get_value("hero","name",""))
 	content.add_child(name_field)
 	var models := OptionButton.new()
-	for n in NAMES: models.add_item(n)
+	for i in range(NAMES.size()): models.add_item(NAMES[i],i)
 	models.select(chosen)
-	models.item_selected.connect(func(i): chosen = i; _refresh_preview())
+	models.item_selected.connect(func(i): chosen = models.get_item_id(i); _refresh_preview())
 	content.add_child(models)
+	heading("Character Scale",27)
+	if desktop_creator:
+		var camera_hint:=Label.new()
+		camera_hint.text="Preview: drag to rotate - right-drag to pan - wheel to zoom"
+		camera_hint.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+		content.add_child(camera_hint)
+	for setting in [
+		{"key":"height_scale","label":"Height","min":0.7,"max":1.3},
+		{"key":"frame_scale","label":"Frame width","min":0.5,"max":1.6},
+		{"key":"weight_scale","label":"Body depth","min":0.5,"max":1.3}
+	]:
+		var row:=HBoxContainer.new()
+		content.add_child(row)
+		var label:=Label.new()
+		label.custom_minimum_size.x=180
+		row.add_child(label)
+		var slider:=HSlider.new()
+		slider.min_value=setting.min
+		slider.max_value=setting.max
+		slider.step=0.01
+		slider.value=edited_appearance[setting.key]
+		slider.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+		slider.custom_minimum_size.x=290
+		label.text="%s  %d%%" % [setting.label,roundi(slider.value*100)]
+		row.add_child(slider)
+		slider.value_changed.connect(func(value:float):
+			edited_appearance[setting.key]=value
+			label.text="%s  %d%%" % [setting.label,roundi(value*100)]
+			_update_preview_scale())
 	heading("Hair & beard",27)
 	if desktop_creator:
 		var zoom:=CheckButton.new()
@@ -289,8 +320,15 @@ func _create_preview() -> void:
 	preview_camera.current=true
 	preview_camera.look_at(Vector3(0,1.0,0))
 	preview_view.gui_input.connect(func(event:InputEvent):
-		if event is InputEventMouseMotion and Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
-			if is_instance_valid(preview_model):preview_model.rotation.y += event.relative.x*0.012)
+		if event is InputEventMouseButton and event.pressed:
+			if event.button_index==MOUSE_BUTTON_WHEEL_UP: preview_camera.size=clampf(preview_camera.size*0.9,0.35,4.0)
+			if event.button_index==MOUSE_BUTTON_WHEEL_DOWN: preview_camera.size=clampf(preview_camera.size/0.9,0.35,4.0)
+		if event is InputEventMouseMotion:
+			if Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) and is_instance_valid(preview_model):
+				preview_model.rotation.y += event.relative.x*0.012
+			if Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT) or Input.is_mouse_button_pressed(MOUSE_BUTTON_MIDDLE):
+				preview_camera.position.x-=event.relative.x*preview_camera.size/640.0
+				preview_camera.position.y+=event.relative.y*preview_camera.size/640.0)
 	_refresh_preview()
 
 func _preview_bounds(node:Node3D, base:Transform3D) -> Vector2:
@@ -324,12 +362,16 @@ func _refresh_preview() -> void:
 	WEARABLE.apply(preview_model,false)
 	var bounds:=_preview_bounds(preview_model,Transform3D.IDENTITY)
 	if is_finite(bounds.x) and is_finite(bounds.y) and bounds.y>bounds.x:
-		var scalar:=1.85/(bounds.y-bounds.x)
-		preview_model.scale=Vector3.ONE*scalar
-		preview_model.position.y=-bounds.x*scalar
+		preview_base_scale=1.85/(bounds.y-bounds.x)
+		preview_bottom=bounds.x
+		_update_preview_scale()
 
 	_update_appearance()
-	_frame_preview()
+
+func _update_preview_scale() -> void:
+	if not is_instance_valid(preview_model):return
+	preview_model.scale=APPEARANCE.body_scale(edited_appearance)*preview_base_scale
+	preview_model.position.y=-preview_bottom*preview_model.scale.y
 
 func _update_appearance() -> void:
 	if is_instance_valid(preview_model):
@@ -338,7 +380,8 @@ func _update_appearance() -> void:
 func _frame_preview() -> void:
 	if not is_instance_valid(preview_camera):return
 	preview_camera.size=0.68 if face_zoom else 2.2
-	preview_camera.position.y=1.66 if face_zoom else 1.0
+	preview_camera.position.y=1.66*float(edited_appearance.get("height_scale",1.0)) if face_zoom else 1.0
+	if not face_zoom: preview_camera.size=2.2*maxf(1.0,float(edited_appearance.get("height_scale",1.0)))
 
 func _begin_world_prefetch() -> void:
 	if not is_inside_tree(): return

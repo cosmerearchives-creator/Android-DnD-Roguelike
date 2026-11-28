@@ -69,3 +69,7 @@ NOT RUN: on-device Android render and sustained FPS/memory, signed release insta
 ## v0.3.201 — playable goblin and modular equipment
 
 Verified the approved proof of concept in the desktop preview. Automated checks passed for goblin motion, equipment toggle, creator preview, phone inventory at 1280 and 1536 pixels, desktop inventory, and terrain. Physical Android installation and on-device visual review are outstanding.
+
+## v0.3.202 local release candidate
+
+The user-supplied Female No Race Base is the only playable character. Height, frame width and body depth are saved and available in the creator. Experimental weight and muscle sliders were removed. Existing character selections resolve to the sole playable model. The female base is unarmored and contains its original 66 joints and ten source animation clips. Creator, saved scale, PC controls, inventory and terrain headless checks passed. Physical device and equipment fit verification remain outstanding.

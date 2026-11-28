@@ -54,3 +54,7 @@ Validation: original source GLB SHA256, 23 extracted image byte comparisons, God
 ## v0.3.201 — playable goblin and modular equipment
 
 The playable female goblin derives from femalegobsimpleskel.glb with all 28 supplied joints and both native locomotion clips. WearableLeather and BootCoverage are separate visual meshes. The detached leather guards are bound to the corresponding forearms. Full-size body and garment maps accompany the GLBs.
+
+## v0.3.202 local release candidate
+
+The user-supplied Female No Race Base is the only playable character. Height, frame width and body depth are saved and available in the creator. Experimental weight and muscle sliders were removed. Existing character selections resolve to the sole playable model. The female base is unarmored and contains its original 66 joints and ten source animation clips. Creator, saved scale, PC controls, inventory and terrain headless checks passed. Physical device and equipment fit verification remain outstanding.

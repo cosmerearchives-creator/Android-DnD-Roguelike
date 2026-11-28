@@ -584,8 +584,8 @@ func _load_model() -> void:
 	var bounds:=_find_bounds(body,Transform3D.IDENTITY)
 	if bounds.y>bounds.x and is_finite(bounds.x):
 		var scale:=1.85/(bounds.y-bounds.x)
-		body.scale=Vector3.ONE*scale
-		body.position.y=-bounds.x*scale
+		body.scale=APPEARANCE.body_scale(APPEARANCE.settings())*scale
+		body.position.y=-bounds.x*body.scale.y
 	body.rotation.y=portrait_turn
 func _find_bounds(node:Node3D, parent_transform:Transform3D) -> Vector2:
 	var transform:=parent_transform*node.transform

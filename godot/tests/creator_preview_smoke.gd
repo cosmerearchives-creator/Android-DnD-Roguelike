@@ -23,7 +23,7 @@ func _run() -> void:
         printerr("CREATOR_COLUMNS_OVERLAP")
         quit(1)
         return
-    menu.chosen=menu.MODELS.find("female_goblin")
+    menu.chosen=0
     menu.edited_appearance["hair"]=1
     menu._refresh_preview()
     await process_frame

@@ -291,7 +291,7 @@ func _run() -> void:
     # Character selection must support both full-resolution humanoids.
     var front: Control = load("res://front_menu.tscn").instantiate()
     get_root().add_child(front)
-    if front.MODELS != ["human_adventurer", "male_human", "female_leather_trial", "female_goblin"]:
+    if front.MODELS != ["female_leather_trial"]:
         _fail("Playable creator roster or saved model indices changed")
         return
     front.queue_free()

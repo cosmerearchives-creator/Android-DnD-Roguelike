@@ -107,6 +107,10 @@ func body(pos: Vector3, asset: String, color: Color, is_goblin := false) -> Char
 	capsule.radius = 0.22 if is_goblin else 0.3
 	var playable_goblin := not is_goblin and asset == WEARABLE.asset("female_goblin")
 	capsule.height = 1.05 if is_goblin else 2.0 if playable_goblin else 1.7
+	if not is_goblin:
+		var proportions:=APPEARANCE.body_scale(APPEARANCE.settings())
+		capsule.radius *= maxf(proportions.x,proportions.z)
+		capsule.height = maxf(capsule.height*proportions.y,capsule.radius*2.0)
 	c.shape = capsule
 	c.position.y = capsule.height * 0.5
 	b.add_child(c)
@@ -114,12 +118,14 @@ func body(pos: Vector3, asset: String, color: Color, is_goblin := false) -> Char
 		var model = load(asset).instantiate()
 		model.name = "CharacterVisual"
 		b.add_child(model)
-		if playable_goblin: model.scale *= capsule.height / 1.7
+		if not is_goblin:
+			model.scale *= APPEARANCE.body_scale(APPEARANCE.settings())
+			if playable_goblin: model.scale *= 2.0 / 1.7
 		ground_visual(model)
 		if not is_goblin:
 			APPEARANCE.apply(model)
 			WEARABLE.apply(model,INVENTORY.new().equipped_id("Body")=="leather_armor")
-			if MODELS[model_index]!="female_leather_trial": SHARED.attach(model,true,playable_goblin)
+			SHARED.attach(model,true,playable_goblin or MODELS[model_index] in ["human_adventurer","female_leather_trial"])
 	else:
 		var mesh := CapsuleMesh.new()
 		mesh.radius = 0.3
@@ -542,22 +548,13 @@ func hud_action(name: String):
 func play_imported_animation(state: String) -> void:
 	var visual := player.get_node_or_null("CharacterVisual")
 	if visual == null: return
-	if MODELS[model_index]=="female_leather_trial":
-		var native := SHARED.find_animator(visual)
-		if native:
-			var motion := "Walking" if state=="walk" else "Running" if state=="run" else ""
-			if motion.is_empty() or not native.has_animation(motion): native.stop()
-			elif native.current_animation!=motion:
-				native.get_animation(motion).loop_mode=Animation.LOOP_NONE if state=="attack" else Animation.LOOP_LINEAR
-				native.play(motion)
-		return
 	var animator := visual.get_node_or_null("SharedHumanoidAnimations") as AnimationPlayer
 	if animator == null: animator = SHARED.attach(visual)
 	if animator == null: return
-	var clip := "Running" if state == "run" else SHARED.gameplay_walk_clip(MODELS[model_index]) if state == "walk" else "Movement_Sneak_01_Standard" if state == "sneak" else "Movement_Jump_01_Standard" if state == "jump" else "Attack_MeleeTwoHanded_01_OverheadSmash" if state == "attack" else "Idle"
+	var clip := "Running" if state == "run" else SHARED.gameplay_walk_clip(MODELS[model_index]) if state == "walk" else "Movement_Sneak_01_Standard" if state == "sneak" else "Movement_Jump_01_Standard" if state == "jump" else ("Attack_MeleeOneHanded_01_Standard" if MODELS[model_index] == "female_goblin" else "Attack_MeleeTwoHanded_01_OverheadSmash") if state == "attack" else "Idle"
 	if not animator.has_animation(clip): return
 	var resource := animator.get_animation(clip)
-	animator.speed_scale = resource.length / 0.5 if state == "attack" else resource.length / 0.65 if state == "jump" else 1.0
+	animator.speed_scale = resource.length / (1.0 if MODELS[model_index] == "female_goblin" else 0.5) if state == "attack" else resource.length / 0.65 if state == "jump" else 1.0
 	if animator.assigned_animation == clip and animator.is_playing(): return
 	animator.play(clip)
 func toggle_angle():
@@ -611,7 +608,7 @@ func _refresh_target() -> void:
 func _attack_once() -> void:
 	if attack > 0.0 or player_hp <= 0: return
 	attack = TEST_ATTACK_COOLDOWN_SECONDS
-	punch_left = 0.5
+	punch_left = 1.0 if MODELS[model_index] == "female_goblin" else 0.5
 	if not is_instance_valid(enemies): return
 	var target: CharacterBody3D = locked_target if enemies.target_is_alive(locked_target) else null
 	if target == null:
@@ -686,7 +683,7 @@ func _physics_process(dt):
 	if pc_mode:
 		camera.v_offset = 0.0
 		camera.h_offset = 0.0
-		var cam_eye := player.position+Vector3.UP*1.57
+		var cam_eye := player.position+Vector3.UP*(1.57*APPEARANCE.body_scale(APPEARANCE.settings()).y)
 		var orbit := Vector3(0,0,pc_camera_distance).rotated(Vector3.RIGHT,-camera_pitch).rotated(Vector3.UP,camera_yaw)
 		# Offset first-person eye slightly forward of the face. Look-down
 		# reveals the original skinned torso/legs/feet (head triangles omitted).

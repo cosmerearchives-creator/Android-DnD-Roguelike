@@ -1,9 +1,10 @@
 extends RefCounted
-const MODELS = ["human_adventurer","male_human","female_leather_trial","female_goblin"]
-const NAMES = ["Human Adventurer","Male Human","Female Human (Walk / Run)","Female Goblin"]
+const MODELS = ["female_leather_trial"]
+const NAMES = ["Female Human"]
 static func asset(model: String) -> String:
 	match model:
-		"human_adventurer": return "res://assets/human_adventurer_modular.glb"
+		"female_goblin": return "res://assets/femalegobsimpleskel.glb"
+		"human_adventurer", "female_leather_trial": return "res://assets/female_no_race_base.glb"
 		"male_human": return "res://assets/male_human_leather_armored.glb"
 	return "res://assets/%s.glb" % model
 static func apply(model: Node, equipped: bool) -> void:

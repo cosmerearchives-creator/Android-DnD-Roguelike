@@ -16,6 +16,9 @@ static func settings() -> Dictionary:
     cfg.load(SAVE)
     return {"hair":clampi(int(cfg.get_value("appearance","hair",0)),0,HAIR.size()-1),
         "beard":clampi(int(cfg.get_value("appearance","beard",0)),0,BEARDS.size()-1),
+        "height_scale":clampf(float(cfg.get_value("appearance","height_scale",1.0)),0.7,1.3),
+        "frame_scale":clampf(float(cfg.get_value("appearance","frame_scale",1.0)),0.5,1.6),
+        "weight_scale":clampf(float(cfg.get_value("appearance","weight_scale",1.0)),0.5,1.3),
         "hair_scale":clampf(float(cfg.get_value("appearance","hair_scale",1.0)),0.5,3.0),
         "hair_offset":_read_offset(cfg,"hair_offset"),
         "beard_offset":_read_offset(cfg,"beard_offset")}
@@ -28,7 +31,12 @@ static func save(data: Dictionary) -> void:
     for key in ["hair","beard","hair_offset","beard_offset"]:
         cfg.set_value("appearance",key,data.get(key,Vector3.ZERO if key.ends_with("offset") else 0))
     cfg.set_value("appearance","hair_scale",data.get("hair_scale",1.0))
+    for key in ["height_scale","frame_scale","weight_scale"]:
+        cfg.set_value("appearance",key,data.get(key,1.0))
     cfg.save(SAVE)
+static func body_scale(data: Dictionary) -> Vector3:
+    var height:=clampf(float(data.get("height_scale",1.0)),0.7,1.3)
+    return Vector3(height*clampf(float(data.get("frame_scale",1.0)),0.5,1.6),height,height*clampf(float(data.get("weight_scale",1.0)),0.5,1.3))
 static func _skeleton(parent: Node) -> Skeleton3D:
     if parent is Skeleton3D:return parent
     for child in parent.get_children():

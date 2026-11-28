@@ -60,3 +60,7 @@ See `docs/inventory-tabs-and-spawn.md`, `docs/forest-bestiary-roaming.md`, `docs
 ## v0.3.201 — playable goblin and modular equipment
 
 Adds the female goblin and female human fitting models, equip/unequip leather, face zoom and hair sizing in the desktop creator, revised inventory and menu artwork, and improved ground blending.
+
+## v0.3.202 local release candidate
+
+The user-supplied Female No Race Base is the only playable character. Height, frame width and body depth are saved and available in the creator. Experimental weight and muscle sliders were removed. Existing character selections resolve to the sole playable model. The female base is unarmored and contains its original 66 joints and ten source animation clips. Creator, saved scale, PC controls, inventory and terrain headless checks passed. Physical device and equipment fit verification remain outstanding.

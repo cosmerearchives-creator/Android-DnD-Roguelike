@@ -50,3 +50,7 @@ Verified: original five ground + tavern GLB SHA256 and 23 source image bytes; fu
 ## v0.3.201 — playable goblin and modular equipment
 
 Integrated the supplied 28-joint female goblin, modular leather on supported players, persisted hair sizing, desktop face zoom and updated inventory, menu and terrain presentation. The user accepted the goblin outfit correction after motion review.
+
+## v0.3.202 local release candidate
+
+The user-supplied Female No Race Base is the only playable character. Height, frame width and body depth are saved and available in the creator. Experimental weight and muscle sliders were removed. Existing character selections resolve to the sole playable model. The female base is unarmored and contains its original 66 joints and ten source animation clips. Creator, saved scale, PC controls, inventory and terrain headless checks passed. Physical device and equipment fit verification remain outstanding.
