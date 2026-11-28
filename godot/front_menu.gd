@@ -10,6 +10,12 @@ const APPEARANCE = preload("res://character_appearance.gd")
 var edited_appearance: Dictionary = {}
 var world_prefetch_active := false
 var awaiting_world := false
+var menu_scroll: ScrollContainer
+var preview_view: SubViewportContainer
+var preview_model: Node3D
+var preview_root: Node3D
+var preview_camera: Camera3D
+var desktop_creator := false
 func _ready():
 	preload("res://platform_layout.gd").configure_window()
 	custom_minimum_size = Vector2.ZERO
@@ -19,7 +25,7 @@ func _ready():
 	bg.texture = preload("res://menu_camp.webp")
 	bg.name = "MenuBackground"
 	bg.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	bg.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	bg.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(bg)
 	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -30,14 +36,15 @@ func _ready():
 	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	center.custom_minimum_size = Vector2.ZERO
 	center.mouse_filter = Control.MOUSE_FILTER_PASS
-	# The actual desktop content area is smaller than the stretched portrait canvas.
-	# Build the menu in a bounded logical desktop area, not the oversized root.
+	# Desktop viewport uses an expanded portrait-origin canvas; align the
+	# interactive layout to the visible window and resize it with the window.
 	if not OS.has_feature("mobile"):
 		center.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
 		center.size = Vector2(minf(get_window().size.x, 1600.0), minf(get_window().size.y, 900.0))
 		get_window().size_changed.connect(func():
 			if is_instance_valid(center): center.size = Vector2(minf(get_window().size.x, 1600.0), minf(get_window().size.y, 900.0)))
 	var scroll := ScrollContainer.new()
+	menu_scroll=scroll
 	scroll.custom_minimum_size = Vector2(560, 680)
 	scroll.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
@@ -46,6 +53,9 @@ func _ready():
 	content.custom_minimum_size.x = 530
 	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	content.add_theme_constant_override("separation",18)
+	if not OS.has_feature("mobile"):
+		scroll.custom_minimum_size=Vector2(520, 680)
+		content.custom_minimum_size.x=490
 	scroll.add_child(content)
 	var theme_ui := Theme.new()
 	theme_ui.default_font = font
@@ -58,6 +68,10 @@ func _ready():
 	if not OS.has_feature("headless"):
 		call_deferred("_begin_world_prefetch")
 func clear():
+	_remove_preview()
+	if menu_scroll != null:
+		menu_scroll.custom_minimum_size=Vector2(520,680)
+		menu_scroll.position=Vector2.ZERO
 	for child in content.get_children():
 		content.remove_child(child)
 		child.queue_free()
@@ -83,6 +97,8 @@ func button(value: String, callback: Callable):
 	b.pressed.connect(callback)
 func main_menu():
 	clear()
+	if not OS.has_feature("mobile"):
+		menu_scroll.custom_minimum_size=Vector2(520,680)
 	heading("FORESTS OF HELL",52)
 	heading("An adventure awaits",30)
 	if profile.has_section("hero"):
@@ -106,6 +122,8 @@ func creator():
 	clear()
 	chosen=clampi(int(profile.get_value("hero","model",0)),0,MODELS.size()-1)
 	edited_appearance=APPEARANCE.settings()
+	desktop_creator=not OS.has_feature("mobile")
+	if desktop_creator: _create_preview()
 	heading("Create your character",42)
 	var name_field := LineEdit.new()
 	name_field.placeholder_text = "Character name"
@@ -114,7 +132,7 @@ func creator():
 	var models := OptionButton.new()
 	for n in NAMES: models.add_item(n)
 	models.select(chosen)
-	models.item_selected.connect(func(i): chosen = i)
+	models.item_selected.connect(func(i): chosen = i; _refresh_preview())
 	content.add_child(models)
 	heading("Hair & beard",27)
 	for kind in ["hair","beard"]:
@@ -129,11 +147,11 @@ func creator():
 		var names: Array=APPEARANCE.HAIR if kind=="hair" else APPEARANCE.BEARDS
 		for option in names:options.add_item(option)
 		options.select(int(edited_appearance[kind]))
-		options.item_selected.connect(func(i:int):edited_appearance[kind]=i)
+		options.item_selected.connect(func(i:int):edited_appearance[kind]=i; _refresh_preview())
 		row.add_child(options)
 		var reset:=Button.new()
 		reset.text="Reset position"
-		reset.pressed.connect(func():edited_appearance[kind+"_offset"]=Vector3.ZERO;creator())
+		reset.pressed.connect(func():edited_appearance[kind+"_offset"]=Vector3.ZERO; _refresh_preview(); _set_axis_sliders(kind,Vector3.ZERO))
 		row.add_child(reset)
 		for axis in ["X","Y","Z"]:
 			var axis_row:=HBoxContainer.new()
@@ -150,6 +168,8 @@ func creator():
 			slider.size_flags_horizontal=Control.SIZE_EXPAND_FILL
 			var component: int=int({"X":0,"Y":1,"Z":2}[axis])
 			slider.value=edited_appearance[kind+"_offset"][component]
+			slider.set_meta("appearance_kind",kind)
+			slider.set_meta("appearance_axis",component)
 			axis_row.add_child(slider)
 			var reading:=Label.new()
 			reading.custom_minimum_size.x=75
@@ -159,7 +179,8 @@ func creator():
 				var offset:Vector3=edited_appearance[kind+"_offset"]
 				offset[component]=value
 				edited_appearance[kind+"_offset"]=offset
-				reading.text="%.3f m" % value)
+				reading.text="%.3f m" % value
+				_refresh_preview())
 	button("Begin adventure",func():
 		profile.set_value("hero","name",name_field.text.strip_edges() if not name_field.text.strip_edges().is_empty() else "Avatar")
 		profile.set_value("hero","model",chosen)
@@ -167,6 +188,127 @@ func creator():
 		APPEARANCE.save(edited_appearance)
 		enter_world())
 	button("Back",main_menu)
+func _remove_preview() -> void:
+	if is_instance_valid(preview_view):
+		var layout:=preview_view.get_parent()
+		if layout is HBoxContainer:
+			layout.remove_child(menu_scroll)
+			layout.get_parent().add_child(menu_scroll)
+			layout.get_parent().remove_child(layout)
+			layout.queue_free()
+		else:
+			preview_view.get_parent().remove_child(preview_view)
+			preview_view.queue_free()
+	preview_view=null
+	preview_root=null
+	preview_model=null
+	preview_camera=null
+
+func _set_axis_sliders(kind: String, value: Vector3) -> void:
+	for row in content.get_children():
+		if row is HBoxContainer:
+			for item in row.get_children():
+				if item is HSlider and str(item.get_meta("appearance_kind","")) == kind:
+					item.value=value[int(item.get_meta("appearance_axis",0))]
+
+func _create_preview() -> void:
+	# Give the desktop creator independent columns, keeping every control usable.
+	if menu_scroll == null:return
+	menu_scroll.custom_minimum_size=Vector2(570,680)
+	var center:Control=menu_scroll.get_parent()
+	var window_size:=Vector2(get_window().size)
+	var usable_size:=Vector2(minf(window_size.x,1600.0),minf(window_size.y,900.0))
+	center.size=usable_size
+	# A CenterContainer owns child positions. Use a dedicated two-column
+	# horizontal layout and let it place both controls and preview.
+	var layout:=HBoxContainer.new()
+	layout.name="CreatorColumns"
+	layout.add_theme_constant_override("separation",32)
+	layout.custom_minimum_size=Vector2(1050,680)
+	center.remove_child(menu_scroll)
+	center.add_child(layout)
+	layout.add_child(menu_scroll)
+	menu_scroll.size_flags_horizontal=Control.SIZE_FILL
+	menu_scroll.size_flags_vertical=Control.SIZE_EXPAND_FILL
+	preview_view=SubViewportContainer.new()
+	preview_view.name="CreatorModelPreview"
+	preview_view.custom_minimum_size=Vector2(420,640)
+	preview_view.size=Vector2(420,640)
+	preview_view.stretch=true
+	preview_view.size_flags_vertical=Control.SIZE_SHRINK_CENTER
+	preview_view.mouse_filter=Control.MOUSE_FILTER_STOP
+	layout.add_child(preview_view)
+	var viewport:=SubViewport.new()
+	viewport.size=Vector2i(420,640)
+	viewport.transparent_bg=true
+	viewport.own_world_3d=true
+	viewport.render_target_update_mode=SubViewport.UPDATE_ALWAYS
+	preview_view.add_child(viewport)
+	preview_root=Node3D.new()
+	viewport.add_child(preview_root)
+	var sun:=DirectionalLight3D.new()
+	sun.rotation_degrees=Vector3(-35,30,0)
+	sun.light_energy=1.75
+	preview_root.add_child(sun)
+	var fill:=DirectionalLight3D.new()
+	fill.rotation_degrees=Vector3(-20,-130,0)
+	fill.light_energy=0.75
+	preview_root.add_child(fill)
+	var env:=WorldEnvironment.new()
+	env.environment=Environment.new()
+	env.environment.background_mode=Environment.BG_COLOR
+	env.environment.background_color=Color(0.025,0.07,0.075,1)
+	env.environment.ambient_light_source=Environment.AMBIENT_SOURCE_COLOR
+	env.environment.ambient_light_color=Color(0.78,0.78,0.75)
+	env.environment.ambient_light_energy=0.65
+	preview_root.add_child(env)
+	preview_camera=Camera3D.new()
+	preview_camera.projection=Camera3D.PROJECTION_ORTHOGONAL
+	preview_camera.size=2.2
+	preview_camera.position=Vector3(0,1.0,4.5)
+	preview_root.add_child(preview_camera)
+	preview_camera.current=true
+	preview_camera.look_at(Vector3(0,1.0,0))
+	preview_view.gui_input.connect(func(event:InputEvent):
+		if event is InputEventMouseMotion and Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
+			if is_instance_valid(preview_model):preview_model.rotation.y += event.relative.x*0.012)
+	_refresh_preview()
+
+func _preview_bounds(node:Node3D, base:Transform3D) -> Vector2:
+	var t:=base*node.transform
+	var bottom:=INF
+	var top:=-INF
+	if node is MeshInstance3D and node.mesh!=null:
+		var bounds:AABB=node.get_aabb()
+		for i in range(8):
+			var y:float=(t*bounds.get_endpoint(i)).y
+			bottom=minf(bottom,y)
+			top=maxf(top,y)
+	for child in node.get_children():
+		if child is Node3D:
+			var sub:=_preview_bounds(child,t)
+			bottom=minf(bottom,sub.x)
+			top=maxf(top,sub.y)
+	return Vector2(bottom,top)
+
+func _refresh_preview() -> void:
+	if not is_instance_valid(preview_root):return
+	if is_instance_valid(preview_model):
+		preview_root.remove_child(preview_model)
+		preview_model.queue_free()
+	var path:="res://assets/%s.glb" % MODELS[chosen]
+	if not ResourceLoader.exists(path):return
+	var packed:=load(path) as PackedScene
+	if packed==null:return
+	preview_model=packed.instantiate() as Node3D
+	preview_root.add_child(preview_model)
+	APPEARANCE.apply(preview_model,edited_appearance)
+	var bounds:=_preview_bounds(preview_model,Transform3D.IDENTITY)
+	if is_finite(bounds.x) and is_finite(bounds.y) and bounds.y>bounds.x:
+		var scalar:=1.85/(bounds.y-bounds.x)
+		preview_model.scale=Vector3.ONE*scalar
+		preview_model.position.y=-bounds.x*scalar
+
 func _begin_world_prefetch() -> void:
 	if not is_inside_tree(): return
 	ForestLoading.prefetch_assets()
