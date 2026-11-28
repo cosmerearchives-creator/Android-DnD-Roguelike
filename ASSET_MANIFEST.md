@@ -71,3 +71,6 @@ Unchanged source: godot/creator_ui/source_elements.png (1900x1900 RGBA), SHA256 
 
 ## v0.3.207 hairstyle switching asset integrity
 - No new or modified GLB files, skeletons, bone maps, animations, original textures, geometry or material channels. Wavy, Short and Braid remain the same full-resolution source files and are all instantiated through the original Godot scene importer. Original 66-bone supplied female base and head bone index 5 unchanged. Only per-style runtime attachment defaults and configuration are different; distinct Z defaults are in character_appearance.gd and audited in docs/hair-style-switch-v0.3.207.md.
+
+## v0.3.208 material policy
+No new or modified skeleton, bone map, GLB, animation, source or imported texture. Hair tint duplicates each original runtime surface material for hair-only albedo coloring; original PBR texture channels and resolutions remain unchanged.

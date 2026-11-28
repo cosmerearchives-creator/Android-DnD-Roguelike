@@ -60,3 +60,6 @@ Use separate ornate large-panel/action buttons, subdued compact navigation/categ
 ## v0.3.207 — Each hairstyle has its own fit; preserve head attachment
 - Position and size are **per hairstyle**, stored in existing appearance.cfg, with the currently selected style reflected in the visible XYZ/size UI. Returning to a previous style restores its individual adjustments; selecting an unconfigured different style uses independently measured/default size and offset. Preserve legacy current hairstyle adjustments while migrating.
 - Reuse a compatible existing BoneAttachment3D when changing style; only replace the Hair mesh child. Keep correct original source mesh rotation (an attempted 90-degree rotation failed visual review). Never generate rigs or alter the user's original bones, bone maps or textures.
+
+## v0.3.208 hair tint
+Color is shared across hairstyles (not per-style), persists in appearance.cfg, and affects Hair mesh only; beard and body remain untouched. Use isolated runtime material overrides instead of editing or recompressing textures. Creator palette offers 12 presets and custom tint.

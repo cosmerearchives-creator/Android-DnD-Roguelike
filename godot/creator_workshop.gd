@@ -358,11 +358,11 @@ func _slider(label:String,key:String,at_y:float,min_value:float,max_value:float,
 		arrow.add_theme_stylebox_override("hover",_style(true,"arrow"))
 
 func _hair_size_slider() -> void:
-	_control_label("Hair Size",313,27)
+	_control_label("Hair Size",187,27)
 	for detail in [
-		[Color("#482208"),Vector2(112,363),Vector2(396,9)],
-		[Color("#d78b25"),Vector2(114,365),Vector2(392,5)],
-		[Color("#ffe59e"),Vector2(115,366),Vector2(390,2)]
+		[Color("#482208"),Vector2(112,237),Vector2(396,9)],
+		[Color("#d78b25"),Vector2(114,239),Vector2(392,5)],
+		[Color("#ffe59e"),Vector2(115,240),Vector2(390,2)]
 	]:
 		var rail:=ColorRect.new()
 		rail.color=detail[0]
@@ -372,7 +372,7 @@ func _hair_size_slider() -> void:
 		controls.add_child(rail)
 	var slider:=HSlider.new()
 	slider.name="HairSizeSlider"
-	slider.position=Vector2(113,352)
+	slider.position=Vector2(113,226)
 	slider.size=Vector2(395,31)
 	slider.min_value=0.5
 	slider.max_value=3.0
@@ -385,10 +385,10 @@ func _hair_size_slider() -> void:
 	slider.add_theme_icon_override("grabber",diamond)
 	slider.add_theme_icon_override("grabber_highlight",diamond)
 	controls.add_child(slider)
-	var number:=_control_label("Hair Size",313,27)
+	var number:=_control_label("Hair Size",187,27)
 	number.text=""
 	number.name="HairScaleValue"
-	number.position=Vector2(518,350)
+	number.position=Vector2(518,224)
 	number.size=Vector2(94,43)
 	number.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	number.add_theme_font_size_override("font_size",22)
@@ -400,6 +400,54 @@ func _hair_size_slider() -> void:
 		changed.call(value)
 		APPEARANCE.save(appearance))
 	changed.call(slider.value)
+
+const HAIR_COLORS := [
+	Color("#191512"),Color("#39271d"),Color("#68432b"),Color("#956b42"),
+	Color("#c6a15d"),Color("#e6d3a3"),Color("#743321"),Color("#b65d35"),
+	Color("#777777"),Color("#c6c6c6"),Color("#f1eee5"),Color("#62446d")
+]
+
+func _set_hair_color(color:Color) -> void:
+	appearance["hair_color"]=color
+	if is_instance_valid(model):APPEARANCE.update_hair_color(model,appearance)
+	APPEARANCE.save(appearance)
+
+func _hair_color_controls() -> void:
+	_control_label("Hair Color",440,27)
+	var current:Color=APPEARANCE.hair_color(appearance)
+	for i in range(HAIR_COLORS.size()):
+		var col:Color=HAIR_COLORS[i]
+		var swatch:=Button.new()
+		swatch.name="HairColorSwatch%d" % i
+		swatch.position=Vector2(37+(i%6)*96,483+int(i/6)*45)
+		swatch.size=Vector2(76,36)
+		var background:=StyleBoxFlat.new()
+		background.bg_color=col
+		background.border_color=GOLD if current.is_equal_approx(col) else Color("#453424")
+		background.set_border_width_all(4 if current.is_equal_approx(col) else 2)
+		background.set_corner_radius_all(5)
+		swatch.add_theme_stylebox_override("normal",background)
+		swatch.add_theme_stylebox_override("hover",background)
+		swatch.add_theme_stylebox_override("pressed",background)
+		swatch.tooltip_text="Hair color %d" % (i+1)
+		swatch.pressed.connect(func():
+			_set_hair_color(col)
+			_show_category("Hair"))
+		controls.add_child(swatch)
+	var picker:=ColorPickerButton.new()
+	picker.name="HairColorPicker"
+	picker.position=Vector2(188,578)
+	picker.size=Vector2(310,43)
+	picker.text="Custom Hair Color"
+	picker.color=current
+	picker.edit_alpha=false
+	picker.add_theme_font_override("font",FONT)
+	picker.add_theme_font_size_override("font_size",21)
+	picker.add_theme_color_override("font_color",TEXT)
+	picker.add_theme_stylebox_override("normal",_style(false))
+	picker.add_theme_stylebox_override("hover",_style(true))
+	picker.color_changed.connect(_set_hair_color)
+	controls.add_child(picker)
 
 func _nudge_attachment(kind:String,axis:int,amount:float) -> void:
 	var key:String=kind+"_offset"
@@ -474,7 +522,7 @@ func _show_category(category:String) -> void:
 		for i in range(names.size()):
 			var idx:int=i
 			var label:String=names[i]
-			var button:=_control_button(label,Vector2(30,row_y+float(i)*61.0),Vector2(585,52),func():
+			var button:=_control_button(label,Vector2(30+float(i%2)*299,row_y+float(int(i/2))*52.0),Vector2(286,45),func():
 				if kind=="hair":
 					_select_hair_style(idx)
 				else:
@@ -485,7 +533,9 @@ func _show_category(category:String) -> void:
 			button.add_theme_font_size_override("font_size",24)
 		if kind=="hair":
 			_hair_size_slider()
-			_attachment_position_controls(kind,399.0)
+			_attachment_position_controls(kind,267.0)
+			_hair_color_controls()
+
 		else:
 			_attachment_position_controls(kind,259.0)
 		_warning_label.text="Each hairstyle saves its own size and X/Y/Z position." if kind=="hair" else "Beard position is saved independently of hair."

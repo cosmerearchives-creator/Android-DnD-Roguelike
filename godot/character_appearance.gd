@@ -11,6 +11,11 @@ const DIMENSIONS := {
     "beard": [Vector3.ZERO, Vector3(1.473436,1.906936,0.674502)]
 }
 const SAVE := "user://appearance.cfg"
+const DEFAULT_HAIR_COLOR := Color("#ffffff")
+static func hair_color(data: Dictionary) -> Color:
+    var value:Variant=data.get("hair_color",DEFAULT_HAIR_COLOR)
+    return value if value is Color else DEFAULT_HAIR_COLOR
+
 static func settings() -> Dictionary:
     var cfg := ConfigFile.new()
     cfg.load(SAVE)
@@ -33,6 +38,7 @@ static func settings() -> Dictionary:
         "hair_scale":scales[selected],
         "hair_offsets":offsets,
         "hair_scales":scales,
+        "hair_color":cfg.get_value("appearance","hair_color",DEFAULT_HAIR_COLOR),
         "beard_offset":_read_offset(cfg,"beard_offset")}
 
 static func _read_offset(cfg: ConfigFile,key: String) -> Vector3:
@@ -71,6 +77,7 @@ static func save(data: Dictionary) -> void:
     for key in ["hair","beard","hair_offset","beard_offset"]:
         cfg.set_value("appearance",key,data.get(key,Vector3.ZERO if key.ends_with("offset") else 0))
     cfg.set_value("appearance","hair_scale",data.get("hair_scale",1.0))
+    cfg.set_value("appearance","hair_color",hair_color(data))
     for i in range(HAIR.size()):
         cfg.set_value("appearance","hair_offset_%d" % i,data["hair_offsets"][i])
         cfg.set_value("appearance","hair_scale_%d" % i,data["hair_scales"][i])
@@ -151,6 +158,32 @@ static func update_placement(character: Node3D,data: Dictionary) -> void:
         instance.scale=Vector3.ONE*factor
         instance.position=base_position(kind,index,factor)+user_offset
 
+## Unique runtime overrides keep the original imported materials, maps and
+## texture resolution intact; never recolor or replace source textures.
+static func _tint_hair_meshes(node: Node, color: Color) -> void:
+    if node is MeshInstance3D:
+        var mesh_node:=node as MeshInstance3D
+        if mesh_node.mesh!=null:
+            for i in range(mesh_node.mesh.get_surface_count()):
+                var source:Material=mesh_node.mesh.surface_get_material(i)
+                var override:Material=mesh_node.get_surface_override_material(i)
+                if override==null:
+                    if source!=null:
+                        override=source.duplicate()
+                    else:
+                        override=StandardMaterial3D.new()
+                    mesh_node.set_surface_override_material(i,override)
+                if override is BaseMaterial3D:
+                    (override as BaseMaterial3D).albedo_color=color
+    for child in node.get_children():
+        _tint_hair_meshes(child,color)
+
+static func update_hair_color(character: Node3D,data: Dictionary) -> void:
+    var attach:=character.find_child("ModularAppearance",true,false) as BoneAttachment3D
+    if attach==null:return
+    var hair:=attach.get_node_or_null("Hair")
+    if hair!=null:_tint_hair_meshes(hair,hair_color(data))
+
 static func apply(character: Node3D,data: Dictionary={}) -> void:
     if data.is_empty():data=settings()
     var skeleton:=_skeleton(character)
@@ -184,3 +217,4 @@ static func apply(character: Node3D,data: Dictionary={}) -> void:
         instance.set_meta("appearance_asset_path",path)
         attachment.add_child(instance)
     update_placement(character,data)
+    update_hair_color(character,data)
