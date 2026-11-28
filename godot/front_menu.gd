@@ -6,6 +6,8 @@ const MODELS = ["human_adventurer", "male_human"]
 const NAMES = ["Human Adventurer", "Male Human"]
 var profile := ConfigFile.new()
 const WORLD_SCENE := "res://world.tscn"
+const APPEARANCE = preload("res://character_appearance.gd")
+var edited_appearance: Dictionary = {}
 var world_prefetch_active := false
 var awaiting_world := false
 func _ready():
@@ -22,7 +24,11 @@ func _ready():
 	content = VBoxContainer.new()
 	content.custom_minimum_size.x = 530
 	content.add_theme_constant_override("separation",18)
-	center.add_child(content)
+	var scroll := ScrollContainer.new()
+	scroll.custom_minimum_size = Vector2(560, 0)
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	center.add_child(scroll)
+	scroll.add_child(content)
 	var theme_ui := Theme.new()
 	theme_ui.default_font = font
 	theme_ui.default_font_size = 32
@@ -80,20 +86,67 @@ func settings():
 	button("Back",main_menu)
 func creator():
 	clear()
+	chosen=clampi(int(profile.get_value("hero","model",0)),0,MODELS.size()-1)
+	edited_appearance=APPEARANCE.settings()
 	heading("Create your character",42)
 	var name_field := LineEdit.new()
 	name_field.placeholder_text = "Character name"
+	name_field.text = str(profile.get_value("hero","name",""))
 	content.add_child(name_field)
 	var models := OptionButton.new()
 	for n in NAMES: models.add_item(n)
 	models.select(chosen)
 	models.item_selected.connect(func(i): chosen = i)
 	content.add_child(models)
-	heading("Appearance selection",28)
+	heading("Hair & beard",27)
+	for kind in ["hair","beard"]:
+		var row:=HBoxContainer.new()
+		content.add_child(row)
+		var label:=Label.new()
+		label.text=kind.capitalize()
+		label.custom_minimum_size.x=125
+		row.add_child(label)
+		var options:=OptionButton.new()
+		options.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+		var names: Array=APPEARANCE.HAIR if kind=="hair" else APPEARANCE.BEARDS
+		for option in names:options.add_item(option)
+		options.select(int(edited_appearance[kind]))
+		options.item_selected.connect(func(i:int):edited_appearance[kind]=i)
+		row.add_child(options)
+		var reset:=Button.new()
+		reset.text="Reset position"
+		reset.pressed.connect(func():edited_appearance[kind+"_offset"]=Vector3.ZERO;creator())
+		row.add_child(reset)
+		for axis in ["X","Y","Z"]:
+			var axis_row:=HBoxContainer.new()
+			content.add_child(axis_row)
+			var axis_label:=Label.new()
+			axis_label.text=kind.capitalize()+" "+axis+" position"
+			axis_label.custom_minimum_size.x=180
+			axis_row.add_child(axis_label)
+			var slider:=HSlider.new()
+			slider.min_value=-0.25
+			slider.max_value=0.25
+			slider.step=0.005
+			slider.custom_minimum_size.x=290
+			slider.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+			var component: int=int({"X":0,"Y":1,"Z":2}[axis])
+			slider.value=edited_appearance[kind+"_offset"][component]
+			axis_row.add_child(slider)
+			var reading:=Label.new()
+			reading.custom_minimum_size.x=75
+			reading.text="%.3f m" % slider.value
+			axis_row.add_child(reading)
+			slider.value_changed.connect(func(value:float):
+				var offset:Vector3=edited_appearance[kind+"_offset"]
+				offset[component]=value
+				edited_appearance[kind+"_offset"]=offset
+				reading.text="%.3f m" % value)
 	button("Begin adventure",func():
 		profile.set_value("hero","name",name_field.text.strip_edges() if not name_field.text.strip_edges().is_empty() else "Avatar")
 		profile.set_value("hero","model",chosen)
 		profile.save("user://hero.cfg")
+		APPEARANCE.save(edited_appearance)
 		enter_world())
 	button("Back",main_menu)
 func _begin_world_prefetch() -> void:

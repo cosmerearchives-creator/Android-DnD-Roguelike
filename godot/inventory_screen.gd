@@ -14,6 +14,7 @@ const SIGNS := DATA.SLOT_SIGNS
 const TABS := ["Equipment","Items","Materials","Quest"]
 const PROFILE := ["human_adventurer", "male_human"]
 const PLATFORM = preload("res://platform_layout.gd")
+const APPEARANCE = preload("res://character_appearance.gd")
 var data
 var active_tab := "Equipment"
 var hero_model := "human_adventurer"
@@ -579,6 +580,7 @@ func _load_model() -> void:
 	var body:Node3D=(load(path) as PackedScene).instantiate()
 	body.name="PortraitModel"
 	equipped_body.add_child(body)
+	APPEARANCE.apply(body)
 	var bounds:=_find_bounds(body,Transform3D.IDENTITY)
 	if bounds.y>bounds.x and is_finite(bounds.x):
 		var scale:=1.85/(bounds.y-bounds.x)

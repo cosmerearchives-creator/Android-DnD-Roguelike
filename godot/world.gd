@@ -5,6 +5,7 @@ const SHARED = preload("res://humanoid_shared_animations.gd")
 const COMBAT = preload("res://creature_combat_stats.gd")
 const PLATFORM = preload("res://platform_layout.gd")
 const INVENTORY = preload("res://inventory_data.gd")
+const APPEARANCE = preload("res://character_appearance.gd")
 var player: CharacterBody3D
 var enemies
 var camera: Camera3D
@@ -72,6 +73,7 @@ func _refresh_player_visual() -> void:
 	fresh.name = "CharacterVisual"
 	player.add_child(fresh)
 	ground_visual(fresh)
+	APPEARANCE.apply(fresh)
 	var animator = SHARED.attach(fresh)
 	if animator != null and animator.has_animation("Idle"): animator.play("Idle")
 	if was_first_person: set_first_person(true)
@@ -135,7 +137,9 @@ func body(pos: Vector3, asset: String, color: Color, is_goblin := false) -> Char
 		model.name = "CharacterVisual"
 		b.add_child(model)
 		ground_visual(model)
-		if not is_goblin: SHARED.attach(model)
+		if not is_goblin:
+			APPEARANCE.apply(model)
+			SHARED.attach(model)
 	else:
 		var mesh := CapsuleMesh.new()
 		mesh.radius = 0.3
