@@ -12,22 +12,40 @@ var world_prefetch_active := false
 var awaiting_world := false
 func _ready():
 	preload("res://platform_layout.gd").configure_window()
+	custom_minimum_size = Vector2.ZERO
+	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	clip_contents = true
 	var bg := TextureRect.new()
 	bg.texture = preload("res://menu_camp.webp")
+	bg.name = "MenuBackground"
 	bg.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	bg.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(bg)
 	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	bg.custom_minimum_size = Vector2.ZERO
 	var center := CenterContainer.new()
+	center.name = "MenuControls"
 	add_child(center)
 	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	center.custom_minimum_size = Vector2.ZERO
+	center.mouse_filter = Control.MOUSE_FILTER_PASS
+	# The desktop window uses an expanded canvas; its root scene may still
+	# report 1280 logical pixels high. Use the actual window dimensions.
+	if not OS.has_feature("mobile"):
+		center.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
+		center.size = Vector2(get_window().size)
+		get_window().size_changed.connect(func():
+			if is_instance_valid(center): center.size = Vector2(get_window().size))
+	var scroll := ScrollContainer.new()
+	scroll.custom_minimum_size = Vector2(560, 680)
+	scroll.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	center.add_child(scroll)
 	content = VBoxContainer.new()
 	content.custom_minimum_size.x = 530
+	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	content.add_theme_constant_override("separation",18)
-	var scroll := ScrollContainer.new()
-	scroll.custom_minimum_size = Vector2(560, 0)
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	center.add_child(scroll)
 	scroll.add_child(content)
 	var theme_ui := Theme.new()
 	theme_ui.default_font = font
