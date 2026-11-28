@@ -30,13 +30,13 @@ func _ready():
 	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	center.custom_minimum_size = Vector2.ZERO
 	center.mouse_filter = Control.MOUSE_FILTER_PASS
-	# The desktop window uses an expanded canvas; its root scene may still
-	# report 1280 logical pixels high. Use the actual window dimensions.
+	# The actual desktop content area is smaller than the stretched portrait canvas.
+	# Build the menu in a bounded logical desktop area, not the oversized root.
 	if not OS.has_feature("mobile"):
 		center.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
-		center.size = Vector2(get_window().size)
+		center.size = Vector2(minf(get_window().size.x, 1600.0), minf(get_window().size.y, 900.0))
 		get_window().size_changed.connect(func():
-			if is_instance_valid(center): center.size = Vector2(get_window().size))
+			if is_instance_valid(center): center.size = Vector2(minf(get_window().size.x, 1600.0), minf(get_window().size.y, 900.0)))
 	var scroll := ScrollContainer.new()
 	scroll.custom_minimum_size = Vector2(560, 680)
 	scroll.size_flags_vertical = Control.SIZE_SHRINK_CENTER

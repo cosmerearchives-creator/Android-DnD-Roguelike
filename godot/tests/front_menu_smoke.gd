@@ -15,8 +15,9 @@ func _test() -> void:
         if child is Button:
             print("BUTTON ",child.text," rect=",child.get_global_rect())
     var visible=0
+    var canvas_view=Rect2(Vector2.ZERO,root.size)
     for child in menu.get_children():
-        if child is Button and scroll.get_global_rect().intersects(child.get_global_rect()):
+        if child is Button and scroll.get_global_rect().intersects(child.get_global_rect()) and canvas_view.encloses(child.get_global_rect()):
             visible+=1
     if visible<3:
         printerr("MENU_OFFSCREEN")
