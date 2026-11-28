@@ -50,3 +50,7 @@ Validation: original source GLB SHA256, 23 extracted image byte comparisons, God
 
 ## v0.3.196 approved equipment sprite source
 - Full original user PNG: godot/ui_skin/approved_equipment_source.png, 1280×1229 RGBA, 2,270,814 bytes, SHA256 cae4145663bf6d7e2d1f696091aebb5efde58ded01ca4ff91eb14b318c7957e4. Identical off-repo original in G:/ChatGPT Projects/Forests of Hell/Inventory Review/Original Equipment UI Source.png. Source-exact pixel crops under godot/ui_skin/approved_equipment/: top_banner, tab_header, stat_panel, inventory_panel, detail_panel, slot_blank. User-source-derived modifiable character_panel with 7 left + 8 right slots, accessory_slot and occupied_slot. Reproducible extraction/derivative source blender/ui_skin/extract_approved_equipment.py, compose_equipment_15.py; SHA/PIL/import asset fidelity gate scripts/verify_approved_equipment_art.py. Original remains full-resolution, Godot lossless importer compress/mode=0, no size limit. No GLBs/skeletons/animations changed.
+
+## v0.3.201 — playable goblin and modular equipment
+
+The playable female goblin derives from femalegobsimpleskel.glb with all 28 supplied joints and both native locomotion clips. WearableLeather and BootCoverage are separate visual meshes. The detached leather guards are bound to the corresponding forearms. Full-size body and garment maps accompany the GLBs.

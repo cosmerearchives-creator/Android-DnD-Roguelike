@@ -272,7 +272,7 @@ static func _rest_height(skeleton: Skeleton3D) -> float:
 
 ## Returns a separate AnimationPlayer, leaving existing imported clips untouched.
 ## Motion displacement in X/Z is removed for gameplay-controlled movement.
-static func attach(model: Node3D, in_place: bool = true) -> AnimationPlayer:
+static func attach(model: Node3D, in_place: bool = true, use_native_locomotion: bool = false) -> AnimationPlayer:
     var existing := model.get_node_or_null("SharedHumanoidAnimations") as AnimationPlayer
     if existing != null:
         return existing
@@ -332,7 +332,7 @@ static func attach(model: Node3D, in_place: bool = true) -> AnimationPlayer:
     model.add_child(player)
     player.root_node = NodePath("..")
     var dest_skeleton_path := String(model.get_path_to(destination))
-    var cache_key := dest_skeleton_path + ":" + str(in_place)
+    var cache_key := dest_skeleton_path + ":" + str(in_place) + ":" + str(use_native_locomotion)
     for bone_idx in destination.get_bone_count():
         cache_key += "|" + destination.get_bone_name(bone_idx) + "=" + str(destination.get_bone_rest(bone_idx))
     if _library_cache.has(cache_key):
@@ -397,9 +397,11 @@ static func attach(model: Node3D, in_place: bool = true) -> AnimationPlayer:
     # Model-specific native reference clips override unvalidated retargets.
     # Preserve all native tracks and remap only the skeleton node path.
     var reference := find_animator(model)
-    if reference != null and reference.has_animation("Axe_Spin_Attack"):
+    if reference != null and (reference.has_animation("Axe_Spin_Attack") or use_native_locomotion):
         for name in reference.get_animation_list():
+            if use_native_locomotion and name not in ["Walking","Running"]:continue
             var exact := reference.get_animation(name).duplicate(true) as Animation
+            if use_native_locomotion:exact.loop_mode=Animation.LOOP_LINEAR
             var reference_root := reference.get_node(reference.root_node)
             for track in exact.get_track_count():
                 var path := exact.track_get_path(track)

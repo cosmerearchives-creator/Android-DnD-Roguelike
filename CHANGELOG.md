@@ -56,3 +56,7 @@ See `docs/inventory-tabs-and-spawn.md`, `docs/forest-bestiary-roaming.md`, `docs
 
 ## v0.3.196 — 2026-11-27
 - Replaced generated Equipment UI imitation with original user's approved bronze/leather artwork, exact pixel crops for menu, stats, inventory grid and details, eight right-sided slots adapted from existing source, retained 15 functional click targets and original 3D character preview. Dynamic inventory selection/equipped item icons, stats and gameplay state unaffected; other three tabs remain on their existing designs. Added source-sha integrity and desktop layout regression gates, real hardware-rendered screenshots and review records.
+
+## v0.3.201 — playable goblin and modular equipment
+
+Adds the female goblin and female human fitting models, equip/unequip leather, face zoom and hair sizing in the desktop creator, revised inventory and menu artwork, and improved ground blending.

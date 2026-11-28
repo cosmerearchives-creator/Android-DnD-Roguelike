@@ -65,3 +65,7 @@ NOT RUN: on-device Android render and sustained FPS/memory, signed release insta
 
 ## v0.3.196 Equipment source-art review and regression
 - SHA/crop fidelity: run python scripts/verify_approved_equipment_art.py (original byte-exact 1280×1229; six exact source crops; 15th slot source-derived; Godot texture lossless/no size limit). CI asserts source hash. 1600×900 OpenGL screenshot equipment.png must show actual artwork and 3D player, no duplicated gold generated borders, and 15 click slots. Inventory desktop smoke asserts all 15 controls, 4 tabs, artwork panels correctly fitted and Chain Mail Body/Longsword Main Hand logic; mobile portrait inventory and tabs, inventory pause/HUD restoration, camera/display persistence, male GLB armor, terrain/tavern/physics, ground clutter, enemy, lean cast, updater and PC controls must pass. CI signed APK, Windows ZIP, updater JSON and app identity verification required. Android on-device visual still pending.
+
+## v0.3.201 — playable goblin and modular equipment
+
+Verified the approved proof of concept in the desktop preview. Automated checks passed for goblin motion, equipment toggle, creator preview, phone inventory at 1280 and 1536 pixels, desktop inventory, and terrain. Physical Android installation and on-device visual review are outstanding.

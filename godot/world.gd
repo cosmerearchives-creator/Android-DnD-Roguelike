@@ -47,39 +47,16 @@ var camera_angle := 60.0
 var angle_button: Button
 var model_index := 0
 var punch_left := 0.0
-const MODELS = ["human_adventurer", "male_human"]
-const MODEL_NAMES = ["Human Adventurer", "Male Human"]
+const WEARABLE = preload("res://player_equipment_visual.gd")
+const MODELS = WEARABLE.MODELS
+const MODEL_NAMES = WEARABLE.NAMES
 func _player_asset() -> String:
-	if MODELS[model_index]=="male_human":
-		var inv = INVENTORY.new()
-		if inv.equipped_id("Body")=="leather_armor":
-			return "res://assets/male_human_leather_armored.glb"
-	return "res://assets/%s.glb" % MODELS[model_index]
+	return WEARABLE.asset(MODELS[model_index])
 
-func _refresh_player_visual() -> void:
-	if not is_instance_valid(player): return
-	var asset := _player_asset()
-	if not ResourceLoader.exists(asset):
-		push_error("Equipped character visual missing: "+asset)
-		return
-	var was_first_person := first_person
-	if was_first_person: set_first_person(false)
-	first_person_meshes.clear()
-	var old_visual := player.get_node_or_null("CharacterVisual")
-	if old_visual != null:
-		player.remove_child(old_visual)
-		old_visual.queue_free()
-	var fresh: Node3D = (load(asset) as PackedScene).instantiate()
-	fresh.name = "CharacterVisual"
-	player.add_child(fresh)
-	ground_visual(fresh)
-	APPEARANCE.apply(fresh)
-	var animator = SHARED.attach(fresh)
-	if animator != null and animator.has_animation("Idle"): animator.play("Idle")
-	if was_first_person: set_first_person(true)
+func _on_equipment_changed(slot: String, item_id: String) -> void:
+	if slot=="Body":
+		WEARABLE.apply(player.get_node("CharacterVisual"),item_id=="leather_armor")
 
-func _on_equipment_changed(slot: String, _item_id: String) -> void:
-	if slot=="Body" and MODELS[model_index]=="male_human": _refresh_player_visual()
 var status: Label
 var hud: Control
 var menu_panel: PanelContainer
@@ -128,7 +105,8 @@ func body(pos: Vector3, asset: String, color: Color, is_goblin := false) -> Char
 	var c := CollisionShape3D.new()
 	var capsule := CapsuleShape3D.new()
 	capsule.radius = 0.22 if is_goblin else 0.3
-	capsule.height = 1.05 if is_goblin else 1.7
+	var playable_goblin := not is_goblin and asset == WEARABLE.asset("female_goblin")
+	capsule.height = 1.05 if is_goblin else 2.0 if playable_goblin else 1.7
 	c.shape = capsule
 	c.position.y = capsule.height * 0.5
 	b.add_child(c)
@@ -136,10 +114,12 @@ func body(pos: Vector3, asset: String, color: Color, is_goblin := false) -> Char
 		var model = load(asset).instantiate()
 		model.name = "CharacterVisual"
 		b.add_child(model)
+		if playable_goblin: model.scale *= capsule.height / 1.7
 		ground_visual(model)
 		if not is_goblin:
 			APPEARANCE.apply(model)
-			SHARED.attach(model)
+			WEARABLE.apply(model,INVENTORY.new().equipped_id("Body")=="leather_armor")
+			if MODELS[model_index]!="female_leather_trial": SHARED.attach(model,true,playable_goblin)
 	else:
 		var mesh := CapsuleMesh.new()
 		mesh.radius = 0.3
@@ -170,44 +150,9 @@ func _ready():
 	var floor_mesh := BoxMesh.new()
 	floor_mesh.size = box.size
 	var floor_visual := mesh_at(ground,floor_mesh,Vector3.ZERO,Color("#526b40"))
-	var terrain_shader := Shader.new()
-	terrain_shader.code = """shader_type spatial;
-uniform sampler2D grass_texture : source_color, repeat_enable, filter_linear_mipmap;
-varying vec3 world_pos;
-void vertex() { world_pos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz; }
-float hash(vec2 p) { return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
-float noise2(vec2 p) {
-	vec2 i=floor(p), f=fract(p);
-	f=f*f*(3.0-2.0*f);
-	return mix(mix(hash(i),hash(i+vec2(1,0)),f.x),mix(hash(i+vec2(0,1)),hash(i+vec2(1,1)),f.x),f.y);
-}
-void fragment() {
-	vec2 p=world_pos.xz;
-	// Periodic seamless atlas and world-space UVs: no visible square seams.
-	// A second rotated sample breaks up the repeat pattern at distance.
-	vec2 warp=vec2(noise2(p*0.18+vec2(4.1,2.3)),noise2(p*0.17-vec2(3.7,5.2)))-vec2(0.5);
-	vec2 uv=p*0.145+warp*0.035;
-	vec2 turned=vec2(p.x*0.102+p.y*0.071,p.y*0.102-p.x*0.071)+vec2(0.38,0.61)-warp*0.028;
-	vec3 primary=texture(grass_texture,uv).rgb;
-	vec3 secondary=texture(grass_texture,turned).rgb;
-	float meadow=noise2(p*0.075);
-	float micro=noise2(p*2.8);
-	float mix_factor=0.20+0.17*noise2(p*0.14);
-	vec3 blades=mix(primary,secondary,mix_factor);
-	float soil=smoothstep(0.70,0.91,noise2(p*0.26));
-	// Dark forest earth beneath original material tiles; no bright neon seams.
-	ALBEDO=mix(blades*(0.55+0.10*meadow+0.025*micro),vec3(0.29,0.27,0.20),0.34);
-	ALBEDO=mix(ALBEDO,vec3(0.22,0.20,0.15),soil*0.22);
-	ROUGHNESS=0.95;
-}"""
-	var terrain_material := ShaderMaterial.new()
-	terrain_material.shader = terrain_shader
-	terrain_material.set_shader_parameter("grass_texture",preload("res://grass_seamless.png"))
-	floor_visual.material_override = terrain_material
-	# Layer imported 5ft terrain above the existing continuous, collidable grass floor.
-	# Terrain is generated in six MultiMesh batches, one asset per frame.
 	terrain_layer = preload("res://terrain_layer.gd").new()
 	add_child(terrain_layer)
+	floor_visual.material_override = terrain_layer.material
 	# Small original-source forest debris/vegetation, grouped into MultiMeshes.
 	ground_cover_layer = preload("res://ground_cover_layer.gd").new()
 	add_child(ground_cover_layer)
@@ -597,6 +542,15 @@ func hud_action(name: String):
 func play_imported_animation(state: String) -> void:
 	var visual := player.get_node_or_null("CharacterVisual")
 	if visual == null: return
+	if MODELS[model_index]=="female_leather_trial":
+		var native := SHARED.find_animator(visual)
+		if native:
+			var motion := "Walking" if state=="walk" else "Running" if state=="run" else ""
+			if motion.is_empty() or not native.has_animation(motion): native.stop()
+			elif native.current_animation!=motion:
+				native.get_animation(motion).loop_mode=Animation.LOOP_NONE if state=="attack" else Animation.LOOP_LINEAR
+				native.play(motion)
+		return
 	var animator := visual.get_node_or_null("SharedHumanoidAnimations") as AnimationPlayer
 	if animator == null: animator = SHARED.attach(visual)
 	if animator == null: return

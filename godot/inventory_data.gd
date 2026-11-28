@@ -2,7 +2,7 @@ extends RefCounted
 ## Godot inventory data derived from the original 2014 5e Equipment catalog.
 ## Currently persists the initial Fighter test loadout independently of the legacy Java save.
 const STARTER := [
-	{"id":"chain_mail","count":1},{"id":"longsword","count":1},{"id":"shield","count":1},
+	{"id":"leather_armor","count":1},{"id":"chain_mail","count":1},{"id":"longsword","count":1},{"id":"shield","count":1},
 	{"id":"handaxe","count":2},{"id":"backpack","count":1},{"id":"bedroll","count":1},
 	{"id":"mess_kit","count":1},{"id":"tinderbox","count":1},{"id":"torch","count":10},
 	{"id":"ration","count":10},{"id":"waterskin","count":1},{"id":"rope_hemp","count":1}
@@ -51,10 +51,13 @@ func _load_saved() -> bool:
 	for legacy in ["Ranged","Ears","Legs"]: equipped.erase(legacy)
 	strength=clampi(int(parsed.get("strength",10)),1,30)
 	gold=maxi(0,int(parsed.get("gold",10)))
+	if int(parsed.get("starter_revision",1))<2:
+		if count_of("leather_armor")==0: items.append({"id":"leather_armor","count":1})
+		_save()
 	return true
 func _save() -> void:
 	var f := FileAccess.open(STORAGE,FileAccess.WRITE)
-	if f!=null: f.store_string(JSON.stringify({"items":items,"equipped":equipped,"strength":strength,"gold":gold}))
+	if f!=null: f.store_string(JSON.stringify({"starter_revision":2,"items":items,"equipped":equipped,"strength":strength,"gold":gold}))
 func count_of(id: String) -> int:
 	var total := 0
 	for stack in items:

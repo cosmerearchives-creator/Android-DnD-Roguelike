@@ -2,8 +2,9 @@ extends Control
 var content: VBoxContainer
 var font: Font = preload("res://hud_serif.ttf")
 var chosen := 0
-const MODELS = ["human_adventurer", "male_human"]
-const NAMES = ["Human Adventurer", "Male Human"]
+const WEARABLE = preload("res://player_equipment_visual.gd")
+const MODELS = WEARABLE.MODELS
+const NAMES = WEARABLE.NAMES
 var profile := ConfigFile.new()
 const WORLD_SCENE := "res://world.tscn"
 const APPEARANCE = preload("res://character_appearance.gd")
@@ -14,6 +15,7 @@ var menu_scroll: ScrollContainer
 var preview_view: SubViewportContainer
 var preview_model: Node3D
 var preview_root: Node3D
+var face_zoom := false
 var preview_camera: Camera3D
 var desktop_creator := false
 func _ready():
@@ -36,13 +38,10 @@ func _ready():
 	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	center.custom_minimum_size = Vector2.ZERO
 	center.mouse_filter = Control.MOUSE_FILTER_PASS
-	# Desktop viewport uses an expanded portrait-origin canvas; align the
-	# interactive layout to the visible window and resize it with the window.
 	if not OS.has_feature("mobile"):
-		center.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
-		center.size = Vector2(minf(get_window().size.x, 1600.0), minf(get_window().size.y, 900.0))
-		get_window().size_changed.connect(func():
-			if is_instance_valid(center): center.size = Vector2(minf(get_window().size.x, 1600.0), minf(get_window().size.y, 900.0)))
+		bg.texture = preload("res://menu_landscape.png")
+		bg.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+		center.anchor_right = 0.56
 	var scroll := ScrollContainer.new()
 	menu_scroll=scroll
 	scroll.custom_minimum_size = Vector2(560, 680)
@@ -65,7 +64,7 @@ func _ready():
 	main_menu()
 	# Prepare the heavy world scene in the background while the user is in
 	# the menu instead of blocking the first Continue/New Game transition.
-	if not OS.has_feature("headless"):
+	if DisplayServer.get_name() != "headless":
 		call_deferred("_begin_world_prefetch")
 func clear():
 	_remove_preview()
@@ -85,9 +84,9 @@ func heading(value: String, px: int):
 func button(value: String, callback: Callable):
 	var b := Button.new()
 	b.text = value
-	b.custom_minimum_size.y = 76
+	b.custom_minimum_size.y = 66 if not OS.has_feature("mobile") else 76
 	var style := StyleBoxFlat.new()
-	style.bg_color = Color("#0b292e")
+	style.bg_color = Color("#182124e0")
 	style.border_color = Color("#cfb576")
 	style.set_border_width_all(2)
 	style.set_corner_radius_all(12)
@@ -97,10 +96,11 @@ func button(value: String, callback: Callable):
 	b.pressed.connect(callback)
 func main_menu():
 	clear()
+	if not OS.has_feature("mobile"): menu_scroll.get_parent().anchor_right = 0.56
 	if not OS.has_feature("mobile"):
 		menu_scroll.custom_minimum_size=Vector2(520,680)
 	heading("FORESTS OF HELL",52)
-	heading("An adventure awaits",30)
+	if OS.has_feature("mobile"): heading("An adventure awaits",30)
 	if profile.has_section("hero"):
 		button("Continue",enter_world)
 	button("New Game",creator)
@@ -108,8 +108,6 @@ func main_menu():
 	button("Animation Lab",func(): get_tree().change_scene_to_file("res://humanoid_animation_lab.tscn"))
 	button("Quadruped Animation Lab",func(): get_tree().change_scene_to_file("res://quadruped_animation_lab.tscn"))
 	button("Settings & Updates",settings)
-	if not OS.has_feature("mobile") and not OS.has_feature("web") and not OS.has_feature("headless"):
-		content.add_child(preload("res://pc_release_updates.gd").new())
 func settings():
 	clear()
 	heading("Settings",44)
@@ -123,6 +121,7 @@ func creator():
 	chosen=clampi(int(profile.get_value("hero","model",0)),0,MODELS.size()-1)
 	edited_appearance=APPEARANCE.settings()
 	desktop_creator=not OS.has_feature("mobile")
+	face_zoom=false
 	if desktop_creator: _create_preview()
 	heading("Create your character",42)
 	var name_field := LineEdit.new()
@@ -135,6 +134,28 @@ func creator():
 	models.item_selected.connect(func(i): chosen = i; _refresh_preview())
 	content.add_child(models)
 	heading("Hair & beard",27)
+	if desktop_creator:
+		var zoom:=CheckButton.new()
+		zoom.text="Zoom to face"
+		content.add_child(zoom)
+		zoom.toggled.connect(func(enabled:bool): face_zoom=enabled; _frame_preview())
+	var size_row:=HBoxContainer.new()
+	content.add_child(size_row)
+	var size_label:=Label.new()
+	size_row.add_child(size_label)
+	var hair_size:=HSlider.new()
+	hair_size.min_value=0.5
+	hair_size.max_value=3.0
+	hair_size.step=0.05
+	hair_size.value=edited_appearance["hair_scale"]
+	hair_size.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+	size_label.custom_minimum_size.x=180
+	size_label.text="Hair size  %d%%" % roundi(hair_size.value*100)
+	size_row.add_child(hair_size)
+	hair_size.value_changed.connect(func(value:float):
+		edited_appearance["hair_scale"]=value
+		size_label.text="Hair size  %d%%" % roundi(value*100)
+		_update_appearance())
 	for kind in ["hair","beard"]:
 		var row:=HBoxContainer.new()
 		content.add_child(row)
@@ -147,11 +168,11 @@ func creator():
 		var names: Array=APPEARANCE.HAIR if kind=="hair" else APPEARANCE.BEARDS
 		for option in names:options.add_item(option)
 		options.select(int(edited_appearance[kind]))
-		options.item_selected.connect(func(i:int):edited_appearance[kind]=i; _refresh_preview())
+		options.item_selected.connect(func(i:int):edited_appearance[kind]=i; _update_appearance())
 		row.add_child(options)
 		var reset:=Button.new()
 		reset.text="Reset position"
-		reset.pressed.connect(func():edited_appearance[kind+"_offset"]=Vector3.ZERO; _refresh_preview(); _set_axis_sliders(kind,Vector3.ZERO))
+		reset.pressed.connect(func():edited_appearance[kind+"_offset"]=Vector3.ZERO; _update_appearance(); _set_axis_sliders(kind,Vector3.ZERO))
 		row.add_child(reset)
 		for axis in ["X","Y","Z"]:
 			var axis_row:=HBoxContainer.new()
@@ -180,7 +201,7 @@ func creator():
 				offset[component]=value
 				edited_appearance[kind+"_offset"]=offset
 				reading.text="%.3f m" % value
-				_refresh_preview())
+				_update_appearance())
 	button("Begin adventure",func():
 		profile.set_value("hero","name",name_field.text.strip_edges() if not name_field.text.strip_edges().is_empty() else "Avatar")
 		profile.set_value("hero","model",chosen)
@@ -216,9 +237,7 @@ func _create_preview() -> void:
 	if menu_scroll == null:return
 	menu_scroll.custom_minimum_size=Vector2(570,680)
 	var center:Control=menu_scroll.get_parent()
-	var window_size:=Vector2(get_window().size)
-	var usable_size:=Vector2(minf(window_size.x,1600.0),minf(window_size.y,900.0))
-	center.size=usable_size
+	center.anchor_right=1.0
 	# A CenterContainer owns child positions. Use a dedicated two-column
 	# horizontal layout and let it place both controls and preview.
 	var layout:=HBoxContainer.new()
@@ -296,18 +315,30 @@ func _refresh_preview() -> void:
 	if is_instance_valid(preview_model):
 		preview_root.remove_child(preview_model)
 		preview_model.queue_free()
-	var path:="res://assets/%s.glb" % MODELS[chosen]
+	var path:=WEARABLE.asset(MODELS[chosen])
 	if not ResourceLoader.exists(path):return
 	var packed:=load(path) as PackedScene
 	if packed==null:return
 	preview_model=packed.instantiate() as Node3D
 	preview_root.add_child(preview_model)
-	APPEARANCE.apply(preview_model,edited_appearance)
+	WEARABLE.apply(preview_model,false)
 	var bounds:=_preview_bounds(preview_model,Transform3D.IDENTITY)
 	if is_finite(bounds.x) and is_finite(bounds.y) and bounds.y>bounds.x:
 		var scalar:=1.85/(bounds.y-bounds.x)
 		preview_model.scale=Vector3.ONE*scalar
 		preview_model.position.y=-bounds.x*scalar
+
+	_update_appearance()
+	_frame_preview()
+
+func _update_appearance() -> void:
+	if is_instance_valid(preview_model):
+		APPEARANCE.apply(preview_model,edited_appearance)
+
+func _frame_preview() -> void:
+	if not is_instance_valid(preview_camera):return
+	preview_camera.size=0.68 if face_zoom else 2.2
+	preview_camera.position.y=1.66 if face_zoom else 1.0
 
 func _begin_world_prefetch() -> void:
 	if not is_inside_tree(): return
@@ -348,3 +379,4 @@ func enter_world():
 	if not world_prefetch_active:
 		_begin_world_prefetch()
 	awaiting_world = true
+

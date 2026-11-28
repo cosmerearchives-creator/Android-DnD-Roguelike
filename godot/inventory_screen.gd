@@ -12,7 +12,8 @@ const FONT: Font = preload("res://hud_serif.ttf")
 const SLOTS := DATA.SLOT_NAMES
 const SIGNS := DATA.SLOT_SIGNS
 const TABS := ["Equipment","Items","Materials","Quest"]
-const PROFILE := ["human_adventurer", "male_human"]
+const WEARABLE = preload("res://player_equipment_visual.gd")
+const PROFILE = WEARABLE.MODELS
 const PLATFORM = preload("res://platform_layout.gd")
 const APPEARANCE = preload("res://character_appearance.gd")
 var data
@@ -573,14 +574,13 @@ func set_goblin_kills(count:int) -> void:
 func _load_model() -> void:
 	if not is_instance_valid(equipped_body):return
 	for child in equipped_body.get_children():child.queue_free()
-	var path:="res://assets/%s.glb" % hero_model
-	if hero_model=="male_human" and data.equipped_id("Body")=="leather_armor":
-		path="res://assets/male_human_leather_armored.glb"
+	var path:=WEARABLE.asset(hero_model)
 	if not ResourceLoader.exists(path):return
 	var body:Node3D=(load(path) as PackedScene).instantiate()
 	body.name="PortraitModel"
 	equipped_body.add_child(body)
 	APPEARANCE.apply(body)
+	WEARABLE.apply(body,data.equipped_id("Body")=="leather_armor")
 	var bounds:=_find_bounds(body,Transform3D.IDENTITY)
 	if bounds.y>bounds.x and is_finite(bounds.x):
 		var scale:=1.85/(bounds.y-bounds.x)
@@ -682,7 +682,7 @@ func _render_items() -> void:
 		var id:=str(stack.id)
 		var item:Dictionary=data.detail(id)
 		var cell:=_button("",func():_select_item(id),18)
-		cell.custom_minimum_size=Vector2(88,66) if desktop_layout else Vector2(98,88)
+		cell.custom_minimum_size=Vector2(92,79) if desktop_layout else Vector2(98,88)
 		cell.add_theme_stylebox_override("normal",_approved_highlight() if desktop_layout and selection==id else _approved_empty_style() if desktop_layout else _compact_frame(selection==id))
 		if desktop_layout:
 			cell.add_theme_stylebox_override("hover",_approved_highlight())
@@ -716,7 +716,7 @@ func _render_items() -> void:
 	for i in range(maxi(0,(30 if desktop_layout else 24)-count)):
 		var blank:=PanelContainer.new()
 		blank.add_theme_stylebox_override("panel",_approved_empty_style() if desktop_layout else _compact_frame())
-		blank.custom_minimum_size=Vector2(88,66) if desktop_layout else Vector2(98,88)
+		blank.custom_minimum_size=Vector2(92,79) if desktop_layout else Vector2(98,88)
 		item_grid.add_child(blank)
 
 func _render_details() -> void:
@@ -813,7 +813,13 @@ func _construct_desktop() -> void:
 	var canvas := Control.new()
 	canvas.name = "InventoryCanvas"
 	canvas.size = Vector2(1600,900)
-	canvas.scale = Vector2(w/1600.0,h/900.0)
+	var uniform := minf(w/1600.0,h/900.0)
+	canvas.scale = Vector2.ONE*uniform
+	canvas.position = (Vector2(w,h)-canvas.size*uniform)*0.5
+	resized.connect(func():
+		var fit := minf(size.x/1600.0,size.y/900.0)
+		canvas.scale = Vector2.ONE*fit
+		canvas.position = (size-canvas.size*fit)*0.5)
 	add_child(canvas)
 	desktop_canvas = canvas
 	approved_ui_header = _approved_art(canvas,"tab_header",Rect2(16,87,622,129))
@@ -851,9 +857,6 @@ func _construct_desktop() -> void:
 	heading.position = Vector2(130,17)
 	heading.size = Vector2(352,36)
 	masthead.add_child(heading)
-	var top_band := _fixed_panel(canvas,Rect2(642,134,938,78))
-	top_band.name = "InventoryHeaderBand"
-	top_band.add_theme_stylebox_override("panel",_frame_type("panel"))
 	var close := _button("CLOSE",func():closed.emit(),19)
 	close.position = Vector2(1455,18)
 	close.size = Vector2(132,45)
@@ -877,10 +880,10 @@ func _construct_desktop() -> void:
 		symbol_label.size = Vector2(36,35)
 		symbol_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		button.add_child(symbol_label)
-		var approved_caption := _label(caption,14,HORIZONTAL_ALIGNMENT_CENTER)
+		var approved_caption := _label(caption,17,HORIZONTAL_ALIGNMENT_CENTER)
 		approved_caption.name = "ApprovedTabCaption"
-		approved_caption.position = Vector2(0,37)
-		approved_caption.size = Vector2(152,18)
+		approved_caption.position = Vector2(42,14)
+		approved_caption.size = Vector2(103,30)
 		approved_caption.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		button.add_child(approved_caption)
 	desktop_equipment = Control.new()
@@ -968,27 +971,28 @@ func _construct_desktop() -> void:
 	_approved_art(stats_panel,"stat_panel",Rect2(Vector2.ZERO,stats_panel.size))
 	var stat_names := ["Character","Ability Scores","Combat & Defenses","Proficiencies"]
 	for col in range(4):
-		var x := 7+col*233
-		if col>0:
-			var divider := ColorRect.new()
-			divider.position = Vector2(x-4,15)
-			divider.size = Vector2(1,184)
-			divider.color = Color("#8b6037")
-			stats_panel.add_child(divider)
+		var x: int = [22,283,488,701][col]
 		var header := _label(stat_names[col],19,HORIZONTAL_ALIGNMENT_CENTER)
-		header.position = Vector2(x+5,27)
-		header.size = Vector2(216,32)
+		header.position = Vector2(x,21)
+		header.size = Vector2(188,32)
 		stats_panel.add_child(header)
 		var line := ColorRect.new()
 		line.color = Color("#946438")
 		line.position = Vector2(x+15,54)
 		line.size = Vector2(194,1)
 		stats_panel.add_child(line)
-		var info := _label("",15 if col==0 else 15)
+		var info := Control.new()
 		info.name = "CharacterStatBlock%d" % col
-		info.position = Vector2(x+(122 if col==0 else 22),64)
+		info.position = Vector2(x+(103 if col==0 else 8),64)
 		info.size = Vector2(102 if col==0 else 186,126)
-		info.add_theme_color_override("font_color",Color("#e5cea3"))
+		for i in range(6):
+			var stat_line := _label("",15)
+			stat_line.autowrap_mode=TextServer.AUTOWRAP_OFF
+			stat_line.clip_text=true
+			stat_line.position=Vector2(0,i*21)
+			stat_line.size=Vector2(info.size.x,21)
+			stat_line.vertical_alignment=VERTICAL_ALIGNMENT_TOP
+			info.add_child(stat_line)
 		stats_panel.add_child(info)
 	var equipment_inventory := _fixed_panel(desktop_equipment,Rect2(648,339,937,310))
 	equipment_inventory.name = "EquipmentInventoryGrid"
@@ -996,11 +1000,11 @@ func _construct_desktop() -> void:
 	_approved_art(equipment_inventory,"inventory_panel",Rect2(Vector2.ZERO,equipment_inventory.size))
 	var carry_heading := _label("Inventory",25)
 	carry_heading.name = "CarryHeading"
-	carry_heading.position = Vector2(46,47)
+	carry_heading.position = Vector2(28,14)
 	carry_heading.size = Vector2(535,41)
 	equipment_inventory.add_child(carry_heading)
 	var sorting := _button("Sort: Name  ▼",_sort_items,18)
-	sorting.position = Vector2(548,39)
+	sorting.position = Vector2(607,12)
 	sorting.size = Vector2(225,43)
 	sorting.text = "Sort: Name"
 	sorting.add_theme_stylebox_override("normal",_approved_empty_style())
@@ -1008,8 +1012,8 @@ func _construct_desktop() -> void:
 	equipment_inventory.add_child(sorting)
 	var scroll := ScrollContainer.new()
 	scroll.name = "EquipmentItemScroll"
-	scroll.position = Vector2(36,105)
-	scroll.size = Vector2(886,202)
+	scroll.position = Vector2(8,68)
+	scroll.size = Vector2(920,239)
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	equipment_inventory.add_child(scroll)
 	item_grid = GridContainer.new()
@@ -1023,7 +1027,7 @@ func _construct_desktop() -> void:
 	item_details.add_theme_stylebox_override("panel",_approved_empty_style())
 	_approved_art(item_details,"detail_panel",Rect2(Vector2.ZERO,item_details.size))
 	details = _column(item_details)
-	details.position = Vector2(50,33)
+	details.position = Vector2(44,21)
 	details.size = Vector2(854,169)
 	_load_model()
 
@@ -1059,11 +1063,6 @@ func _desktop_slot(parent: Control, slot: String, location: Vector2, extent: Vec
 	button.add_theme_stylebox_override("hover",_approved_highlight())
 	button.add_theme_stylebox_override("pressed",_approved_highlight())
 	parent.add_child(button)
-	var caption := _label("GOGGLES" if slot=="Eyes" else slot.to_upper(),10,HORIZONTAL_ALIGNMENT_CENTER)
-	caption.position = Vector2(4,3)
-	caption.size = Vector2(extent.x-8,19)
-	caption.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	button.add_child(caption)
 	var filled_back := TextureRect.new()
 	filled_back.name = "OccupiedBacking"
 	filled_back.texture = preload("res://ui_skin/approved_equipment/occupied_slot.png")
@@ -1117,8 +1116,12 @@ Skills: Not recorded
 Saves: Not recorded"
 	]
 	for i in 4:
-		var block := find_child("CharacterStatBlock%d"%i,true,false) as Label
-		if block != null: block.text=blocks[i]
+		var block := find_child("CharacterStatBlock%d"%i,true,false) as Control
+		if block != null:
+			var lines := str(blocks[i]).strip_edges().split("\n")
+			for row in block.get_child_count():
+				var line := block.get_child(row) as Label
+				line.text = lines[row] if row<lines.size() else ""
 
 func _make_list_layout_desktop() -> void:
 	var canvas := get_node("InventoryCanvas") as Control
@@ -1334,13 +1337,18 @@ func _equip_selected() -> void:
 		elif kind=="Weapon": slot="Main Hand"
 		else: return
 	if not data.compatible(selection,slot): return
-	if data.set_slot(slot,selection):
+	var next_item := "" if data.equipped_id(slot)==selection else selection
+	if data.set_slot(slot,next_item):
 		current_slot = slot
 		_load_model()
-		equipment_changed.emit(slot,selection)
+		equipment_changed.emit(slot,next_item)
 		_refresh()
 
 func _render_desktop_equipment_details() -> void:
+	var previous := details.get_parent().get_node_or_null("EquipmentActionRow")
+	if previous:
+		details.get_parent().remove_child(previous)
+		previous.queue_free()
 	_replace_children(details)
 	var item: Dictionary = data.detail(selection)
 	if item.is_empty():
@@ -1353,7 +1361,7 @@ func _render_desktop_equipment_details() -> void:
 	var preview_frame := PanelContainer.new()
 	preview_frame.name = "SelectedItemFrame"
 	preview_frame.add_theme_stylebox_override("panel",_approved_empty_style())
-	preview_frame.custom_minimum_size = Vector2(235,107)
+	preview_frame.custom_minimum_size = Vector2(227,118)
 	top.add_child(preview_frame)
 	var picture := TextureRect.new()
 	picture.texture = data.icon(selection)
@@ -1389,23 +1397,26 @@ func _render_desktop_equipment_details() -> void:
 		properties.add_child(_label("Weight: %.1f lb" % float(item.get("weight",0)),17))
 		properties.add_child(_label("Slot: "+_compatible_selected_slot() if _compatible_selected_slot() != "" else "Not equippable",16))
 	var actions := HBoxContainer.new()
-	actions.add_theme_constant_override("separation",12)
-	details.add_child(actions)
+	actions.add_theme_constant_override("separation",15)
+	actions.position = Vector2(22,131)
+	details.get_parent().add_child(actions)
+	actions.position=Vector2(71,145)
+	actions.name="EquipmentActionRow"
 	var equip := _button("Equip",_equip_selected,20)
-	equip.custom_minimum_size = Vector2(184,46)
+	equip.custom_minimum_size = Vector2(199,46)
 	var item_kind := str(item.get("type",""))
 	equip.disabled = item_kind not in ["Armor","Shield","Weapon"] or data.count_of(selection)==0
-	_approved_action_style(equip,"Equip")
+	_approved_action_style(equip,"Unequip" if data.equipped_id(_compatible_selected_slot())==selection else "Equip")
 	actions.add_child(equip)
 	var comparison := _button("Compare",func():
 		compare_visible = not compare_visible
 		_render_desktop_equipment_details(),19)
-	comparison.custom_minimum_size = Vector2(184,46)
+	comparison.custom_minimum_size = Vector2(199,46)
 	comparison.disabled = _compatible_selected_slot() == ""
 	_approved_action_style(comparison,"Compare")
 	actions.add_child(comparison)
 	var drop := _button("Drop",func():pass,19)
-	drop.custom_minimum_size = Vector2(184,46)
+	drop.custom_minimum_size = Vector2(199,46)
 	drop.disabled = true
 	drop.tooltip_text = "World drops and pickup persistence are not implemented yet."
 	_approved_action_style(drop,"Drop")
@@ -1413,12 +1424,15 @@ func _render_desktop_equipment_details() -> void:
 	var inspect := _button("Details",func():
 		compare_visible = not compare_visible
 		_render_desktop_equipment_details(),19)
-	inspect.custom_minimum_size = Vector2(184,46)
+	inspect.custom_minimum_size = Vector2(199,46)
 	_approved_action_style(inspect,"Details")
 	actions.add_child(inspect)
 
 func _approved_action_style(button: Button, caption: String) -> void:
+	button.add_theme_stylebox_override("disabled",_approved_empty_style())
 	button.tooltip_text = caption
+	button.alignment=HORIZONTAL_ALIGNMENT_CENTER
+	button.text="          "+caption
 	button.add_theme_stylebox_override("normal",_approved_empty_style())
 	button.add_theme_stylebox_override("hover",_approved_highlight())
 	button.add_theme_stylebox_override("pressed",_approved_highlight())

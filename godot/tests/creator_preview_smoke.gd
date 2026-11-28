@@ -23,13 +23,23 @@ func _run() -> void:
         printerr("CREATOR_COLUMNS_OVERLAP")
         quit(1)
         return
-    var before=menu.preview_model
+    menu.chosen=menu.MODELS.find("female_goblin")
     menu.edited_appearance["hair"]=1
     menu._refresh_preview()
     await process_frame
     var attachment=menu.preview_model.find_child("ModularAppearance",true,false)
     if attachment==null or attachment.get_child_count()!=1:
         printerr("CREATOR_HAIR_PREVIEW_MISSING")
+        quit(1)
+        return
+    var old_scale=attachment.get_child(0).scale.x
+    menu.edited_appearance["hair_scale"]=2.0
+    menu._update_appearance()
+    menu.face_zoom=true
+    menu._frame_preview()
+    attachment=menu.preview_model.find_child("ModularAppearance",true,false)
+    if not String(attachment.bone_name).ends_with("Head") or not is_equal_approx(attachment.get_child(0).scale.x,old_scale*2.0) or menu.preview_camera.size>=1.0:
+        printerr("GOBLIN_FACE_CONTROLS_FAILED")
         quit(1)
         return
     print("CREATOR_PREVIEW_OK ",display.size," model=",menu.preview_model.name," accessories=",attachment.get_child_count())

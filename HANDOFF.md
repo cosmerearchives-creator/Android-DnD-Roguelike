@@ -50,3 +50,7 @@ User expects committed/published `main` with signed APK, PC ZIP, updater files; 
 
 ## v0.3.196 — Source-art Equipment UI (2026-11-27)
 - The actual uploaded 1280×1229 Equipment component sheet is imported without modification as godot/ui_skin/approved_equipment_source.png, SHA256 cae4145663bf6d7e2d1f696091aebb5efde58ded01ca4ff91eb14b318c7957e4. Staged extracted unresized transparent sections in godot/ui_skin/approved_equipment; 15-slot right column composed from user-provided modular artwork, original source preserved. All native inventory functionality, live 3D player model, pause/HUD behavior, four tabs and other game systems preserved. Only Equipment presentation receives new artwork; other tabs retain previous style. Real 1600×900 screenshots in Inventory Review. 13 local regression tests and source-fidelity checks passed. For detailed decisions/test limits see docs/approved-equipment-ui-v0.3.196.md. CI release verification remains separate.
+
+## v0.3.201 — playable goblin and modular equipment
+
+The approved review assets and gameplay scripts are integrated. Local checks covered creator hair and zoom, goblin motion, equipment visibility, inventory layouts, terrain and ground cover. Release binaries and updater manifests are produced by the Godot Android and Windows workflow.

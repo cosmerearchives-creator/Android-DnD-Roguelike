@@ -43,9 +43,13 @@ func _run() -> void:
 			_fail("Uncentered or ungrounded model: "+str(key)+" "+str(bounds))
 			return
 		total += multi.instance_count
-	if terrain._materials.size() < 6 or not (terrain._materials[0].shader.code as String).contains("shared_uv"):
-		_fail("World-space shared-edge material treatment absent")
-		return
+	var map: Image = terrain.material.get_shader_parameter("biome_map").get_image()
+	for x in range(TERRAIN.MIN_X,TERRAIN.MAX_X+1):
+		for z in range(TERRAIN.MIN_Z,TERRAIN.MAX_Z+1):
+			var id := TERRAIN.KINDS.find(terrain._type_at(x,z))+1 if terrain._cell_enabled(x,z) else 0
+			if map.get_pixel(x-TERRAIN.MIN_X,z-TERRAIN.MIN_Z).r8!=id:
+				_fail("Ground cover and terrain map disagree at "+str(Vector2i(x,z)))
+				return
 	if total < 700 or total > 2400:
 		_fail("Unexpected instance count: %d" % total)
 		return

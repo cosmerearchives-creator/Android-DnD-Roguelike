@@ -10,7 +10,7 @@ func _run() -> void:
     for frame in 8:
         await process_frame
     var total := 0
-    var batches := 0
+    var biomes := 0
     for kind in TERRAIN.KINDS:
         var count := int(terrain.terrain_counts.get(kind, 0))
         if count <= 0:
@@ -18,27 +18,12 @@ func _run() -> void:
             quit(1)
             return
         total += count
-        var mesh_name: String = kind.capitalize() + "Ground"
-        var batch := terrain.get_node_or_null(mesh_name) as MultiMeshInstance3D
-        if batch == null or batch.multimesh == null or batch.multimesh.instance_count != count:
-            printerr("TERRAIN_MISSING_DRAW_BATCH ",kind)
-            quit(2)
-            return
-        var mesh: Mesh = batch.multimesh.mesh
-        if mesh.get_surface_count() != 1 or mesh.surface_get_material(0) == null:
-            printerr("TERRAIN_MATERIAL_MISSING ",kind)
-            quit(3)
-            return
-        var transform: Transform3D = batch.multimesh.get_instance_transform(0)
-        var transformed_size := transform.basis * mesh.get_aabb().size
-        # AABB transform corners can flip with rotation: lengths matter.
-        if absf(transformed_size.x) > 1.5251 or absf(transformed_size.z) > 1.5251:
-            printerr("TERRAIN_SPAN_BAD ",kind,transformed_size)
-            quit(4)
-            return
-        batches += 1
-        print("TERRAIN_BATCH_OK ",kind," count=",count)
-    if total < 100 or batches != 6:
+        biomes += 1
+    if terrain.material.get_shader_parameter("biome_map")==null:
+        printerr("Missing terrain distribution texture")
+        quit(2)
+        return
+    if total < 100 or biomes != 6:
         printerr("TERRAIN_COVERAGE_TOO_SPARSE ",total)
         quit(5)
         return
@@ -69,5 +54,5 @@ func _run() -> void:
         printerr("WORLD_SCENE_PARSE_FAILED")
         quit(10)
         return
-    print("TERRAIN_TAVERN_SMOKE_OK batches=",batches," total=",total)
+    print("TERRAIN_TAVERN_SMOKE_OK biomes=",biomes," total=",total)
     quit(0)

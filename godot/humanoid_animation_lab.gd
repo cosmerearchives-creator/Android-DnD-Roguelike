@@ -9,7 +9,8 @@ const TARGETS := [
     {"name": "Goblin Warrior (Mixamo)", "asset": "res://assets/goblin_warrior.glb"},
     {"name": "Male Human", "asset": "res://assets/male_human.glb"},
     {"name": "Male Human (Leather Armor)", "asset": "res://assets/male_human_leather_armored.glb"},
-    {"name": "Twig Blight", "asset": "res://assets/twig_blight.glb"}
+    {"name": "Twig Blight", "asset": "res://assets/twig_blight.glb"},
+    {"name": "Female Human • Leather fitting", "asset": "res://assets/female_leather_trial.glb", "wearable": true}
 ]
 var viewport: SubViewport
 var model_root: Node3D
@@ -19,6 +20,8 @@ var shared_player: AnimationPlayer
 var imported_player: AnimationPlayer
 var model_picker: OptionButton
 var clip_picker: OptionButton
+var equip_button: CheckButton
+var native_trial := false
 var status: Label
 var dragging := false
 var touch_positions := {}
@@ -87,11 +90,6 @@ func _ready() -> void:
     clip_picker.custom_minimum_size.y = 60
     clip_picker.add_theme_font_override("font", SERIF)
     clip_picker.add_theme_font_size_override("font_size", 22)
-    var names := _all_clips()
-    for clip_name in names:
-        var humanized: String = clip_name.replace("_", " ").capitalize()
-        clip_picker.add_item(humanized)
-        clip_picker.set_item_metadata(clip_picker.item_count - 1, clip_name)
     clip_picker.item_selected.connect(_play_clip)
     layout.add_child(clip_picker)
     var panel := PanelContainer.new()
@@ -127,6 +125,10 @@ func _ready() -> void:
     holder.gui_input.connect(_preview_input)
     var actions := HBoxContainer.new()
     layout.add_child(actions)
+    equip_button=CheckButton.new()
+    equip_button.text="Leather armor"
+    equip_button.toggled.connect(_set_leather)
+    actions.add_child(equip_button)
     var replay := _button("Replay", func(): _play_clip(clip_picker.selected))
     replay.size_flags_horizontal = Control.SIZE_EXPAND_FILL
     actions.add_child(replay)
@@ -171,7 +173,18 @@ func _load_target(index: int) -> void:
     model = load(target.asset).instantiate()
     model_root.add_child(model)
     imported_player = SHARED.find_animator(model)
-    shared_player = SHARED.attach(model)
+    native_trial = target.get("wearable",false)
+    shared_player = imported_player if native_trial else SHARED.attach(model)
+    equip_button.visible = native_trial
+    clip_picker.clear()
+    var clips := imported_player.get_animation_list() if native_trial else _all_clips()
+    for clip in clips:
+        if clip == "RESET": continue
+        clip_picker.add_item(clip.replace("_"," ").capitalize())
+        clip_picker.set_item_metadata(clip_picker.item_count-1,clip)
+    if native_trial:
+        equip_button.set_pressed_no_signal(true)
+        _set_leather(true)
     if imported_player: imported_player.stop()
     var bounds := _bounds_for(model, Transform3D.IDENTITY)
     if bounds.size.length() > 0.01:
@@ -181,12 +194,22 @@ func _load_target(index: int) -> void:
         camera.look_at(Vector3.ZERO)
         camera.near = 0.02
         camera.far = 500
-    if shared_player:
+    if native_trial:
+        status.text = "Female Human • original Walking and Running clips"
+        var walk := _index_of_clip("Walking")
+        clip_picker.select(walk)
+        _play_clip(walk)
+    elif shared_player:
         status.text = "%s • %d mapped bones • %d available clips" % [target.name, shared_player.get_meta("mapped_bones"), shared_player.get_animation_list().size()]
         if clip_picker and clip_picker.item_count > 0:
             _play_clip(clip_picker.selected)
     else:
         status.text = "Incompatible or missing humanoid skeleton"
+
+func _set_leather(equipped: bool) -> void:
+    if not native_trial: return
+    model.find_child("WearableLeather",true,false).visible = equipped
+    model.find_child("BootCoverage",true,false).visible = not equipped
 
 func _play_clip(index: int) -> void:
     if not shared_player or index < 0 or index >= clip_picker.item_count:
@@ -194,6 +217,7 @@ func _play_clip(index: int) -> void:
     if imported_player: imported_player.stop()
     var clip: String = clip_picker.get_item_metadata(index)
     shared_player.stop()
+    if native_trial: shared_player.get_animation(clip).loop_mode=Animation.LOOP_LINEAR
     shared_player.play(clip)
     shared_player.advance(0)
 

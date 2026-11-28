@@ -20,11 +20,9 @@ func _run() -> void:
 	if ground.terrain_counts.size()!=6:
 		_fail("Six terrain kinds not loaded")
 		return
-	for kind in TERRAIN.KINDS:
-		var cover := ground.get_node_or_null(kind.capitalize()+"GroundFill") as MultiMeshInstance3D
-		if cover==null or cover.multimesh.instance_count!=int(ground.terrain_counts[kind]):
-			_fail("Continuous matching underlay absent for "+kind)
-			return
+	if ground.material.get_shader_parameter("biome_map")==null:
+		_fail("Missing terrain distribution texture")
+		return
 	ground.set_blend_inches(13.0)
 	var settings := ConfigFile.new()
 	if settings.load("user://terrain_blending.cfg")!=OK or absf(float(settings.get_value("terrain","edge_blend_inches",0))-13.0)>.01:

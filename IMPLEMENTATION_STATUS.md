@@ -46,3 +46,7 @@ Verified: original five ground + tavern GLB SHA256 and 23 source image bytes; fu
 
 ## v0.3.196 user reference Equipment tab (2026-11-27)
 - Equipment now renders the user's actual source art panel/title/tab/grids/stone stage with real native Control overlays, actual selected item and equipped items, live player GLB, and 15 interactive slots. Original source PNG exactly SHA-preserved; fitted derivative creates eighth right-side Accessory placeholder using user's own frame and blank leather; image crops unchanged. Other tabs remain functional and retain v0.3.195 styling. Tests: all 13 local 4.5.1 regressions pass, original art integrity + import quality pass, OpenGL visual review screenshot saved. CI signed APK/PC and Android device QA not yet independently verified.
+
+## v0.3.201 — playable goblin and modular equipment
+
+Integrated the supplied 28-joint female goblin, modular leather on supported players, persisted hair sizing, desktop face zoom and updated inventory, menu and terrain presentation. The user accepted the goblin outfit correction after motion review.

@@ -16,6 +16,7 @@ static func settings() -> Dictionary:
     cfg.load(SAVE)
     return {"hair":clampi(int(cfg.get_value("appearance","hair",0)),0,HAIR.size()-1),
         "beard":clampi(int(cfg.get_value("appearance","beard",0)),0,BEARDS.size()-1),
+        "hair_scale":clampf(float(cfg.get_value("appearance","hair_scale",1.0)),0.5,3.0),
         "hair_offset":_read_offset(cfg,"hair_offset"),
         "beard_offset":_read_offset(cfg,"beard_offset")}
 static func _read_offset(cfg: ConfigFile,key: String) -> Vector3:
@@ -26,6 +27,7 @@ static func save(data: Dictionary) -> void:
     var cfg := ConfigFile.new()
     for key in ["hair","beard","hair_offset","beard_offset"]:
         cfg.set_value("appearance",key,data.get(key,Vector3.ZERO if key.ends_with("offset") else 0))
+    cfg.set_value("appearance","hair_scale",data.get("hair_scale",1.0))
     cfg.save(SAVE)
 static func _skeleton(parent: Node) -> Skeleton3D:
     if parent is Skeleton3D:return parent
@@ -37,12 +39,12 @@ static func _head_bone(skeleton: Skeleton3D) -> int:
     for i in range(skeleton.get_bone_count()):
         var name:=skeleton.get_bone_name(i).to_lower()
         if name=="head" or name.ends_with(":head") or name.ends_with("_head"):return i
-    # Initial support for Mixamo-style rigs only: skip rather than attach to wrong bone.
+    if skeleton.get_bone_count()==93:return skeleton.find_bone("Bone_011")
     return -1
 static func clear(character: Node3D) -> void:
-    var existing:=character.get_node_or_null("ModularAppearance")
+    var existing:=character.find_child("ModularAppearance",true,false)
     if existing!=null:
-        character.remove_child(existing)
+        existing.get_parent().remove_child(existing)
         existing.queue_free()
 static func apply(character: Node3D,data: Dictionary={}) -> void:
     if data.is_empty():data=settings()
@@ -68,6 +70,7 @@ static func apply(character: Node3D,data: Dictionary={}) -> void:
         var dims:Vector3=DIMENSIONS[kind][index]
         var target_width:=0.27 if kind=="hair" else 0.23
         var factor:=target_width/maxf(dims.x,0.01)
+        if kind=="hair":factor*=float(data.get("hair_scale",1.0))
         instance.scale=Vector3.ONE*factor
         var default_pos:=Vector3(0,0.09,0) if kind=="hair" else Vector3(0,-0.105,-0.055)
         instance.position=default_pos+Vector3(data.get(kind+"_offset",Vector3.ZERO))
