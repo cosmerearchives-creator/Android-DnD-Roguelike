@@ -63,3 +63,5 @@ Use separate ornate large-panel/action buttons, subdued compact navigation/categ
 
 ## v0.3.208 hair tint
 Color is shared across hairstyles (not per-style), persists in appearance.cfg, and affects Hair mesh only; beard and body remain untouched. Use isolated runtime material overrides instead of editing or recompressing textures. Creator palette offers 12 presets and custom tint.
+
+## v0.3.209 hair color UI`nUse a compact named preset dropdown plus an independent custom RGB color picker rather than a permanently visible swatch grid. Presets have stable names and colors for future race-specific selection; do not gate by race yet. Retain color in saved appearance independently of hairstyle.`n

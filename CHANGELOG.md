@@ -90,3 +90,5 @@ GitHub Actions Godot Android and Windows workflow run 46169088954 completed SUCC
 
 ## v0.3.208 — 2026-11-28
 - Added 12 creator hair color presets, a custom hair color picker, immediate model tint and persistent color in world/inventory, while retaining exact hairstyle size/XYZ settings and original hair textures.
+
+## v0.3.209 — 2026-11-28`n- Replaced overlapping Hair Color swatch grid with compact named presets and a custom color picker, preserving color persistence and per-style fit.`n

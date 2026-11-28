@@ -74,3 +74,5 @@ Unchanged source: godot/creator_ui/source_elements.png (1900x1900 RGBA), SHA256 
 
 ## v0.3.208 material policy
 No new or modified skeleton, bone map, GLB, animation, source or imported texture. Hair tint duplicates each original runtime surface material for hair-only albedo coloring; original PBR texture channels and resolutions remain unchanged.
+
+## v0.3.209 no asset changes`nOnly creator UI data/layout and test changes. Original character skeleton, every bone map, all animations, GLB geometry and original texture maps/resolutions untouched.`n

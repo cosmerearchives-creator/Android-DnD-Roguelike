@@ -85,3 +85,5 @@ GitHub Actions Godot Android and Windows workflow run 46169088954 completed SUCC
 
 ## v0.3.208 hair color candidate — 2026-11-28
 Continuing published 0.3.207; implemented hair tint palette and custom picker in creator_workshop.gd, one saved hair_color and runtime material overrides in character_appearance.gd. Hair/beard source assets, 66-bone original skeleton and style profiles untouched. Tests mostly pass as in TEST_CHECKLIST; release verification required. Preserve unrelated preexisting modified front_menu.tscn/project.godot and untracked files when staging.
+
+## v0.3.209 hair selector layout candidate — 2026-11-28`nAfter v0.3.208, replaced overlapping 12 visible swatches with a named preset OptionButton and compact custom ColorPickerButton in the lower Hair panel. Same shared saved Color and existing per-style XYZ/size; no race filtering active, preset names and colors stored in data for later race rules. 11/12 local headless smokes clean; inventory pause test success marker but dummy renderer shutdown errors persist. CI publication and physical Android UI review pending.`n

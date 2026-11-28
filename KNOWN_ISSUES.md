@@ -74,3 +74,5 @@ GitHub Actions Godot Android and Windows workflow run 46169088954 completed SUCC
 
 ## v0.3.208 QA limitations
 On-device touch/color picker and actual physical Android GPU visual/color accuracy remain unverified. The inventory_pause_and_blend_smoke reported its expected success marker but also dummy renderer null-material and leak errors on headless exit; investigate independently. Tint multiplies existing textured hair albedo, so selected hex color may not match a flat swatch exactly.
+
+## v0.3.209 verification remaining`nPhysical phone color-picker popup visibility, landscape scaling and color reproduction remain unverified. Existing inventory pause headless renderer cleanup errors persist. Current preset names are universal; no per-race policy is implemented or approved yet.`n

@@ -80,3 +80,5 @@ GitHub Actions Godot Android and Windows workflow run 46169088954 completed SUCC
 
 ## v0.3.208 hair color — local implementation
 Godot creator adds a hair palette and custom color picker, shared persistent Color in appearance.cfg, and original-material-preserving per-mesh overrides reused by creator/world/inventory. Dedicated hair_color_smoke passes, and existing creator/hair/fit smoke tests pass. Inventory pause test success marker appeared with dummy renderer cleanup errors; device QA outstanding. Publication not yet verified.
+
+## v0.3.209 hair UI — local tests`nNew compact Hair Color dropdown plus custom picker fit the designed controls area without the former overlap. Preset data is independent from future race-selection policy; no race restrictions imposed. Godot 4.5.1: 11/12 clean regressions, inventory pause completion with known renderer errors; production CI and device acceptance outstanding.`n

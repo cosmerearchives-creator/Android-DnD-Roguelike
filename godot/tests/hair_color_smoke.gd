@@ -16,7 +16,13 @@ func _run() -> void:
 	await process_frame
 	ui._show_category("Hair")
 	assert(ui.controls.get_node_or_null("HairColorPicker") is ColorPickerButton)
-	assert(ui.controls.get_node_or_null("HairColorSwatch11") is Button)
+	var presets:=ui.controls.get_node_or_null("HairColorPresets") as OptionButton
+	assert(presets!=null and presets.item_count==ui.HAIR_COLOR_PRESETS.size()+1)
+	assert(presets.position.y>=ui.controls.get_node("HairSizeSlider").position.y)
+	assert(presets.position.y+presets.size.y<=ui.controls.size.y)
+	assert((ui.controls.get_node("HairColorPicker") as Control).position.y+48<=ui.controls.size.y)
+	for entry in ui.HAIR_COLOR_PRESETS:
+		assert(entry.has("name") and entry.has("color"))
 	assert(ui.controls.get_node_or_null("HairSizeSlider") is HSlider)
 	ui.appearance["hair"]=1
 	ui._update_appearance()

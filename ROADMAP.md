@@ -66,3 +66,5 @@ GitHub Actions Godot Android and Windows workflow run 46169088954 completed SUCC
 
 ## v0.3.208 hair color selection — locally tested
 - Appearance/Hair adds 12 color swatches and a custom color picker, one saved hair tint shared across Wavy/Short/Braid. Per-style size/XYZ persistence and head mount preserved. Material overrides are runtime-only and source GLB/texture/rig untouched. Device rendering and publication still require separate verification.
+
+## v0.3.209 hair color layout`nCurrent: named preset selector and full custom picker coexist in a single compact row below Reset Position; no swatch grid. Future: map allowed named hair-color presets to each race only after approved race palettes; keep custom picker until separate policy approved. Runtime hair model and material source unchanged.`n

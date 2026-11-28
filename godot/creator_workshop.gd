@@ -401,10 +401,21 @@ func _hair_size_slider() -> void:
 		APPEARANCE.save(appearance))
 	changed.call(slider.value)
 
-const HAIR_COLORS := [
-	Color("#191512"),Color("#39271d"),Color("#68432b"),Color("#956b42"),
-	Color("#c6a15d"),Color("#e6d3a3"),Color("#743321"),Color("#b65d35"),
-	Color("#777777"),Color("#c6c6c6"),Color("#f1eee5"),Color("#62446d")
+## Future race rules can select a named preset subset without modifying saved
+## appearance colors or UI widget code. No race limits are active yet.
+const HAIR_COLOR_PRESETS := [
+	{"name":"Black", "color":Color("#191512")},
+	{"name":"Dark Brown", "color":Color("#39271d")},
+	{"name":"Brown", "color":Color("#68432b")},
+	{"name":"Light Brown", "color":Color("#956b42")},
+	{"name":"Golden Blonde", "color":Color("#c6a15d")},
+	{"name":"Light Blonde", "color":Color("#e6d3a3")},
+	{"name":"Auburn", "color":Color("#743321")},
+	{"name":"Copper", "color":Color("#b65d35")},
+	{"name":"Gray", "color":Color("#777777")},
+	{"name":"Silver", "color":Color("#c6c6c6")},
+	{"name":"White", "color":Color("#f1eee5")},
+	{"name":"Violet", "color":Color("#62446d")}
 ]
 
 func _set_hair_color(color:Color) -> void:
@@ -413,32 +424,38 @@ func _set_hair_color(color:Color) -> void:
 	APPEARANCE.save(appearance)
 
 func _hair_color_controls() -> void:
-	_control_label("Hair Color",440,27)
+	_control_label("Hair Color",542,27)
 	var current:Color=APPEARANCE.hair_color(appearance)
-	for i in range(HAIR_COLORS.size()):
-		var col:Color=HAIR_COLORS[i]
-		var swatch:=Button.new()
-		swatch.name="HairColorSwatch%d" % i
-		swatch.position=Vector2(37+(i%6)*96,483+int(i/6)*45)
-		swatch.size=Vector2(76,36)
-		var background:=StyleBoxFlat.new()
-		background.bg_color=col
-		background.border_color=GOLD if current.is_equal_approx(col) else Color("#453424")
-		background.set_border_width_all(4 if current.is_equal_approx(col) else 2)
-		background.set_corner_radius_all(5)
-		swatch.add_theme_stylebox_override("normal",background)
-		swatch.add_theme_stylebox_override("hover",background)
-		swatch.add_theme_stylebox_override("pressed",background)
-		swatch.tooltip_text="Hair color %d" % (i+1)
-		swatch.pressed.connect(func():
-			_set_hair_color(col)
-			_show_category("Hair"))
-		controls.add_child(swatch)
+	var preset:=OptionButton.new()
+	preset.name="HairColorPresets"
+	preset.position=Vector2(32,587)
+	preset.size=Vector2(305,48)
+	preset.add_theme_font_override("font",FONT)
+	preset.add_theme_font_size_override("font_size",22)
+	preset.add_theme_color_override("font_color",TEXT)
+	preset.add_theme_stylebox_override("normal",_style(false))
+	preset.add_theme_stylebox_override("hover",_style(true))
+	preset.add_theme_stylebox_override("pressed",_style(true))
+	preset.add_theme_stylebox_override("focus",StyleBoxEmpty.new())
+	var selected:=-1
+	for i in range(HAIR_COLOR_PRESETS.size()):
+		var entry:Dictionary=HAIR_COLOR_PRESETS[i]
+		preset.add_item(str(entry["name"]),i)
+		if current.is_equal_approx(entry["color"]):selected=i
+	preset.add_item("Custom",HAIR_COLOR_PRESETS.size())
+	preset.select(selected if selected>=0 else HAIR_COLOR_PRESETS.size())
+	preset.item_selected.connect(func(index:int):
+		if index<HAIR_COLOR_PRESETS.size():
+			var color:Color=HAIR_COLOR_PRESETS[index]["color"]
+			_set_hair_color(color)
+			var picker:ColorPickerButton=controls.get_node_or_null("HairColorPicker")
+			if picker!=null:picker.color=color)
+	controls.add_child(preset)
 	var picker:=ColorPickerButton.new()
 	picker.name="HairColorPicker"
-	picker.position=Vector2(188,578)
-	picker.size=Vector2(310,43)
-	picker.text="Custom Hair Color"
+	picker.position=Vector2(363,587)
+	picker.size=Vector2(253,48)
+	picker.text="Custom Color"
 	picker.color=current
 	picker.edit_alpha=false
 	picker.add_theme_font_override("font",FONT)
@@ -446,7 +463,9 @@ func _hair_color_controls() -> void:
 	picker.add_theme_color_override("font_color",TEXT)
 	picker.add_theme_stylebox_override("normal",_style(false))
 	picker.add_theme_stylebox_override("hover",_style(true))
-	picker.color_changed.connect(_set_hair_color)
+	picker.color_changed.connect(func(color:Color):
+		_set_hair_color(color)
+		preset.select(HAIR_COLOR_PRESETS.size()))
 	controls.add_child(picker)
 
 func _nudge_attachment(kind:String,axis:int,amount:float) -> void:
