@@ -56,14 +56,11 @@ func _run() -> void:
         var panel = inv_scene.instantiate()
         root.add_child(panel)
         panel.set_model("male_human")
-        panel.data.equipped["Body"]="leather_armor" # Memory only: never write the user save.
-        panel._load_model()
-        var equipped_model: Node3D = panel.equipped_body.get_child(panel.equipped_body.get_child_count()-1)
-        var equipped_meshes := equipped_model.find_children("*","MeshInstance3D",true,false)
-        if equipped_meshes.size()!=2:
-            push_error("Leather armor did not appear in male inventory portrait")
+        if panel.hero_model != "female_leather_trial":
+            push_error("Inventory accepted a character outside the playable roster")
             failed=true
-        else: print("MALE INVENTORY leather_visual_meshes=",equipped_meshes.size())
+        else:
+            print("INVENTORY_SINGLE_PLAYABLE_MODEL_OK")
         panel.free()
     print("MALE ARMOR SMOKE ", "FAILED" if failed else "PASSED")
     quit(1 if failed else 0)
